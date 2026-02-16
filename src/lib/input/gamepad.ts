@@ -21,6 +21,10 @@ const BUTTON_MAP: Record<number, string> = {
   13: 'DPAD_DOWN',
   14: 'DPAD_LEFT',
   15: 'DPAD_RIGHT',
+  16: 'L4',
+  17: 'R4',
+  18: 'L5',
+  19: 'R5',
 };
 
 const LB_INDEX = 4;

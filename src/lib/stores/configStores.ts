@@ -9,6 +9,8 @@ import {
   saveBehavior,
 } from '../data/config';
 import { initAuth } from '../auth/auth';
+import { autoDetectRunCommand } from '../system/detector';
+import { initWindowManager, setAppWindowClass } from '../system/windowManager';
 
 // ─── Auth Token Store ────────────────────────────────────────────────────────
 
@@ -62,6 +64,26 @@ export const projectConfig = writable<ProjectConfig | null>(null);
 
 export async function openProject(projectPath: string): Promise<ProjectConfig> {
   const config = await loadProjectConfig(projectPath);
+
+  // Initialize window manager for RT/LT switching
+  await initWindowManager();
+  if (config.run_config.window_class) {
+    setAppWindowClass(config.run_config.window_class);
+  }
+
+  // Auto-detect run command if not already configured
+  if (!config.run_config.command) {
+    const detected = await autoDetectRunCommand(projectPath);
+    if (detected.autoDetected) {
+      config.run_config.command = detected.command;
+      config.run_config.auto_detected = true;
+      config.run_config.detection_source = detected.source;
+      config.run_config.working_directory = projectPath;
+      await saveProjectConfig(projectPath, config);
+      console.log(`[configStores] Auto-detected run command: ${detected.command} (${detected.source})`);
+    }
+  }
+
   projectConfig.set(config);
   return config;
 }

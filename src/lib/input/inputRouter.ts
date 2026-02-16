@@ -164,6 +164,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
 
 // ── Global handlers (active on ALL screens) ─────────────────────────
 // LB + D-pad left/right adjusts split ratio (5% increments, min 20%, max 80%).
+// RT = switch to app window, LT = switch to DeckForge, R4 = restart app.
 const globalHandlers: HandlerMap = {
   LB_DPAD_LEFT: () => {
     const current = get(splitRatio);
@@ -172,6 +173,15 @@ const globalHandlers: HandlerMap = {
   LB_DPAD_RIGHT: () => {
     const current = get(splitRatio);
     splitRatio.set(Math.min(80, current + 5));
+  },
+  RT: () => {
+    import('../system/windowManager').then(m => m.switchToApp());
+  },
+  LT: () => {
+    import('../system/windowManager').then(m => m.switchToDeckForge());
+  },
+  R4: () => {
+    import('../system/appLauncher').then(m => m.restartApp());
   },
 };
 

@@ -32,6 +32,56 @@
           "name": "claude",
           "cmd": "claude",
           "args": true
+        },
+        {
+          "name": "sh",
+          "cmd": "sh",
+          "args": true
+        },
+        {
+          "name": "wlrctl",
+          "cmd": "wlrctl",
+          "args": true
+        },
+        {
+          "name": "wmctrl",
+          "cmd": "wmctrl",
+          "args": true
+        },
+        {
+          "name": "osascript",
+          "cmd": "osascript",
+          "args": true
+        },
+        {
+          "name": "npm",
+          "cmd": "npm",
+          "args": true
+        },
+        {
+          "name": "npx",
+          "cmd": "npx",
+          "args": true
+        },
+        {
+          "name": "python3",
+          "cmd": "python3",
+          "args": true
+        },
+        {
+          "name": "cargo",
+          "cmd": "cargo",
+          "args": true
+        },
+        {
+          "name": "make",
+          "cmd": "make",
+          "args": true
+        },
+        {
+          "name": "godot",
+          "cmd": "godot",
+          "args": true
         }
       ]
     },
