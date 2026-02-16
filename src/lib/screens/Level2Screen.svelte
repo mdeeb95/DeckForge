@@ -16,6 +16,7 @@
     selectAndPlan,
   } from '../stores/prediction';
   import type { TerminalEntry } from '../stores/terminal';
+  import { getRandomMessage } from '../personality/messages';
 
   // Reactive state from stores
   let prediction = $derived($currentPrediction);
@@ -28,13 +29,23 @@
   // Build cards reactively from current prediction state
   let cards = $derived.by(() => {
     if (loading || !prediction) {
-      return [{
-        button: 'A',
-        title: 'Loading...',
-        description: 'Generating suggestions...',
-        pills: [{ label: 'Wait', variant: 'neutral' as const }],
-        variant: 'neutral' as const,
-      }];
+      const loadMsg = getRandomMessage('loading');
+      return [
+        {
+          button: 'A',
+          title: 'Loading...',
+          description: loadMsg,
+          pills: [{ label: 'Wait', variant: 'neutral' as const }],
+          variant: 'neutral' as const,
+        },
+        {
+          button: 'B',
+          title: '',
+          description: '',
+          pills: [],
+          variant: 'neutral' as const,
+        },
+      ];
     }
 
     const result: {
@@ -128,6 +139,18 @@
     })));
   });
 
+  // Show thinking state while loading
+  $effect(() => {
+    if (loading) {
+      entries.clear();
+      entries.addEntry({
+        type: 'thinking',
+        message: getRandomMessage('loading'),
+      });
+      status.set('streaming');
+    }
+  });
+
   // Update terminal when predictions load
   $effect(() => {
     if (!prediction || loading) return;
@@ -193,7 +216,7 @@
 <TerminalPanel />
 <ActionPalette
   title="{categoryLabel} Suggestions"
-  subtitle={prediction?.header_quip ?? 'Loading predictions...'}
+  subtitle={prediction?.header_quip ?? getRandomMessage('loading')}
   {cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}

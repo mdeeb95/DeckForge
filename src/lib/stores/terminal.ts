@@ -32,7 +32,12 @@ export interface CursorEntry {
   message: string;
 }
 
-export type TerminalEntry = TimestampEntry | PromptEntry | ThoughtEntry | CodeEntry | CursorEntry;
+export interface ThinkingEntry {
+  type: 'thinking';
+  message: string;
+}
+
+export type TerminalEntry = TimestampEntry | PromptEntry | ThoughtEntry | CodeEntry | CursorEntry | ThinkingEntry;
 
 function createTerminalStore() {
   const { subscribe, update, set } = writable<TerminalEntry[]>([]);

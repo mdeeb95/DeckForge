@@ -15,6 +15,8 @@
   import ErrorScreen from '../screens/ErrorScreen.svelte';
 </script>
 
+{#key $currentScreen}
+<div class="contents screen-fade-in">
 {#if $currentScreen === 'level1'}
   <Level1Screen />
 {:else if $currentScreen === 'level2'}
@@ -42,3 +44,5 @@
 {:else if $currentScreen === 'error'}
   <ErrorScreen />
 {/if}
+</div>
+{/key}

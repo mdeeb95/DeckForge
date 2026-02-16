@@ -8,12 +8,15 @@
   import { parseClaudeEvent, extractCost, extractScope } from '../claude/streamParser';
   import { projectConfig } from '../stores/configStores';
   import type { ClaudeEvent } from '../claude/types';
+  import { getRandomMessage } from '../personality/messages';
 
   let taskComplete = $state(false);
   let taskFailed = $state(false);
   let elapsedSeconds = $state(0);
   let toolEvents = $state<ClaudeEvent[]>([]);
   let elapsedInterval: ReturnType<typeof setInterval> | null = null;
+  let workingMessage = $state(getRandomMessage('ai_working'));
+  let messageInterval: ReturnType<typeof setInterval> | null = null;
 
   function handleInterrupt() {
     interrupt();
@@ -52,6 +55,13 @@
       elapsedSeconds += 1;
     }, 1000);
 
+    // Cycle quirky working messages every 8 seconds
+    messageInterval = setInterval(() => {
+      if (!taskComplete && !taskFailed) {
+        workingMessage = getRandomMessage('ai_working');
+      }
+    }, 8000);
+
     // Register output handler
     onOutput((event: ClaudeEvent) => {
       const terminalEntries = parseClaudeEvent(event);
@@ -72,10 +82,8 @@
         taskComplete = !event.is_error;
         taskFailed = event.is_error;
 
-        if (elapsedInterval) {
-          clearInterval(elapsedInterval);
-          elapsedInterval = null;
-        }
+        if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
+        if (messageInterval) { clearInterval(messageInterval); messageInterval = null; }
 
         // Update screenCards to show continue option
         if (!event.is_error) {
@@ -140,9 +148,8 @@
   });
 
   onDestroy(() => {
-    if (elapsedInterval) {
-      clearInterval(elapsedInterval);
-    }
+    if (elapsedInterval) clearInterval(elapsedInterval);
+    if (messageInterval) clearInterval(messageInterval);
   });
 
   function formatElapsed(seconds: number): string {
@@ -158,11 +165,11 @@
     <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">AI Working</h2>
     <p class="text-[10px] text-slate-600">
       {#if taskComplete}
-        Task complete
+        {getRandomMessage('success')}
       {:else if taskFailed}
-        Task failed
+        {getRandomMessage('error')}
       {:else}
-        Claude Code is executing the plan
+        {workingMessage}
       {/if}
     </p>
   </div>
@@ -187,15 +194,15 @@
           <span class="w-6 h-6 flex items-center justify-center rounded-full bg-primary/20 border-2 border-primary text-primary text-xs font-bold animate-pulse">●</span>
           <p class="text-sm text-white font-bold">Working...</p>
         </div>
-        <p class="text-[10px] text-slate-500 italic">Claude Code is implementing the plan</p>
+        <p class="text-[10px] text-slate-500 italic">{workingMessage}</p>
       {/if}
     </div>
 
     <!-- Progress info -->
     {#if !taskComplete && !taskFailed}
       <div class="mb-4">
-        <div class="bg-slate-800 rounded-full h-1.5 mb-2">
-          <div class="bg-primary rounded-full h-1.5 animate-pulse shadow-[0_0_10px_rgba(13,242,242,0.6)]" style="width: 100%"></div>
+        <div class="bg-slate-800 rounded-full h-1.5 mb-2 overflow-hidden">
+          <div class="bg-primary rounded-full h-1.5 progress-sweep shadow-[0_0_10px_rgba(13,242,242,0.6)]"></div>
         </div>
         <div class="flex justify-between text-[10px] text-slate-500">
           <span>In progress</span>

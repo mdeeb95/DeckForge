@@ -8,21 +8,25 @@
   import { loadPredictions } from '../stores/prediction';
   import type { Category } from '../prediction/types';
   import type { TerminalEntry } from '../stores/terminal';
+  import { getRandomMessage } from '../personality/messages';
 
   onMount(() => {
     entries.clear();
 
     const name = get(projectName) || 'project';
+    const now = new Date().toTimeString().slice(0, 8);
+    const splash = getRandomMessage('splash');
+    const boot = getRandomMessage('boot');
     const bootEntries: TerminalEntry[] = [
-      { type: 'timestamp', time: '14:20:01', message: 'DeckForge v0.1.0 initialized' },
-      { type: 'timestamp', time: '14:20:01', message: 'Scanning project workspace...' },
-      { type: 'timestamp', time: '14:20:02', message: 'Detected: <span class="text-slate-300">TypeScript + React + Vite</span>' },
-      { type: 'timestamp', time: '14:20:02', message: 'Git status: on branch <span class="text-secondary">main</span> — clean' },
-      { type: 'timestamp', time: '14:20:03', message: 'Claude Code SDK connected <span class="text-emerald-400">✓</span>' },
-      { type: 'timestamp', time: '14:20:03', message: 'Prediction engine warming up...' },
-      { type: 'prompt', label: 'SYSTEM', body: 'Ready. Select a category to begin. Predictions loaded for 4 categories.' },
+      { type: 'timestamp', time: now, message: boot },
+      { type: 'timestamp', time: now, message: 'Scanning project workspace...' },
+      { type: 'timestamp', time: now, message: 'Detected: <span class="text-slate-300">TypeScript + React + Vite</span>' },
+      { type: 'timestamp', time: now, message: 'Git status: on branch <span class="text-secondary">main</span> — clean' },
+      { type: 'timestamp', time: now, message: 'Claude Code SDK connected <span class="text-emerald-400">&#10003;</span>' },
+      { type: 'timestamp', time: now, message: 'Prediction engine warming up...' },
+      { type: 'prompt', label: 'SYSTEM', body: splash },
       { type: 'thought', label: 'CONTEXT', body: `Analyzing <span class="text-slate-300 bg-slate-800 px-1 rounded">${name}</span> — 47 files, 12 open issues, last commit 2h ago. Generating suggestions across <span class="text-primary">Feature</span>, <span class="text-secondary">Bug</span>, <span class="text-slate-300">Tech Debt</span>, and <span class="text-amber-400">Yolo</span> categories.` },
-      { type: 'code', filePath: 'project summary', diff: false, content: `Last session:  3 features shipped, 1 bug fixed\nOpen issues:   12 (4 bugs, 5 features, 3 tech debt)\nTest coverage: 74% (target: 80%)\nBundle size:   248kb (under budget)\nLast deploy:   2 hours ago ✓` },
+      { type: 'code', filePath: 'project summary', diff: false, content: `Last session:  3 features shipped, 1 bug fixed\nOpen issues:   12 (4 bugs, 5 features, 3 tech debt)\nTest coverage: 74% (target: 80%)\nBundle size:   248kb (under budget)\nLast deploy:   2 hours ago` },
       { type: 'cursor', message: 'Awaiting category selection...' },
     ];
 

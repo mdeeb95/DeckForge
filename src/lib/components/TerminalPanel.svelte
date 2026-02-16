@@ -84,6 +84,14 @@
 {/if}{/each}{:else}{entry.content}{/if}</code></pre>
         </div>
 
+      {:else if entry.type === 'thinking'}
+        <div class="flex items-center gap-2 text-slate-500 my-2">
+          <span class="thinking-dots font-mono text-primary">
+            <span>.</span><span>.</span><span>.</span>
+          </span>
+          <span class="text-slate-500 italic">{entry.message}</span>
+        </div>
+
       {:else if entry.type === 'cursor'}
         <div class="text-slate-400 flex items-center gap-2 animate-pulse">
           <span class="w-2 h-4 bg-primary block"></span>
@@ -93,6 +101,6 @@
     {/each}
   </div>
 
-  <!-- Scanline overlay -->
-  <div class="absolute inset-0 scan-overlay z-10 pointer-events-none opacity-20"></div>
+  <!-- Scanline overlay (pulses when streaming) -->
+  <div class="absolute inset-0 scan-overlay z-10 pointer-events-none {$status === 'streaming' ? 'scan-overlay-streaming' : 'opacity-20'}"></div>
 </section>

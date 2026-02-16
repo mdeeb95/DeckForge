@@ -39,7 +39,7 @@
   <div class="relative group cursor-pointer" onclick={onclick}>
     <!-- Selection Indicator -->
     <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
-    <div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
+    <div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all duration-150 pulse-glow">
       <div class="absolute top-0 right-0 p-1.5 bg-primary text-black rounded-bl font-bold text-xs shadow-sm">{button}</div>
       <h3 class="text-primary font-bold text-sm mb-1 pr-6">{title}</h3>
       <p class="text-xs text-slate-300 leading-snug mb-2 italic">{description}</p>
@@ -57,7 +57,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={onclick}>
-    <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative transition-all">
+    <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative transition-all duration-150">
       <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center {unselectedBadgeClasses[variant]} rounded-full font-bold text-[10px]">{button}</div>
       <h3 class="text-white font-medium text-sm mb-1 pr-6">{title}</h3>
       <p class="text-xs text-slate-400 leading-snug mb-2 italic">{description}</p>
