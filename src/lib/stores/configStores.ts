@@ -11,6 +11,7 @@ import {
 import { initAuth } from '../auth/auth';
 import { autoDetectRunCommand } from '../system/detector';
 import { initWindowManager, setAppWindowClass } from '../system/windowManager';
+import { devLog, devError } from '../utils/devLog';
 
 // ─── Auth Token Store ────────────────────────────────────────────────────────
 
@@ -32,14 +33,18 @@ export async function initGlobalConfig(): Promise<GlobalConfig> {
  * Call this instead of initGlobalConfig() directly.
  */
 export async function initApp(): Promise<GlobalConfig> {
+  devLog('lifecycle', 'initApp: loading global config');
   const config = await initGlobalConfig();
+  devLog('lifecycle', 'initApp: global config loaded', { userId: config.user.id });
 
   // Attempt backend auth (non-blocking — mock mode works without it)
   try {
     const token = await initAuth(config);
     authToken.set(token);
+    devLog('lifecycle', 'initApp: auth initialized');
   } catch (e) {
-    console.warn('Auth initialization failed, continuing in mock mode:', e);
+    devLog('lifecycle', 'initApp: auth failed, continuing in mock mode');
+    devError('error', 'Auth initialization failed', e);
   }
 
   return config;
@@ -63,13 +68,17 @@ export async function updateGlobalConfig(
 export const projectConfig = writable<ProjectConfig | null>(null);
 
 export async function openProject(projectPath: string): Promise<ProjectConfig> {
+  devLog('fs', `openProject: loading config from ${projectPath}`);
   const config = await loadProjectConfig(projectPath);
+  devLog('fs', 'openProject: config loaded', { name: config.project.name, techStack: config.tech_stack?.type_detected });
 
   // Initialize window manager for RT/LT switching
+  devLog('fs', 'openProject: initializing window manager');
   await initWindowManager();
   if (config.run_config.window_class) {
     setAppWindowClass(config.run_config.window_class);
   }
+  devLog('fs', 'openProject: window manager ready');
 
   // Auto-detect run command if not already configured
   if (!config.run_config.command) {
@@ -80,11 +89,12 @@ export async function openProject(projectPath: string): Promise<ProjectConfig> {
       config.run_config.detection_source = detected.source;
       config.run_config.working_directory = projectPath;
       await saveProjectConfig(projectPath, config);
-      console.log(`[configStores] Auto-detected run command: ${detected.command} (${detected.source})`);
+      devLog('fs', `openProject: auto-detected run command: ${detected.command} (${detected.source})`);
     }
   }
 
   projectConfig.set(config);
+  devLog('fs', `openProject: complete — ${config.project.name}`);
   return config;
 }
 

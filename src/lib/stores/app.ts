@@ -1,4 +1,5 @@
 import { writable, get } from 'svelte/store';
+import { devLog } from '../utils/devLog';
 
 export type Screen =
   | 'level1'
@@ -26,10 +27,28 @@ export const currentScreen = writable<Screen>('level1');
 export const projectName = writable('');
 export const connected = writable(false);
 export const selectedCardIndex = writable(0);
-export const screenCards = writable<ScreenCardData[]>([]);
+
+// Wrapped screenCards store that logs on set
+function createScreenCardsStore() {
+  const { subscribe, set: rawSet, update } = writable<ScreenCardData[]>([]);
+  return {
+    subscribe,
+    set(cards: ScreenCardData[]) {
+      devLog('store', `screenCards updated: ${cards.length} cards [${cards.map(c => c.button).join(', ')}]`,
+        cards.map(c => ({ button: c.button, title: c.title, hasOnclick: !!c.onclick })));
+      rawSet(cards);
+    },
+    update,
+  };
+}
+
+export const screenCards = createScreenCardsStore();
 
 // Split ratio: percentage of width for the terminal (left) panel. Min 20, max 80.
 export const splitRatio = writable(50);
+
+// Demo mode: when true, prediction client uses Pong-specific suggestions.
+export const isDemoMode = writable(false);
 
 // Pending prompt to send to Claude Code when AI Working screen mounts.
 // Set by Level 3 "Ship It", consumed by AIWorkingScreen.
@@ -55,11 +74,13 @@ export function addSessionCost(costUsd: number, warningThreshold: number): void 
 
   if (next >= warningThreshold && !get(budgetWarningShown)) {
     budgetWarningShown.set(true);
-    console.warn(`Session cost ($${next.toFixed(4)}) exceeded warning threshold ($${warningThreshold})`);
+    devLog('store', `Session cost ($${next.toFixed(4)}) exceeded warning threshold ($${warningThreshold})`);
   }
 }
 
 export function navigate(screen: Screen) {
+  const previous = get(currentScreen);
+  devLog('nav', `Navigating: ${previous} → ${screen}`);
   currentScreen.set(screen);
   selectedCardIndex.set(0);
   screenCards.set([]);

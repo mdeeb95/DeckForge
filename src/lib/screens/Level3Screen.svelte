@@ -78,6 +78,53 @@
     navigate('level2');
   }
 
+  function expandPlan() {
+    if (!plan) {
+      entries.addEntry({ type: 'cursor', message: 'No additional details available for this plan.' });
+      return;
+    }
+
+    status.set('streaming');
+
+    entries.addEntry({
+      type: 'prompt',
+      label: 'EXPANDED PLAN',
+      body: plan.summary,
+    });
+
+    // Show each step with detail
+    for (const step of plan.steps) {
+      entries.addEntry({
+        type: 'thought',
+        label: `STEP ${step.n}`,
+        body: step.text,
+      });
+    }
+
+    // Show scope and confidence
+    entries.addEntry({
+      type: 'thought',
+      label: 'ASSESSMENT',
+      body: `Scope: ${plan.scope} · Confidence: ${plan.confidence} · ${plan.steps.length} steps total`,
+    });
+
+    // Show the unhinged modifier as a teaser
+    if (plan.unhinged_modifier) {
+      entries.addEntry({
+        type: 'thought',
+        label: 'UNHINGED VARIANT',
+        body: plan.unhinged_modifier,
+      });
+    }
+
+    entries.addEntry({
+      type: 'cursor',
+      message: 'Plan expanded. Press A to ship or B to go back.',
+    });
+
+    status.set('idle');
+  }
+
   // Level 3 cards
   let cards = $derived.by(() => {
     const stepCount = plan?.steps.length ?? 0;
@@ -106,6 +153,7 @@
         description: 'Ask Claude to explain the reasoning behind each step.',
         pills: [{ label: 'Clarify', variant: 'neutral' as const }],
         variant: 'neutral' as const,
+        onclick: () => expandPlan(),
       },
       {
         button: 'Y',
@@ -148,6 +196,8 @@
 
 <TerminalPanel />
 <ActionPalette
+  breadcrumb="Plan Review"
+  step={3}
   title="Plan Review"
   subtitle={plan ? plan.summary : 'Generating plan...'}
   {cards}

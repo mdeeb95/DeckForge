@@ -1,3 +1,4 @@
+import { get } from 'svelte/store';
 import type {
   Category,
   ContextPayload,
@@ -9,6 +10,8 @@ import type {
   ScopeLevel,
 } from './types';
 import { getAccessToken, getBackendUrl, refreshAuth } from '../auth/auth';
+import { isDemoMode } from '../stores/app';
+import { pongMockPredictSuggestions } from '../demo/pongSuggestions';
 
 // ─── Category → call_type mapping ───────────────────────────────────────────
 
@@ -188,6 +191,11 @@ function mapBackendToPlanResponse(data: Record<string, unknown>): PlanResponse {
 // ─── Mock Suggestions (fallback) ─────────────────────────────────────────────
 
 export async function mockPredictSuggestions(category: Category): Promise<PredictionResponse> {
+  // In demo mode, delegate to Pong-specific suggestions
+  if (get(isDemoMode)) {
+    return pongMockPredictSuggestions(category);
+  }
+
   await delay(300 + Math.random() * 400);
 
   switch (category) {

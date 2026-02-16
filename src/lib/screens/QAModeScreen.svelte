@@ -291,6 +291,7 @@
 
 <TerminalPanel />
 <ActionPalette
+  breadcrumb="QA"
   title="QA Review"
   subtitle="Verify the changes before committing"
   cards={cards}

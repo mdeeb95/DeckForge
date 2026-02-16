@@ -20,6 +20,8 @@
   interface Props {
     title?: string;
     subtitle?: string;
+    breadcrumb?: string;
+    step?: number;
     cards?: CardData[];
     secondaryCards?: SecondaryCardData[];
     selectedIndex?: number;
@@ -28,6 +30,8 @@
   let {
     title = '',
     subtitle = '',
+    breadcrumb = '',
+    step = 0,
     cards = [],
     secondaryCards = [],
     selectedIndex = 0,
@@ -37,6 +41,18 @@
 <aside class="flex-1 min-w-[280px] bg-surface-dark border-l border-surface-border flex flex-col z-20 shadow-2xl">
   {#if title}
     <div class="p-3 border-b border-surface-border bg-surface-dark">
+      {#if breadcrumb}
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest leading-none">{breadcrumb}</span>
+          {#if step >= 1 && step <= 3}
+            <div class="flex items-center gap-1">
+              {#each [1, 2, 3] as dot}
+                <div class="w-1 h-1 rounded-full {dot === step ? 'bg-primary' : 'bg-slate-600'}"></div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
       <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{title}</h2>
       {#if subtitle}
         <p class="text-[10px] text-slate-600">{subtitle}</p>

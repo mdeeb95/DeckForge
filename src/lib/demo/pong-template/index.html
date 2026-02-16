@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pong — DeckForge Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; }
+  canvas { display: block; image-rendering: pixelated; }
+  #status { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); color: #555; font-size: 14px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="status">Connecting...</div>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+
+let CW = 800, CH = 600;
+let role = null;
+let state = null;
+let ws = null;
+const input = { up: false, down: false };
+
+// ─── Resize ──────────────────────────────────────────────────────────
+function resize() {
+  const scaleX = window.innerWidth / CW;
+  const scaleY = window.innerHeight / CH;
+  const scale = Math.min(scaleX, scaleY);
+  canvas.width = CW;
+  canvas.height = CH;
+  canvas.style.width = (CW * scale) + 'px';
+  canvas.style.height = (CH * scale) + 'px';
+}
+window.addEventListener('resize', resize);
+
+// ─── WebSocket ───────────────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => { statusEl.textContent = 'Connected — waiting for assignment...'; };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'assign') {
+      role = data.role;
+      CW = data.canvas.w;
+      CH = data.canvas.h;
+      resize();
+      statusEl.textContent = role === 'spectator' ? 'Spectating' : `You are Player ${role}`;
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+      return;
+    }
+    state = data;
+  };
+
+  ws.onclose = () => {
+    statusEl.textContent = 'Disconnected — reconnecting...';
+    role = null;
+    state = null;
+    setTimeout(connect, 1500);
+  };
+}
+connect();
+
+// ─── Input: Keyboard ─────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') input.up = true;
+  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') input.down = true;
+  if (e.key === 'r' || e.key === 'R') { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ restart: true })); }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') input.up = false;
+  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') input.down = false;
+});
+
+// ─── Input: Touch (Steam Deck browser) ──────────────────────────────
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  for (const t of e.touches) {
+    if (t.clientY < window.innerHeight / 2) input.up = true;
+    else input.down = true;
+  }
+});
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  input.up = false;
+  input.down = false;
+  for (const t of e.touches) {
+    if (t.clientY < window.innerHeight / 2) input.up = true;
+    else input.down = true;
+  }
+});
+
+// ─── Send Input ──────────────────────────────────────────────────────
+setInterval(() => {
+  if (ws && ws.readyState === 1 && role !== 'spectator') {
+    ws.send(JSON.stringify(input));
+  }
+}, 1000 / 60);
+
+// ─── Render ──────────────────────────────────────────────────────────
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, CW, CH);
+
+  // Center dashed line
+  ctx.setLineDash([8, 8]);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(CW / 2, 0);
+  ctx.lineTo(CW / 2, CH);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (!state) {
+    ctx.fillStyle = '#555';
+    ctx.font = '20px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Waiting for server...', CW / 2, CH / 2);
+    requestAnimationFrame(draw);
+    return;
+  }
+
+  // Paddles
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(10, state.p1.y, 12, 80);
+  ctx.fillRect(CW - 22, state.p2.y, 12, 80);
+
+  // Ball
+  ctx.fillRect(state.ball.x, state.ball.y, 10, 10);
+
+  // Scores
+  ctx.font = '48px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#444';
+  ctx.fillText(state.p1.score, CW / 2 - 60, 60);
+  ctx.fillText(state.p2.score, CW / 2 + 60, 60);
+
+  // Pause indicator
+  if (state.paused) {
+    ctx.fillStyle = '#333';
+    ctx.font = '16px monospace';
+    ctx.fillText('get ready...', CW / 2, CH / 2 + 40);
+  }
+
+  // Winner
+  if (state.winner) {
+    ctx.fillStyle = '#0df2f2';
+    ctx.font = 'bold 36px monospace';
+    ctx.fillText(`Player ${state.winner} wins!`, CW / 2, CH / 2 - 20);
+    ctx.fillStyle = '#555';
+    ctx.font = '16px monospace';
+    ctx.fillText('Press R to restart', CW / 2, CH / 2 + 20);
+  }
+
+  requestAnimationFrame(draw);
+}
+resize();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

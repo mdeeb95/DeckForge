@@ -4,6 +4,7 @@ import type { Screen } from '../stores/app';
 import { navigateUp, navigateDown, activateByButton, cycleSelectedIndex } from './navigation';
 import { rerollSuggestions } from '../stores/prediction';
 import { screenshotFlash, lastScreenshotPath, lastScreenshotMeta } from '../stores/screenshot';
+import { devLog, devError } from '../utils/devLog';
 
 type HandlerMap = Record<string, () => void>;
 
@@ -119,8 +120,9 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: () => activateByButton('A'),
-        X: () => navigate('exploration'),
-        Y: () => navigate('voice_pitch'),
+        B: () => activateByButton('B'),
+        X: () => activateByButton('X'),
+        Y: () => activateByButton('Y'),
       };
 
     // ── Exploration ───────────────────────────────────────────────
@@ -186,6 +188,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
 // RB = screenshot (fallback — only fires if screen doesn't handle RB).
 const globalHandlers: HandlerMap = {
   RB: () => {
+    devLog('input', 'Global RB → screenshot capture');
     screenshotFlash.set(true);
     import('../system/screenshot').then(m => {
       m.captureScreenshot('.', 1).then(result => {
@@ -193,38 +196,47 @@ const globalHandlers: HandlerMap = {
         lastScreenshotMeta.set(result.meta);
         navigate('screenshot_feedback');
       }).catch(err => {
-        console.error('[inputRouter] Screenshot capture failed:', err);
-        // Still navigate to feedback screen with whatever we have
+        devError('error', 'Screenshot capture failed', err);
         navigate('screenshot_feedback');
       });
     });
   },
   LB_DPAD_LEFT: () => {
     const current = get(splitRatio);
-    splitRatio.set(Math.max(20, current - 5));
+    const next = Math.max(20, current - 5);
+    devLog('input', `LB+DPAD_LEFT → splitRatio ${current} → ${next}`);
+    splitRatio.set(next);
   },
   LB_DPAD_RIGHT: () => {
     const current = get(splitRatio);
-    splitRatio.set(Math.min(80, current + 5));
+    const next = Math.min(80, current + 5);
+    devLog('input', `LB+DPAD_RIGHT → splitRatio ${current} → ${next}`);
+    splitRatio.set(next);
   },
   RT: () => {
+    devLog('input', 'Global RT → switch to app window');
     import('../system/windowManager').then(m => m.switchToApp());
   },
   LT: () => {
+    devLog('input', 'Global LT → switch to DeckForge');
     import('../system/windowManager').then(m => m.switchToDeckForge());
   },
   R4: () => {
+    devLog('input', 'Global R4 → restart app');
     import('../system/appLauncher').then(m => m.restartApp());
   },
 };
 
 export function handleInput(button: string) {
   const screen = get(currentScreen);
+  devLog('input', `Button: ${button} | Screen: ${screen}`);
+
   const screenHandlerMap = getScreenHandlers(screen);
 
   // Screen-specific handlers take priority
   const screenHandler = screenHandlerMap[button];
   if (screenHandler) {
+    devLog('input', `${screen} → ${button} pressed (screen handler)`);
     screenHandler();
     return;
   }
@@ -232,6 +244,9 @@ export function handleInput(button: string) {
   // Fall through to global handlers
   const globalHandler = globalHandlers[button];
   if (globalHandler) {
+    devLog('input', `${screen} → ${button} pressed (global handler)`);
     globalHandler();
+  } else {
+    devLog('input', `${screen} → ${button} pressed (no handler found)`);
   }
 }

@@ -18,6 +18,9 @@
   import type { TerminalEntry } from '../stores/terminal';
   import { getRandomMessage } from '../personality/messages';
 
+  // Modifier toggle state
+  let modifierActive = $state(false);
+
   // Reactive state from stores
   let prediction = $derived($currentPrediction);
   let pairA = $derived($currentPairA);
@@ -93,8 +96,24 @@
         button: 'X',
         title: prediction.modifier.lens,
         description: prediction.modifier.quip,
-        pills: [{ label: 'Modifier', variant: 'neutral' as const }],
-        variant: 'neutral' as const,
+        pills: [{ label: modifierActive ? 'Active' : 'Modifier', variant: modifierActive ? 'active' as const : 'neutral' as const }],
+        variant: modifierActive ? 'primary' as const : 'neutral' as const,
+        onclick: () => {
+          modifierActive = !modifierActive;
+          if (modifierActive) {
+            entries.addEntry({
+              type: 'thought',
+              label: 'MODIFIER',
+              body: `Lens active: <span class="text-primary">${prediction!.modifier.lens}</span> — ${prediction!.modifier.quip}`,
+            });
+          } else {
+            entries.addEntry({
+              type: 'timestamp',
+              time: new Date().toTimeString().slice(0, 8),
+              message: 'Modifier deactivated',
+            });
+          }
+        },
       });
     }
 
@@ -215,6 +234,8 @@
 
 <TerminalPanel />
 <ActionPalette
+  breadcrumb="Suggestions · {categoryLabel}"
+  step={2}
   title="{categoryLabel} Suggestions"
   subtitle={prediction?.header_quip ?? getRandomMessage('loading')}
   {cards}

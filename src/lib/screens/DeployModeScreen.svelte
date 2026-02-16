@@ -317,6 +317,7 @@ Duration:  ${lastDeploy.duration_seconds}s`,
 
 <TerminalPanel />
 <ActionPalette
+  breadcrumb="Deploy"
   title="Deploy"
   subtitle="Push to remote and trigger deployment"
   cards={cards}

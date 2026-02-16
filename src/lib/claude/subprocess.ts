@@ -1,4 +1,5 @@
 import type { ClaudeEvent, SessionOptions, SessionState } from './types';
+import { devLog, devError } from '../utils/devLog';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,24 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
+// ─── Diagnostics (visible in terminal panel) ────────────────────────────────
+
+function emitDiag(message: string): void {
+  outputCallback?.({
+    type: 'assistant',
+    message: {
+      id: `diag-${Date.now()}`,
+      type: 'message',
+      role: 'assistant',
+      content: [{ type: 'text', text: `[DIAG] ${message}` }],
+      model: 'diagnostic',
+    },
+    session_id: state.sessionId ?? 'pre-init',
+  } as ClaudeEvent);
+}
+
+let gotResultEvent = false;
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -44,15 +63,26 @@ export async function sendPrompt(
   state.projectPath = options.projectPath;
   state.active = true;
 
-  if (!isTauri()) {
+  gotResultEvent = false;
+  const tauriDetected = isTauri();
+  devLog('claude', `isTauri() = ${tauriDetected}`);
+  emitDiag(`isTauri() = ${tauriDetected}`);
+
+  if (!tauriDetected) {
+    emitDiag('Falling back to mock stream (not in Tauri)');
     await mockStream(prompt);
     return;
   }
 
-  const args = buildArgs(prompt, options);
+  const args = buildClaudeArgs(prompt, options);
+  devLog('claude', `Spawning claude with ${args.length} args`, args);
+  devLog('claude', `cwd: ${options.projectPath}`);
+  emitDiag(`Spawning: claude ${args.slice(0, 3).join(' ')} ... (${args.length} args total)`);
+  emitDiag(`cwd: ${options.projectPath}`);
 
   try {
     const { Command } = await import('@tauri-apps/plugin-shell');
+    emitDiag('Tauri shell plugin imported OK');
 
     const command = Command.create('claude', args, {
       cwd: options.projectPath,
@@ -71,27 +101,34 @@ export async function sendPrompt(
           state.sessionId = event.session_id;
         }
 
+        if (event.type === 'result') gotResultEvent = true;
+        devLog('claude', `stdout event: ${event.type}`, event.type === 'result' ? event : undefined);
         outputCallback?.(event);
       } catch {
-        // Non-JSON line (startup banner, etc.) — ignore
+        // Non-JSON line — show it instead of silently dropping
+        emitDiag(`[stdout non-JSON] ${trimmed.slice(0, 200)}`);
       }
     });
 
     command.stderr.on('data', (line: string) => {
-      console.warn('[claude stderr]', line);
+      devError('claude', 'stderr', line);
+      emitDiag(`[stderr] ${line.trim().slice(0, 200)}`);
     });
 
     command.on('close', (data: { code: number | null }) => {
+      emitDiag(`Process closed with code ${data.code}`);
       state.active = false;
       childProcess = null;
 
-      // If we never got a result event, synthesize one
-      if (data.code !== 0) {
+      // Synthesize a result if we never got one
+      if (!gotResultEvent) {
         outputCallback?.({
           type: 'result',
-          result: `Claude Code exited with code ${data.code}`,
+          result: data.code !== 0
+            ? `Claude Code exited with code ${data.code}`
+            : 'Claude Code exited without sending a result event.',
           session_id: state.sessionId ?? '',
-          is_error: true,
+          is_error: data.code !== 0,
           duration_ms: 0,
           duration_api_ms: 0,
           num_turns: 0,
@@ -100,7 +137,7 @@ export async function sendPrompt(
     });
 
     command.on('error', (error: string) => {
-      console.error('[claude error]', error);
+      devError('claude', 'Process error', error);
       state.active = false;
       childProcess = null;
       outputCallback?.({
@@ -115,13 +152,16 @@ export async function sendPrompt(
     });
 
     const child = await command.spawn();
+    devLog('claude', `Spawned — PID ${child.pid}`);
+    emitDiag(`Spawned successfully — PID ${child.pid}`);
     childProcess = {
       kill: () => child.kill(),
       pid: child.pid,
     };
   } catch (error) {
     state.active = false;
-    console.error('Failed to spawn Claude Code:', error);
+    devError('claude', 'Spawn failed', error);
+    emitDiag(`SPAWN FAILED: ${error}`);
     outputCallback?.({
       type: 'result',
       result: `Failed to spawn Claude Code: ${error}`,
@@ -162,7 +202,7 @@ export function resetSession(): void {
 
 // ─── Internals ───────────────────────────────────────────────────────────────
 
-function buildArgs(prompt: string, options: SessionOptions): string[] {
+export function buildClaudeArgs(prompt: string, options: SessionOptions): string[] {
   const args: string[] = [
     '-p', prompt,
     '--output-format', 'stream-json',

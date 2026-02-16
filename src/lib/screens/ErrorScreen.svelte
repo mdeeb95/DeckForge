@@ -51,6 +51,36 @@
       description: 'Show the full error log and stack trace.',
       pills: [{ label: 'Debug', variant: 'neutral' as const }],
       variant: 'neutral' as const,
+      onclick: () => {
+        // Re-render the full error details in the terminal
+        entries.addEntry({
+          type: 'prompt',
+          label: 'EXPANDED ERROR',
+          body: 'Full error details shown below:',
+        });
+        entries.addEntry({
+          type: 'code',
+          filePath: 'error stack trace',
+          diff: false,
+          content: `error TS2345: Argument of type 'string' is not assignable
+  to parameter of type 'AuthConfig'.
+
+  src/middleware/auth.ts:47:12
+    47 │ validateToken(rawToken)
+       │               ~~~~~~~~
+
+  The function validateToken() expects an AuthConfig object
+  but received a raw string token. This was introduced when
+  the auth refactor changed the parameter type.
+
+  Suggested fix: Wrap rawToken in { token: rawToken } before
+  passing to validateToken().`,
+        });
+        entries.addEntry({
+          type: 'cursor',
+          message: 'Error details expanded. Press A to retry or B to go back.',
+        });
+      },
     },
     {
       button: 'Y',
@@ -58,6 +88,7 @@
       description: 'Skip this error and continue with remaining tasks. Use with caution.',
       pills: [{ label: 'Risky', variant: 'neutral' as const }],
       variant: 'amber' as const,
+      onclick: () => navigate('level1'),
     },
   ];
 

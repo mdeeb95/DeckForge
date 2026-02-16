@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { devLog } from '../utils/devLog';
 
 export const gamepadConnected = writable(false);
 export const lastButton = writable('');
@@ -70,10 +71,12 @@ function pollGamepad() {
         if (lbHeld) {
           // Emit combo
           const comboName = `LB_${name}`;
+          devLog('input', `Gamepad button ${i} pressed (${comboName})`);
           lastButton.set(comboName);
           handler?.(comboName);
           lbComboFired = true;
         } else {
+          devLog('input', `Gamepad button ${i} pressed (${name})`);
           lastButton.set(name);
           handler?.(name);
         }
@@ -84,6 +87,7 @@ function pollGamepad() {
     if (!lbPressed && lbWasPressed) {
       if (!lbComboFired) {
         // Standalone LB press
+        devLog('input', `Gamepad button ${LB_INDEX} pressed (LB standalone)`);
         lastButton.set('LB');
         handler?.('LB');
       }
@@ -134,10 +138,12 @@ export function stopGamepadPolling() {
 }
 
 function onGamepadConnected() {
+  devLog('input', 'Gamepad connected');
   gamepadConnected.set(true);
 }
 
 function onGamepadDisconnected() {
+  devLog('input', 'Gamepad disconnected');
   gamepadConnected.set(false);
   prevButtonStates = [];
   lbHeld = false;

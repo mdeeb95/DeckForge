@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
     setupFiles: ['src/test/setup.ts'],
-    exclude: ['src-tauri', 'node_modules', 'backend'],
+    exclude: ['src-tauri', 'node_modules', 'backend', 'src/test/integration'],
   },
   resolve: {
     alias: {

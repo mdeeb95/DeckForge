@@ -87,6 +87,8 @@
 
 <TerminalPanel />
 <ActionPalette
+  breadcrumb="Category Select"
+  step={1}
   title="What Are We Doing?"
   subtitle="Pick a category to see suggestions"
   {cards}

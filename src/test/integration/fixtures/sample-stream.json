@@ -1,0 +1,144 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "cwd": "/Users/mdeeb95/Documents/DeckForge",
+    "session_id": "9a454441-0867-41ed-977d-bb500e8046a7",
+    "tools": [
+      "Task",
+      "TaskOutput",
+      "Bash",
+      "Glob",
+      "Grep",
+      "ExitPlanMode",
+      "Read",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "WebFetch",
+      "TodoWrite",
+      "WebSearch",
+      "TaskStop",
+      "AskUserQuestion",
+      "Skill",
+      "EnterPlanMode",
+      "ToolSearch"
+    ],
+    "mcp_servers": [],
+    "model": "claude-opus-4-6",
+    "permissionMode": "default",
+    "slash_commands": [
+      "keybindings-help",
+      "debug",
+      "compact",
+      "context",
+      "cost",
+      "init",
+      "pr-comments",
+      "release-notes",
+      "review",
+      "security-review",
+      "insights"
+    ],
+    "apiKeySource": "none",
+    "claude_code_version": "2.1.42",
+    "output_style": "default",
+    "agents": [
+      "Bash",
+      "general-purpose",
+      "statusline-setup",
+      "Explore",
+      "Plan",
+      "claude-code-guide"
+    ],
+    "skills": [
+      "keybindings-help",
+      "debug"
+    ],
+    "plugins": [
+      {
+        "name": "rust-analyzer-lsp",
+        "path": "/Users/mdeeb95/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0"
+      }
+    ],
+    "uuid": "61d8c9c2-e8c4-463d-a431-8c2e9f526fa1",
+    "fast_mode_state": "off"
+  },
+  {
+    "type": "assistant",
+    "message": {
+      "model": "claude-opus-4-6",
+      "id": "msg_01EpFRxnMadfoM1TfFGbHkxZ",
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "hello world"
+        }
+      ],
+      "stop_reason": null,
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 3,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 20424,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "not_available"
+      },
+      "context_management": null
+    },
+    "parent_tool_use_id": null,
+    "session_id": "9a454441-0867-41ed-977d-bb500e8046a7",
+    "uuid": "97c77b2e-78dc-4bfa-8f18-d47723933497"
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 2142,
+    "duration_api_ms": 2121,
+    "num_turns": 1,
+    "result": "hello world",
+    "stop_reason": null,
+    "session_id": "9a454441-0867-41ed-977d-bb500e8046a7",
+    "total_cost_usd": 0.010352,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 20424,
+      "output_tokens": 5,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 5,
+        "cacheReadInputTokens": 20424,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.010352,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "uuid": "632b12ae-34eb-4605-b62f-e8c37343b3e5"
+  }
+]

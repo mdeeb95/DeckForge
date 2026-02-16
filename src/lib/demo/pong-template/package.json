@@ -1,0 +1,14 @@
+{
+  "name": "pong-demo",
+  "version": "1.0.0",
+  "description": "Multiplayer Pong — built with DeckForge",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+  }
+}

@@ -30,7 +30,7 @@
       "allow": [
         {
           "name": "claude",
-          "cmd": "claude",
+          "cmd": "/Users/mdeeb95/.local/bin/claude",
           "args": true
         },
         {
@@ -141,6 +141,8 @@
       ]
     },
     "shell:allow-stdin-write",
-    "shell:allow-kill"
+    "shell:allow-kill",
+    "dialog:default",
+    "dialog:allow-open"
   ]
 }
