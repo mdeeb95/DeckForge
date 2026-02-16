@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +14,7 @@ from app.prompts.templates import get_active_template, render_template
 from app.llm.client import LLMClient, LLMResponse
 from app.llm.models import get_model_for_call, estimate_cost
 from app.llm.parser import parse_json_response, validate_level2_response, validate_plan_response
+from app.llm.langfuse_logger import log_prediction_trace
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -120,7 +119,7 @@ async def predict(
         await db.rollback()
 
     # 9. Log to Langfuse (best-effort)
-    _log_to_langfuse(trace_id, call_type, prompt, llm_response, request)
+    log_prediction_trace(trace_id, call_type, prompt, llm_response, request)
 
     # 10. Build response
     return _build_response(parsed, call_type, llm_response, trace_id, cost_usd)
@@ -214,61 +213,3 @@ def _build_fallback_response(call_type: str, trace_id: str) -> PredictResponse:
         )
 
 
-def _log_to_langfuse(
-    trace_id: str,
-    call_type: str,
-    prompt: str,
-    llm_response: LLMResponse,
-    request: PredictRequest,
-) -> None:
-    """Best-effort logging to Langfuse (v3 SDK via env vars)."""
-    settings = get_settings()
-    if not settings.langfuse_secret_key:
-        return
-
-    try:
-        from langfuse import get_client, propagate_attributes
-
-        langfuse = get_client()
-
-        with langfuse.start_as_current_observation(
-            as_type="span",
-            name="prediction_call",
-            input={"call_type": call_type, "prompt": prompt[:500]},
-        ) as root:
-            with propagate_attributes(
-                user_id=request.user_id or "anonymous",
-                metadata={
-                    "project_type": request.context_payload.get("project", {}).get("type_detected", "unknown"),
-                    "screen": call_type,
-                    "deckforge_trace_id": trace_id,
-                },
-            ):
-                with langfuse.start_as_current_observation(
-                    as_type="generation",
-                    name=call_type,
-                    model=llm_response.model,
-                    input=prompt,
-                ) as generation:
-                    generation.update(
-                        output=llm_response.content,
-                        usage_details={
-                            "input": llm_response.input_tokens,
-                            "output": llm_response.output_tokens,
-                            "total": llm_response.input_tokens + llm_response.output_tokens,
-                        },
-                        metadata={
-                            "call_type": call_type,
-                            "latency_ms": llm_response.latency_ms,
-                        },
-                    )
-
-            root.update_trace(
-                input={"call_type": call_type},
-                output={"model": llm_response.model, "latency_ms": llm_response.latency_ms},
-            )
-
-        langfuse.flush()
-        logger.info(f"Langfuse trace sent for {call_type}")
-    except Exception as e:
-        logger.warning(f"Langfuse logging failed: {e}", exc_info=True)

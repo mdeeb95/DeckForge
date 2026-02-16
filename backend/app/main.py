@@ -9,6 +9,7 @@ from app.db.session import engine, AsyncSessionLocal
 from app.db.models import Base
 from app.prompts.seed import seed_prompt_templates
 from app.routes import predict, feedback, templates, auth
+from app.llm.langfuse_logger import shutdown_langfuse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,10 +17,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables and seed data
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    settings = get_settings()
 
+    # Startup: create tables only for local SQLite dev (Alembic handles PostgreSQL)
+    if settings.database_url.startswith("sqlite"):
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("SQLite dev mode — created tables via create_all")
+
+    # Seed prompt templates (safe for both dev and prod)
     async with AsyncSessionLocal() as db:
         count = await seed_prompt_templates(db)
         if count > 0:
@@ -29,6 +35,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    shutdown_langfuse()
     await engine.dispose()
     logger.info("DeckForge API stopped")
 

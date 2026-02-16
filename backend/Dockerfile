@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -9,8 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code
 COPY . .
 
-# Expose port
-EXPOSE 8000
+# Expose port (Railway injects $PORT at runtime)
+EXPOSE ${PORT:-8000}
 
-# Run with uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run with uvicorn — shell form so $PORT expands
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
