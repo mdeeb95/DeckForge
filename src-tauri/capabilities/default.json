@@ -112,6 +112,31 @@
           "name": "whisper",
           "cmd": "whisper",
           "args": true
+        },
+        {
+          "name": "git",
+          "cmd": "git",
+          "args": true
+        },
+        {
+          "name": "vercel",
+          "cmd": "vercel",
+          "args": true
+        },
+        {
+          "name": "railway",
+          "cmd": "railway",
+          "args": true
+        },
+        {
+          "name": "netlify",
+          "cmd": "netlify",
+          "args": true
+        },
+        {
+          "name": "gh",
+          "cmd": "gh",
+          "args": true
         }
       ]
     },

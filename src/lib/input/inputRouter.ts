@@ -84,6 +84,8 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         B: () => activateByButton('B'),
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
+        RB: () => activateByButton('RB'),
+        LB: () => activateByButton('LB'),
         START: () => navigate('level1'),
       };
 
