@@ -11,6 +11,7 @@
     pills?: Pill[];
     selected?: boolean;
     variant?: 'primary' | 'secondary_pink' | 'neutral' | 'amber';
+    onclick?: () => void;
   }
 
   let {
@@ -20,6 +21,7 @@
     pills = [],
     selected = false,
     variant = 'neutral',
+    onclick,
   }: Props = $props();
 
   const unselectedBadgeClasses: Record<string, string> = {
@@ -32,7 +34,9 @@
 
 {#if selected}
   <!-- SELECTED STATE -->
-  <div class="relative group cursor-pointer">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="relative group cursor-pointer" onclick={onclick}>
     <!-- Selection Indicator -->
     <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
     <div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
@@ -50,7 +54,9 @@
   </div>
 {:else}
   <!-- UNSELECTED STATE -->
-  <div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={onclick}>
     <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative transition-all">
       <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center {unselectedBadgeClasses[variant]} rounded-full font-bold text-[10px]">{button}</div>
       <h3 class="text-white font-medium text-sm mb-1 pr-6">{title}</h3>

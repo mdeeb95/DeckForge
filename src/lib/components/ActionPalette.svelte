@@ -8,6 +8,7 @@
     description: string;
     pills: { label: string; variant: 'active' | 'neutral' }[];
     variant: 'primary' | 'secondary_pink' | 'neutral' | 'amber';
+    onclick?: () => void;
   }
 
   interface SecondaryCardData {
@@ -33,7 +34,7 @@
   }: Props = $props();
 </script>
 
-<aside class="w-[320px] md:w-[380px] bg-surface-dark border-l border-surface-border flex flex-col shrink-0 z-20 shadow-2xl">
+<aside class="flex-1 min-w-[280px] bg-surface-dark border-l border-surface-border flex flex-col z-20 shadow-2xl">
   {#if title}
     <div class="p-3 border-b border-surface-border bg-surface-dark">
       <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{title}</h2>
@@ -43,7 +44,7 @@
     </div>
   {/if}
 
-  <div class="flex-1 overflow-y-auto p-2 space-y-2">
+  <div class="flex-1 overflow-hidden min-h-0 p-2 space-y-2">
     {#each cards as card, i}
       <ActionCard
         button={card.button}
@@ -52,6 +53,7 @@
         pills={card.pills}
         selected={i === selectedIndex}
         variant={card.variant}
+        onclick={card.onclick}
       />
     {/each}
 

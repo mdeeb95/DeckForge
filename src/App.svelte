@@ -1,69 +1,133 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
-  import TerminalPanel from './lib/components/TerminalPanel.svelte';
-  import ActionPalette from './lib/components/ActionPalette.svelte';
+  import ScreenRouter from './lib/components/ScreenRouter.svelte';
   import BottomHUD from './lib/components/BottomHUD.svelte';
-  import { projectName, connected } from './lib/stores/app';
-  import { entries, status, cost } from './lib/stores/terminal';
-  import type { TerminalEntry } from './lib/stores/terminal';
+  import { projectName, connected, navigate, splitRatio } from './lib/stores/app';
+  import type { Screen } from './lib/stores/app';
+  import { startGamepadPolling, stopGamepadPolling } from './lib/input/gamepad';
+  import { handleInput } from './lib/input/inputRouter';
+  import { scrollTerminal } from './lib/stores/terminalScroll';
+  import { initGlobalConfig, globalConfig } from './lib/stores/configStores';
 
-  // Sample terminal entries matching the mockup
-  const sampleEntries: TerminalEntry[] = [
-    { type: 'timestamp', time: '14:20:01', message: 'DeckForge v0.1.0 initialized' },
-    { type: 'timestamp', time: '14:20:01', message: 'Scanning project workspace...' },
-    { type: 'timestamp', time: '14:20:02', message: 'Detected: <span class="text-slate-300">TypeScript + React + Vite</span>' },
-    { type: 'timestamp', time: '14:20:02', message: 'Git status: on branch <span class="text-secondary">main</span> — clean' },
-    { type: 'timestamp', time: '14:20:03', message: 'Claude Code SDK connected <span class="text-emerald-400">✓</span>' },
-    { type: 'timestamp', time: '14:20:03', message: 'Prediction engine warming up...' },
-    { type: 'prompt', label: 'SYSTEM', body: 'Ready. Select a category to begin. Predictions loaded for 4 categories.' },
-    { type: 'thought', label: 'CONTEXT', body: 'Analyzing <span class="text-slate-300 bg-slate-800 px-1 rounded">neo-dashboard-v2</span> — 47 files, 12 open issues, last commit 2h ago. Generating suggestions across <span class="text-primary">Feature</span>, <span class="text-secondary">Bug</span>, <span class="text-slate-300">Tech Debt</span>, and <span class="text-amber-400">Yolo</span> categories.' },
-    { type: 'code', filePath: 'project summary', diff: false, content: `Last session:  3 features shipped, 1 bug fixed\nOpen issues:   12 (4 bugs, 5 features, 3 tech debt)\nTest coverage: 74% (target: 80%)\nBundle size:   248kb (under budget)\nLast deploy:   2 hours ago ✓` },
-    { type: 'cursor', message: 'Awaiting category selection...' },
-  ];
+  // Initialize app state (will be overridden by config load)
+  projectName.set('');
+  connected.set(false);
 
-  // Populate stores with sample data
-  projectName.set('neo-dashboard-v2');
-  connected.set(true);
-  status.set('idle');
-  cost.set('$0.00');
-  sampleEntries.forEach(e => entries.addEntry(e));
+  // Debug keyboard shortcuts: number keys to switch screens
+  const screenMap: Record<string, Screen> = {
+    '1': 'level1',
+    '2': 'level2',
+    '3': 'level3',
+    '4': 'project_select',
+    '5': 'empty_state',
+    '6': 'ai_working',
+    '7': 'qa_mode',
+    '8': 'deploy_mode',
+    '9': 'history',
+    '0': 'exploration',
+    '-': 'voice_pitch',
+    '=': 'error',
+  };
 
-  // Level 1 category cards matching mockup
-  const level1Cards = [
-    {
-      button: 'A',
-      title: 'Feature',
-      description: 'build something new',
-      pills: [{ label: '5 suggestions', variant: 'active' as const }, ],
-      variant: 'primary' as const,
-    },
-    {
-      button: 'B',
-      title: 'Bug',
-      description: 'fix something broken',
-      pills: [{ label: '4 suggestions', variant: 'neutral' as const }],
-      variant: 'secondary_pink' as const,
-    },
-    {
-      button: 'X',
-      title: 'Tech Debt',
-      description: 'pay down the mess',
-      pills: [{ label: '3 suggestions', variant: 'neutral' as const }],
-      variant: 'neutral' as const,
-    },
-    {
-      button: 'Y',
-      title: 'Yolo',
-      description: 'surprise me, I\'m feeling lucky',
-      pills: [{ label: '4 suggestions', variant: 'neutral' as const }],
-      variant: 'amber' as const,
-    },
-  ];
+  // Keyboard → gamepad button mapping (fallback for development)
+  const keyToButton: Record<string, string> = {
+    ArrowUp: 'DPAD_UP',
+    ArrowDown: 'DPAD_DOWN',
+    ArrowLeft: 'DPAD_LEFT',
+    ArrowRight: 'DPAD_RIGHT',
+    Enter: 'A',
+    Escape: 'B',
+    q: 'X',
+    e: 'Y',
+    Tab: 'RB',
+    m: 'START',
+    v: 'SELECT',
+  };
 
-  const secondaryCards = [
-    { button: 'RB', label: 'Reroll All Predictions', icon: 'refresh' },
-    { button: 'LB', label: 'Project Settings', icon: 'settings' },
-  ];
+  let shiftHeld = false;
+  let shiftComboFired = false;
+
+  // Load global config asynchronously on startup
+  async function initApp() {
+    try {
+      const config = await initGlobalConfig();
+
+      // Apply display settings from config
+      splitRatio.set(config.display.default_split_ratio);
+      connected.set(true);
+
+      // Determine start screen based on config state
+      if (!config.user.onboarding_completed) {
+        navigate('empty_state');
+      } else {
+        navigate('project_select');
+      }
+    } catch (error) {
+      console.error('Failed to initialize app config:', error);
+      navigate('empty_state');
+      connected.set(true);
+    }
+  }
+
+  onMount(() => {
+    // Kick off async config load
+    initApp();
+
+    // Start gamepad polling with analog handler for R-stick terminal scroll
+    startGamepadPolling(handleInput, (axis, value) => {
+      if (axis === 'R_STICK_Y') {
+        scrollTerminal(value * 8);
+      }
+    });
+
+    function handleKeydown(e: KeyboardEvent) {
+      // Debug screen shortcuts (number keys)
+      const screen = screenMap[e.key];
+      if (screen) {
+        navigate(screen);
+        return;
+      }
+
+      // Shift acts as LB modifier
+      if (e.key === 'Shift') {
+        shiftHeld = true;
+        shiftComboFired = false;
+        return;
+      }
+
+      // Map keyboard to gamepad button
+      const button = keyToButton[e.key];
+      if (button) {
+        e.preventDefault();
+        if (shiftHeld) {
+          handleInput(`LB_${button}`);
+          shiftComboFired = true;
+        } else {
+          handleInput(button);
+        }
+      }
+    }
+
+    function handleKeyup(e: KeyboardEvent) {
+      if (e.key === 'Shift') {
+        if (!shiftComboFired) {
+          handleInput('LB');
+        }
+        shiftHeld = false;
+        shiftComboFired = false;
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown);
+    window.addEventListener('keyup', handleKeyup);
+
+    return () => {
+      stopGamepadPolling();
+      window.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('keyup', handleKeyup);
+    };
+  });
 </script>
 
 <div class="h-screen w-screen flex flex-col overflow-hidden">
@@ -72,14 +136,7 @@
 
   <!-- Main Workspace -->
   <main class="flex-1 flex overflow-hidden relative">
-    <TerminalPanel />
-    <ActionPalette
-      title="What Are We Doing?"
-      subtitle="Pick a category to see suggestions"
-      cards={level1Cards}
-      {secondaryCards}
-      selectedIndex={0}
-    />
+    <ScreenRouter />
     <BottomHUD />
   </main>
 </div>
