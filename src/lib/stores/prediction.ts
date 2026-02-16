@@ -3,7 +3,11 @@ import type { Category, Suggestion, WildCard, PredictionResponse, PlanResponse, 
 import { predictSuggestions, generatePlan } from '../prediction/client';
 import { getCached, setCached, advancePair, getCurrentPair, clearCategory } from '../prediction/cache';
 import { buildContextPayload } from '../prediction/contextAssembler';
-import { projectConfig, projectBehavior } from './configStores';
+import { projectConfig, projectBehavior, globalConfig } from './configStores';
+import { addSessionCost, sessionCostUsd } from './app';
+import { cost } from './terminal';
+import { sendFeedback } from '../prediction/feedback';
+import { trackSuggestionSelected, trackPlanApproved, trackPlanRejected } from '../prediction/behaviorTracker';
 
 // ─── Stores ──────────────────────────────────────────────────────────────────
 
@@ -28,6 +32,18 @@ export const predictionsLoading = writable(false);
 
 /** Error message if prediction fails */
 export const predictionError = writable<string | null>(null);
+
+/** Trace ID from the last prediction response (for feedback) */
+export const lastTraceId = writable<string | null>(null);
+
+/** Trace ID from the last plan response (for feedback) */
+export const lastPlanTraceId = writable<string | null>(null);
+
+/** Number of rerolls in the current L2 session */
+export const rerollCount = writable(0);
+
+/** Timestamp when Level 2 was entered (for time-to-select tracking) */
+export const level2EnteredAt = writable(0);
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
@@ -61,11 +77,21 @@ async function getContext(): Promise<ContextPayload> {
 }
 
 /**
+ * Get the cost warning threshold from global config.
+ */
+function getCostWarningThreshold(): number {
+  const config = get(globalConfig);
+  return config?.cost_tracking?.session_budget_warning_threshold_usd ?? 1.0;
+}
+
+/**
  * Load predictions for a category. Checks cache first, then calls prediction client.
  */
 export async function loadPredictions(category: Category): Promise<void> {
   selectedCategory.set(category);
   predictionError.set(null);
+  rerollCount.set(0);
+  level2EnteredAt.set(Date.now());
 
   const context = await getContext();
 
@@ -73,6 +99,7 @@ export async function loadPredictions(category: Category): Promise<void> {
   const cached = getCached(category, context);
   if (cached) {
     currentPrediction.set(cached.response);
+    lastTraceId.set(cached.response.trace_id ?? null);
     const [a, b] = getCurrentPair(cached);
     currentPairA.set(a);
     currentPairB.set(b);
@@ -85,6 +112,13 @@ export async function loadPredictions(category: Category): Promise<void> {
   try {
     const response = await predictSuggestions(category, context);
     currentPrediction.set(response);
+
+    // Capture metadata from backend response
+    lastTraceId.set(response.trace_id ?? null);
+    if (response.cost_usd) {
+      addSessionCost(response.cost_usd, getCostWarningThreshold());
+      cost.set(`$${get(sessionCostUsd).toFixed(4)}`);
+    }
 
     // Cache the response
     const entry = setCached(category, context, response);
@@ -107,6 +141,8 @@ export async function rerollSuggestions(): Promise<void> {
   const category = get(selectedCategory);
   if (!category) return;
 
+  rerollCount.update(n => n + 1);
+
   const advanced = advancePair(category);
 
   if (advanced) {
@@ -118,7 +154,16 @@ export async function rerollSuggestions(): Promise<void> {
       currentPairB.set(b);
     }
   } else {
-    // Pairs exhausted — fetch fresh suggestions
+    // Pairs exhausted — send reroll feedback then fetch fresh
+    const traceId = get(lastTraceId);
+    if (traceId) {
+      sendFeedback({
+        trace_id: traceId,
+        user_action: 'rerolled',
+        reroll_count: get(rerollCount),
+      });
+    }
+
     clearCategory(category);
     await loadPredictions(category);
   }
@@ -131,11 +176,50 @@ export async function selectAndPlan(suggestion: Suggestion | WildCard): Promise<
   selectedSuggestion.set(suggestion);
   currentPlan.set(null);
 
+  const category = get(selectedCategory);
+  const enteredAt = get(level2EnteredAt);
+  const timeToSelect = enteredAt ? Date.now() - enteredAt : 0;
+  const currentRerollCount = get(rerollCount);
+
+  // Determine which button was pressed (A, B, or X for wildcard)
+  const pairA = get(currentPairA);
+  const pairB = get(currentPairB);
+  let button = 'X'; // wildcard
+  if (pairA && suggestion.label === pairA.label) button = 'A';
+  else if (pairB && suggestion.label === pairB.label) button = 'B';
+
+  // Fire-and-forget: send selection feedback
+  const traceId = get(lastTraceId);
+  if (traceId && category) {
+    const selectedIndex = button === 'A' ? 0 : button === 'B' ? 1 : -1;
+    sendFeedback({
+      trace_id: traceId,
+      user_action: 'selected',
+      selection_speed_ms: timeToSelect,
+      selected_index: selectedIndex,
+      reroll_count: currentRerollCount,
+    });
+  }
+
+  // Fire-and-forget: track behavior
+  if (category) {
+    const prediction = get(currentPrediction);
+    const optionsShown = [pairA?.label, pairB?.label].filter(Boolean) as string[];
+    const wildCardShown = prediction?.wild_card?.label;
+    trackSuggestionSelected(category, suggestion, button, timeToSelect, currentRerollCount, optionsShown, wildCardShown);
+  }
+
   const context = await getContext();
 
   try {
     const plan = await generatePlan(suggestion as Suggestion, context);
     currentPlan.set(plan);
+    lastPlanTraceId.set(plan.trace_id ?? null);
+
+    // Track plan cost
+    if (plan.cost_usd) {
+      addSessionCost(plan.cost_usd, getCostWarningThreshold());
+    }
   } catch (error) {
     console.error('Plan generation failed:', error);
     // Generate a minimal fallback plan
@@ -153,6 +237,54 @@ export async function selectAndPlan(suggestion: Suggestion | WildCard): Promise<
       claude_code_intent: `Implement: ${suggestion.label}. ${suggestion.rationale}`,
     });
   }
+}
+
+/**
+ * Track plan approval (Ship It or Ship It Unhinged).
+ */
+export function trackPlanApproval(unhinged: boolean): void {
+  const category = get(selectedCategory);
+  const suggestion = get(selectedSuggestion);
+  if (!category || !suggestion) return;
+
+  const button = unhinged ? 'ship_it_unhinged' : 'ship_it';
+
+  // Fire-and-forget: send approval feedback
+  const traceId = get(lastPlanTraceId) ?? get(lastTraceId);
+  if (traceId) {
+    sendFeedback({
+      trace_id: traceId,
+      user_action: 'selected',
+      plan_approved: true,
+      plan_approval_button: button,
+      used_unhinged_modifier: unhinged,
+    });
+  }
+
+  // Fire-and-forget: track behavior
+  trackPlanApproved(category, suggestion, button);
+}
+
+/**
+ * Track plan rejection (Go Back from Level 3).
+ */
+export function trackPlanRejection(): void {
+  const category = get(selectedCategory);
+  const suggestion = get(selectedSuggestion);
+  if (!category || !suggestion) return;
+
+  // Fire-and-forget: send rejection feedback
+  const traceId = get(lastPlanTraceId) ?? get(lastTraceId);
+  if (traceId) {
+    sendFeedback({
+      trace_id: traceId,
+      user_action: 'rejected',
+      plan_approved: false,
+    });
+  }
+
+  // Fire-and-forget: track behavior
+  trackPlanRejected(category, suggestion);
 }
 
 /**

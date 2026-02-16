@@ -8,18 +8,186 @@ import type {
   PlanResponse,
   ScopeLevel,
 } from './types';
+import { getAccessToken, getBackendUrl, refreshAuth } from '../auth/auth';
+
+// ─── Category → call_type mapping ───────────────────────────────────────────
+
+const CATEGORY_TO_CALL_TYPE: Record<Category, string> = {
+  feature: 'level_2_feature',
+  bug: 'level_2_bug',
+  tech_debt: 'level_2_tech_debt',
+  yolo: 'level_2_feature',
+};
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
  * Fetch suggestions from the prediction engine.
- * Currently uses a local mock. Will be replaced with FastAPI backend calls.
+ * Tries backend first if authenticated, falls back to mock.
  */
 export async function predictSuggestions(
   category: Category,
-  _context: ContextPayload,
+  context: ContextPayload,
 ): Promise<PredictionResponse> {
-  // Simulate network latency
+  const token = getAccessToken();
+  if (token) {
+    try {
+      return await remotePredictSuggestions(category, context, token);
+    } catch (e) {
+      console.warn('Remote prediction failed, falling back to mock:', e);
+    }
+  }
+  return mockPredictSuggestions(category);
+}
+
+/**
+ * Generate a plan for a selected suggestion.
+ * Tries backend first if authenticated, falls back to mock.
+ */
+export async function generatePlan(
+  suggestion: Suggestion,
+  context: ContextPayload,
+): Promise<PlanResponse> {
+  const token = getAccessToken();
+  if (token) {
+    try {
+      return await remoteGeneratePlan(suggestion, context, token);
+    } catch (e) {
+      console.warn('Remote plan generation failed, falling back to mock:', e);
+    }
+  }
+  return getMockPlan(suggestion);
+}
+
+// ─── Remote Backend Calls ────────────────────────────────────────────────────
+
+async function remotePredictSuggestions(
+  category: Category,
+  context: ContextPayload,
+  token: string,
+): Promise<PredictionResponse> {
+  const backendUrl = getBackendUrl();
+  const callType = CATEGORY_TO_CALL_TYPE[category];
+
+  const body = {
+    call_type: callType,
+    context_payload: context,
+  };
+
+  let res = await fetch(`${backendUrl}/api/v1/predict`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  // On 401, try refreshing token and retry once
+  if (res.status === 401) {
+    const refreshed = await refreshAuth();
+    if (refreshed) {
+      res = await fetch(`${backendUrl}/api/v1/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshed.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(`Backend returned ${res.status}`);
+  }
+
+  const data = await res.json();
+  return mapBackendToPredictionResponse(data);
+}
+
+async function remoteGeneratePlan(
+  suggestion: Suggestion,
+  context: ContextPayload,
+  token: string,
+): Promise<PlanResponse> {
+  const backendUrl = getBackendUrl();
+
+  const body = {
+    call_type: 'level_3_plan',
+    context_payload: context,
+    selected_label: suggestion.label,
+    selected_rationale: suggestion.rationale,
+    selected_scope: suggestion.scope,
+  };
+
+  let res = await fetch(`${backendUrl}/api/v1/predict`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  // On 401, try refreshing token and retry once
+  if (res.status === 401) {
+    const refreshed = await refreshAuth();
+    if (refreshed) {
+      res = await fetch(`${backendUrl}/api/v1/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshed.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(`Backend returned ${res.status}`);
+  }
+
+  const data = await res.json();
+  return mapBackendToPlanResponse(data);
+}
+
+// ─── Response Mappers ────────────────────────────────────────────────────────
+
+function mapBackendToPredictionResponse(data: Record<string, unknown>): PredictionResponse {
+  return {
+    header_quip: (data.header_quip as string) ?? 'here are some ideas',
+    suggestions: (data.suggestions as Suggestion[]) ?? [],
+    modifier: (data.modifier as Modifier) ?? { lens: 'general', quip: 'make it better' },
+    wild_card: (data.wild_card as WildCard) ?? { label: 'Surprise', quip: 'roll the dice', scope: 'decent chunk' as ScopeLevel, rationale: 'Why not?' },
+    trace_id: data.trace_id as string | undefined,
+    model_used: data.model_used as string | undefined,
+    latency_ms: data.latency_ms as number | undefined,
+    cache_hit: data.cache_hit as boolean | undefined,
+    cost_usd: data.cost_usd as number | undefined,
+  };
+}
+
+function mapBackendToPlanResponse(data: Record<string, unknown>): PlanResponse {
+  return {
+    summary: (data.summary as string) ?? 'Execute the task',
+    quip: (data.quip as string) ?? 'let\'s get to work',
+    steps: (data.steps as PlanResponse['steps']) ?? [{ n: 1, text: 'Implement the changes' }],
+    scope: (data.scope as ScopeLevel) ?? 'decent chunk',
+    confidence: (data.confidence as string) ?? 'medium',
+    unhinged_modifier: (data.unhinged_modifier as string) ?? 'Go beyond the plan and add some flair.',
+    claude_code_intent: (data.claude_code_intent as string) ?? 'Implement the selected task.',
+    trace_id: data.trace_id as string | undefined,
+    model_used: data.model_used as string | undefined,
+    latency_ms: data.latency_ms as number | undefined,
+    cost_usd: data.cost_usd as number | undefined,
+  };
+}
+
+// ─── Mock Suggestions (fallback) ─────────────────────────────────────────────
+
+export async function mockPredictSuggestions(category: Category): Promise<PredictionResponse> {
   await delay(300 + Math.random() * 400);
 
   switch (category) {
@@ -35,20 +203,6 @@ export async function predictSuggestions(
       return getFeatureSuggestions();
   }
 }
-
-/**
- * Generate a plan for a selected suggestion.
- * Currently uses a local mock. Will be replaced with FastAPI backend calls.
- */
-export async function generatePlan(
-  suggestion: Suggestion,
-  _context: ContextPayload,
-): Promise<PlanResponse> {
-  await delay(400 + Math.random() * 600);
-  return getMockPlan(suggestion);
-}
-
-// ─── Mock Feature Suggestions ────────────────────────────────────────────────
 
 function getFeatureSuggestions(): PredictionResponse {
   const suggestions: Suggestion[] = [
@@ -121,8 +275,6 @@ function getFeatureSuggestions(): PredictionResponse {
     wild_card,
   };
 }
-
-// ─── Mock Bug Suggestions ────────────────────────────────────────────────────
 
 function getBugSuggestions(): PredictionResponse {
   const suggestions: Suggestion[] = [
@@ -205,8 +357,6 @@ function getBugSuggestions(): PredictionResponse {
   };
 }
 
-// ─── Mock Tech Debt Suggestions ──────────────────────────────────────────────
-
 function getTechDebtSuggestions(): PredictionResponse {
   const suggestions: Suggestion[] = [
     {
@@ -287,8 +437,6 @@ function getTechDebtSuggestions(): PredictionResponse {
   };
 }
 
-// ─── Mock Yolo Suggestions ───────────────────────────────────────────────────
-
 function getYoloSuggestions(): PredictionResponse {
   const suggestions: Suggestion[] = [
     {
@@ -363,8 +511,7 @@ function getYoloSuggestions(): PredictionResponse {
 
 // ─── Mock Plan Generation ────────────────────────────────────────────────────
 
-function getMockPlan(suggestion: Suggestion): PlanResponse {
-  // Generate contextual plan steps based on the suggestion
+export function getMockPlan(suggestion: Suggestion): PlanResponse {
   const planMap: Record<string, PlanResponse> = {
     'Add Search and Filter': {
       summary: 'Add fuzzy search and active-status filtering to the notes list',
@@ -383,12 +530,10 @@ function getMockPlan(suggestion: Suggestion): PlanResponse {
     },
   };
 
-  // If we have a specific plan, use it
   if (planMap[suggestion.label]) {
     return planMap[suggestion.label];
   }
 
-  // Otherwise generate a generic plan from the suggestion
   return {
     summary: suggestion.label,
     quip: suggestion.quip,

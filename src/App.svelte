@@ -8,7 +8,7 @@
   import { startGamepadPolling, stopGamepadPolling } from './lib/input/gamepad';
   import { handleInput } from './lib/input/inputRouter';
   import { scrollTerminal } from './lib/stores/terminalScroll';
-  import { initGlobalConfig, globalConfig } from './lib/stores/configStores';
+  import { initApp as initAppConfig } from './lib/stores/configStores';
 
   // Initialize app state (will be overridden by config load)
   projectName.set('');
@@ -48,10 +48,10 @@
   let shiftHeld = false;
   let shiftComboFired = false;
 
-  // Load global config asynchronously on startup
+  // Load global config + auth asynchronously on startup
   async function initApp() {
     try {
-      const config = await initGlobalConfig();
+      const config = await initAppConfig();
 
       // Apply display settings from config
       splitRatio.set(config.display.default_split_ratio);

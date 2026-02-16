@@ -72,3 +72,4 @@ class PredictResponse(BaseModel):
     latency_ms: int
     trace_id: str | None = None
     cache_hit: bool = False
+    cost_usd: float | None = None

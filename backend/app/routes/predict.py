@@ -123,7 +123,7 @@ async def predict(
     _log_to_langfuse(trace_id, call_type, prompt, llm_response, request)
 
     # 10. Build response
-    return _build_response(parsed, call_type, llm_response, trace_id)
+    return _build_response(parsed, call_type, llm_response, trace_id, cost_usd)
 
 
 def _build_response(
@@ -131,6 +131,7 @@ def _build_response(
     call_type: str,
     llm_response: LLMResponse,
     trace_id: str,
+    cost_usd: float | None = None,
 ) -> PredictResponse:
     """Convert parsed JSON into a typed PredictResponse."""
     response = PredictResponse(
@@ -138,6 +139,7 @@ def _build_response(
         model_used=llm_response.model,
         latency_ms=llm_response.latency_ms,
         trace_id=trace_id,
+        cost_usd=cost_usd,
     )
 
     # Level 2 fields

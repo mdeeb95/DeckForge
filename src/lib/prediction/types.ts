@@ -81,6 +81,12 @@ export interface PredictionResponse {
   suggestions: Suggestion[];  // exactly 8
   modifier: Modifier;
   wild_card: WildCard;
+  // Backend metadata (optional — absent in mock mode)
+  trace_id?: string;
+  model_used?: string;
+  latency_ms?: number;
+  cache_hit?: boolean;
+  cost_usd?: number;
 }
 
 // ─── Plan (Level 3) ─────────────────────────────────────────────────────────
@@ -98,6 +104,11 @@ export interface PlanResponse {
   confidence: string;
   unhinged_modifier: string;
   claude_code_intent: string;
+  // Backend metadata (optional — absent in mock mode)
+  trace_id?: string;
+  model_used?: string;
+  latency_ms?: number;
+  cost_usd?: number;
 }
 
 // ─── Cache Entry ─────────────────────────────────────────────────────────────

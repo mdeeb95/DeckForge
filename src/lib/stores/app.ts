@@ -34,6 +34,30 @@ export const splitRatio = writable(50);
 // Set by Level 3 "Ship It", consumed by AIWorkingScreen.
 export const pendingClaudePrompt = writable<string | null>(null);
 
+// ─── Cost Tracking ──────────────────────────────────────────────────────────
+
+/** Accumulated cost for the current session in USD */
+export const sessionCostUsd = writable(0);
+
+/** Whether the budget warning has been shown this session */
+export const budgetWarningShown = writable(false);
+
+/**
+ * Add cost from a prediction call. Triggers budget warning when threshold crossed.
+ */
+export function addSessionCost(costUsd: number, warningThreshold: number): void {
+  if (!costUsd || costUsd <= 0) return;
+
+  const prev = get(sessionCostUsd);
+  const next = prev + costUsd;
+  sessionCostUsd.set(next);
+
+  if (next >= warningThreshold && !get(budgetWarningShown)) {
+    budgetWarningShown.set(true);
+    console.warn(`Session cost ($${next.toFixed(4)}) exceeded warning threshold ($${warningThreshold})`);
+  }
+}
+
 export function navigate(screen: Screen) {
   currentScreen.set(screen);
   selectedCardIndex.set(0);

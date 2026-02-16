@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { GlobalConfig, ProjectConfig, ProjectBehavior } from '../types/data';
+import type { GlobalConfig, ProjectConfig, ProjectBehavior, AuthToken } from '../types/data';
 import {
   loadGlobalConfig,
   saveGlobalConfig,
@@ -8,6 +8,11 @@ import {
   loadBehavior,
   saveBehavior,
 } from '../data/config';
+import { initAuth } from '../auth/auth';
+
+// ─── Auth Token Store ────────────────────────────────────────────────────────
+
+export const authToken = writable<AuthToken | null>(null);
 
 // ─── Global Config Store ─────────────────────────────────────────────────────
 // Loaded once on app start. Written back on changes.
@@ -17,6 +22,24 @@ export const globalConfig = writable<GlobalConfig | null>(null);
 export async function initGlobalConfig(): Promise<GlobalConfig> {
   const config = await loadGlobalConfig();
   globalConfig.set(config);
+  return config;
+}
+
+/**
+ * Initialize the entire app: global config + auth.
+ * Call this instead of initGlobalConfig() directly.
+ */
+export async function initApp(): Promise<GlobalConfig> {
+  const config = await initGlobalConfig();
+
+  // Attempt backend auth (non-blocking — mock mode works without it)
+  try {
+    const token = await initAuth(config);
+    authToken.set(token);
+  } catch (e) {
+    console.warn('Auth initialization failed, continuing in mock mode:', e);
+  }
+
   return config;
 }
 
