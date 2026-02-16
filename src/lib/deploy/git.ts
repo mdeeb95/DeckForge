@@ -271,6 +271,126 @@ export async function getCurrentBranch(cwd: string): Promise<string> {
   }
 }
 
+export interface CommitResult {
+  success: boolean;
+  sha: string;
+  message: string;
+}
+
+export interface RevertResult {
+  success: boolean;
+  files_reverted: number;
+  message: string;
+}
+
+/**
+ * Stage all changes and commit with the given message.
+ * Used by QA Mode auto-commit on approval.
+ */
+export async function commitAll(message: string, cwd: string): Promise<CommitResult> {
+  if (!isTauri()) {
+    return { success: true, sha: 'abc1234', message: `[mock] Committed: ${message}` };
+  }
+
+  try {
+    const addResult = await exec('git add -A', cwd);
+    if (addResult.code !== 0) {
+      return { success: false, sha: '', message: `git add failed: ${addResult.stderr}` };
+    }
+
+    const escapedMessage = message.replace(/"/g, '\\"');
+    const commitResult = await exec(`git commit -m "${escapedMessage}"`, cwd);
+    if (commitResult.code !== 0) {
+      return { success: false, sha: '', message: commitResult.stderr || 'Nothing to commit' };
+    }
+
+    const shaResult = await exec('git rev-parse --short HEAD', cwd);
+    const sha = shaResult.stdout.trim();
+
+    return { success: true, sha, message: `Committed ${sha}: ${message}` };
+  } catch (error) {
+    return { success: false, sha: '', message: String(error) };
+  }
+}
+
+/**
+ * Revert all uncommitted changes (staged and unstaged).
+ * Used by QA Mode "Reject Changes".
+ */
+export async function revertAll(cwd: string): Promise<RevertResult> {
+  if (!isTauri()) {
+    return { success: true, files_reverted: 3, message: 'All changes reverted (mock)' };
+  }
+
+  try {
+    // Count changed files before reverting
+    const statusResult = await exec('git status --porcelain', cwd);
+    const lines = statusResult.stdout.trim().split('\n').filter(Boolean);
+    const fileCount = lines.length;
+
+    // Reset staged changes and checkout all modified files
+    await exec('git reset HEAD -- .', cwd);
+    const checkoutResult = await exec('git checkout -- .', cwd);
+
+    // Clean untracked files
+    await exec('git clean -fd', cwd);
+
+    if (checkoutResult.code !== 0) {
+      return { success: false, files_reverted: 0, message: checkoutResult.stderr };
+    }
+
+    return { success: true, files_reverted: fileCount, message: `Reverted ${fileCount} file${fileCount !== 1 ? 's' : ''}` };
+  } catch (error) {
+    return { success: false, files_reverted: 0, message: String(error) };
+  }
+}
+
+/**
+ * Get the working tree diff (uncommitted changes).
+ * Differs from getDiff() which shows upstream..HEAD.
+ */
+export async function getWorkingDiff(cwd: string): Promise<string> {
+  if (!isTauri()) return `diff --git a/src/Search.tsx b/src/Search.tsx
+--- a/src/Search.tsx
++++ b/src/Search.tsx
+@@ -1,5 +1,15 @@
++import { useState } from 'react';
++
+ export function Search() {
+-  return <div>TODO</div>;
++  const [query, setQuery] = useState('');
++  return (
++    <input
++      value={query}
++      onChange={e => setQuery(e.target.value)}
++      placeholder="Search..."
++    />
++  );
+ }`;
+
+  try {
+    // Show both staged and unstaged changes
+    const result = await exec('git diff HEAD 2>/dev/null || git diff', cwd);
+    return result.stdout || 'No changes detected.';
+  } catch {
+    return 'Failed to get diff.';
+  }
+}
+
+/**
+ * Get the count of changed files in the working tree.
+ */
+export async function getChangedFileCount(cwd: string): Promise<number> {
+  if (!isTauri()) return 3;
+
+  try {
+    const result = await exec('git status --porcelain', cwd);
+    return result.stdout.trim().split('\n').filter(Boolean).length;
+  } catch {
+    return 0;
+  }
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getRelativeTime(isoTimestamp: string): string {
