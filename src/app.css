@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0d1117;
+}
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0df2f2;
+}
+
+/* Glass Panel */
+.glass-panel {
+  background: rgba(22, 27, 34, 0.95);
+  backdrop-filter: blur(8px);
+}
+
+/* Scanline Overlay */
+.scan-overlay {
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+/* Code Syntax Highlighting */
+.code-syntax-keyword {
+  color: #ff7b72;
+}
+.code-syntax-string {
+  color: #a5d6ff;
+}
+.code-syntax-function {
+  color: #d2a8ff;
+}
+.code-syntax-comment {
+  color: #8b949e;
+}
