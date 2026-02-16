@@ -1,8 +1,9 @@
 import { get } from 'svelte/store';
-import { currentScreen, navigate, splitRatio } from '../stores/app';
+import { currentScreen, navigate, splitRatio, pendingClaudePrompt } from '../stores/app';
 import type { Screen } from '../stores/app';
 import { navigateUp, navigateDown, activateByButton, cycleSelectedIndex } from './navigation';
 import { rerollSuggestions } from '../stores/prediction';
+import { screenshotFlash, lastScreenshotPath, lastScreenshotMeta } from '../stores/screenshot';
 
 type HandlerMap = Record<string, () => void>;
 
@@ -136,13 +137,28 @@ function getScreenHandlers(screen: Screen): HandlerMap {
       };
 
     // ── Voice Pitch ───────────────────────────────────────────────
-    // A = confirm. B = re-record/back.
+    // A = confirm/start. B = cancel/back. Y = re-record.
     case 'voice_pitch':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: () => activateByButton('A'),
-        B: () => navigate('project_select'),
+        B: () => activateByButton('B'),
+        Y: () => activateByButton('Y'),
+      };
+
+    // ── Screenshot Feedback ─────────────────────────────────────
+    // A = send to Claude. B = discard. X = voice annotate. Y = send + new task.
+    // LB = back.
+    case 'screenshot_feedback':
+      return {
+        DPAD_UP: navigateUp,
+        DPAD_DOWN: navigateDown,
+        A: () => activateByButton('A'),
+        B: () => activateByButton('B'),
+        X: () => activateByButton('X'),
+        Y: () => activateByButton('Y'),
+        LB: () => navigate('level1'),
       };
 
     // ── Error ─────────────────────────────────────────────────────
@@ -165,7 +181,22 @@ function getScreenHandlers(screen: Screen): HandlerMap {
 // ── Global handlers (active on ALL screens) ─────────────────────────
 // LB + D-pad left/right adjusts split ratio (5% increments, min 20%, max 80%).
 // RT = switch to app window, LT = switch to DeckForge, R4 = restart app.
+// RB = screenshot (fallback — only fires if screen doesn't handle RB).
 const globalHandlers: HandlerMap = {
+  RB: () => {
+    screenshotFlash.set(true);
+    import('../system/screenshot').then(m => {
+      m.captureScreenshot('.', 1).then(result => {
+        lastScreenshotPath.set(result.path);
+        lastScreenshotMeta.set(result.meta);
+        navigate('screenshot_feedback');
+      }).catch(err => {
+        console.error('[inputRouter] Screenshot capture failed:', err);
+        // Still navigate to feedback screen with whatever we have
+        navigate('screenshot_feedback');
+      });
+    });
+  },
   LB_DPAD_LEFT: () => {
     const current = get(splitRatio);
     splitRatio.set(Math.max(20, current - 5));

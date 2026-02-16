@@ -3,6 +3,7 @@
   import StatusBar from './lib/components/StatusBar.svelte';
   import ScreenRouter from './lib/components/ScreenRouter.svelte';
   import BottomHUD from './lib/components/BottomHUD.svelte';
+  import FlashOverlay from './lib/components/FlashOverlay.svelte';
   import { projectName, connected, navigate, splitRatio } from './lib/stores/app';
   import type { Screen } from './lib/stores/app';
   import { startGamepadPolling, stopGamepadPolling } from './lib/input/gamepad';
@@ -28,6 +29,7 @@
     '0': 'exploration',
     '-': 'voice_pitch',
     '=': 'error',
+    'p': 'screenshot_feedback',
   };
 
   // Keyboard → gamepad button mapping (fallback for development)
@@ -131,6 +133,8 @@
 </script>
 
 <div class="h-screen w-screen flex flex-col overflow-hidden">
+  <FlashOverlay />
+
   <!-- Status Bar -->
   <StatusBar projectName={$projectName} connected={$connected} version="v0.1.0" />
 

@@ -82,6 +82,36 @@
           "name": "godot",
           "cmd": "godot",
           "args": true
+        },
+        {
+          "name": "grim",
+          "cmd": "grim",
+          "args": true
+        },
+        {
+          "name": "scrot",
+          "cmd": "scrot",
+          "args": true
+        },
+        {
+          "name": "screencapture",
+          "cmd": "screencapture",
+          "args": true
+        },
+        {
+          "name": "arecord",
+          "cmd": "arecord",
+          "args": true
+        },
+        {
+          "name": "rec",
+          "cmd": "rec",
+          "args": true
+        },
+        {
+          "name": "whisper",
+          "cmd": "whisper",
+          "args": true
         }
       ]
     },

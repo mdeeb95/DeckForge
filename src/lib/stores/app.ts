@@ -12,6 +12,7 @@ export type Screen =
   | 'history'
   | 'exploration'
   | 'voice_pitch'
+  | 'screenshot_feedback'
   | 'error';
 
 export interface ScreenCardData {

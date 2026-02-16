@@ -11,6 +11,7 @@
   import HistoryScreen from '../screens/HistoryScreen.svelte';
   import ExplorationScreen from '../screens/ExplorationScreen.svelte';
   import VoicePitchScreen from '../screens/VoicePitchScreen.svelte';
+  import ScreenshotFeedbackScreen from '../screens/ScreenshotFeedbackScreen.svelte';
   import ErrorScreen from '../screens/ErrorScreen.svelte';
 </script>
 
@@ -36,6 +37,8 @@
   <ExplorationScreen />
 {:else if $currentScreen === 'voice_pitch'}
   <VoicePitchScreen />
+{:else if $currentScreen === 'screenshot_feedback'}
+  <ScreenshotFeedbackScreen />
 {:else if $currentScreen === 'error'}
   <ErrorScreen />
 {/if}

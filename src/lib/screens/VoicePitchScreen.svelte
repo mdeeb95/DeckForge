@@ -1,16 +1,78 @@
 <script lang="ts">
-  import { selectedCardIndex, navigate, screenCards } from '../stores/app';
+  import { selectedCardIndex, navigate, screenCards, pendingClaudePrompt } from '../stores/app';
+  import { voiceState } from '../stores/voice';
+  import { startListening, stopListening, resetVoice, isWebSpeechAvailable } from '../system/voice';
+  import { onDestroy } from 'svelte';
 
-  const cards = [
-    { button: 'A', title: 'Send as Prompt', description: 'Submit this transcription as your request to Claude Code.', pill: 'Confirm' },
-    { button: 'B', title: 'Cancel', description: 'Discard the recording and go back.', pill: 'Discard' },
-    { button: 'X', title: 'Edit Text', description: 'Open a text editor to refine the transcription before sending.', pill: 'Refine' },
-    { button: 'Y', title: 'Re-record', description: 'Start over with a fresh recording.', pill: 'Retry' },
-  ];
+  // Reactive aliases
+  $: recording = $voiceState.recording;
+  $: transcript = $voiceState.transcript;
+  $: interimTranscript = $voiceState.interimTranscript;
+  $: confidence = $voiceState.confidence;
+  $: error = $voiceState.error;
+  $: hasTranscript = transcript.length > 0;
+  $: displayText = transcript || interimTranscript;
+  $: wordCount = displayText.trim() ? displayText.trim().split(/\s+/).length : 0;
+  $: confidencePct = Math.round(confidence * 100);
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description })));
+  // Determine phase: 'idle' | 'recording' | 'done'
+  $: phase = recording ? 'recording' : hasTranscript ? 'done' : 'idle';
 
+  // Build dynamic cards based on phase
+  $: {
+    let cards: Array<{ button: string; title: string; description: string }>;
+    if (phase === 'idle') {
+      cards = [
+        { button: 'A', title: 'Start Recording', description: 'Press to begin voice input. Speak your request clearly.' },
+        { button: 'B', title: 'Back', description: 'Return to the previous screen.' },
+      ];
+    } else if (phase === 'recording') {
+      cards = [
+        { button: 'A', title: 'Stop Recording', description: 'Finish recording and process the transcription.' },
+        { button: 'B', title: 'Cancel', description: 'Cancel this recording and discard audio.' },
+      ];
+    } else {
+      cards = [
+        { button: 'A', title: 'Send as Prompt', description: 'Submit this transcription as your request to Claude Code.' },
+        { button: 'B', title: 'Clear & Re-record', description: 'Discard this transcription and start a new recording.' },
+        { button: 'Y', title: 'Re-record', description: 'Start over with a fresh recording.' },
+      ];
+    }
+    screenCards.set(cards.map(c => ({
+      button: c.button,
+      title: c.title,
+      description: c.description,
+      onclick: () => handleAction(c.button),
+    })));
+  }
+
+  function handleAction(button: string) {
+    if (phase === 'idle') {
+      if (button === 'A') startListening();
+      if (button === 'B') navigate('project_select');
+    } else if (phase === 'recording') {
+      if (button === 'A') stopListening();
+      if (button === 'B') { resetVoice(); }
+    } else {
+      // done
+      if (button === 'A') {
+        pendingClaudePrompt.set(transcript);
+        resetVoice();
+        navigate('ai_working');
+      }
+      if (button === 'B' || button === 'Y') {
+        resetVoice();
+      }
+    }
+  }
+
+  const webSpeechOk = isWebSpeechAvailable();
   const waveformBars = Array.from({ length: 15 }, (_, i) => i);
+
+  // Cleanup on unmount
+  onDestroy(() => {
+    if ($voiceState.recording) stopListening();
+  });
 </script>
 
 <svelte:head>
@@ -39,6 +101,9 @@
     .waveform-bar:nth-child(13) { animation-delay: 0.6s; }
     .waveform-bar:nth-child(14) { animation-delay: 0.1s; }
     .waveform-bar:nth-child(15) { animation-delay: 0.2s; }
+    .waveform-bar-idle {
+      height: 4px;
+    }
   </style>
 </svelte:head>
 
@@ -47,40 +112,71 @@
   <!-- Header -->
   <div class="text-center mb-6">
     <h1 class="text-xs font-bold text-primary uppercase tracking-widest mb-1">Voice Input</h1>
-    <p class="text-xs text-slate-500">Speak your request — release LB to finish</p>
+    <p class="text-xs text-slate-500">
+      {#if phase === 'idle'}
+        Press A to start recording
+      {:else if phase === 'recording'}
+        Listening... press A to stop
+      {:else}
+        Review your transcription below
+      {/if}
+    </p>
   </div>
 
-  <!-- Recording Indicator -->
+  <!-- Waveform / Status Area -->
   <div class="flex flex-col items-center gap-3 mb-6">
-    <!-- Waveform bars -->
-    <div class="flex items-center justify-center gap-1 h-12">
-      {#each waveformBars as _, i}
-        <div class="w-1 rounded-full bg-primary waveform-bar"></div>
-      {/each}
-    </div>
-
-    <!-- Recording label and dot -->
-    <div class="flex items-center gap-2">
-      <span class="text-primary font-mono text-sm animate-pulse">Recording...</span>
-      <div class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
-    </div>
-
-    <!-- Duration -->
-    <div class="text-xs text-slate-400 font-mono">0:04</div>
+    {#if phase === 'recording'}
+      <!-- Animated waveform bars -->
+      <div class="flex items-center justify-center gap-1 h-12">
+        {#each waveformBars as _, i}
+          <div class="w-1 rounded-full bg-primary waveform-bar"></div>
+        {/each}
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-primary font-mono text-sm animate-pulse">Recording...</span>
+        <div class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
+      </div>
+    {:else if phase === 'idle'}
+      <!-- Idle waveform (flat bars) -->
+      <div class="flex items-center justify-center gap-1 h-12">
+        {#each waveformBars as _}
+          <div class="w-1 rounded-full bg-slate-600 waveform-bar-idle"></div>
+        {/each}
+      </div>
+      {#if !webSpeechOk}
+        <div class="text-xs text-red-400 font-mono">Speech recognition not available</div>
+      {:else}
+        <div class="text-xs text-slate-500 font-mono">Ready</div>
+      {/if}
+    {:else}
+      <!-- Done — checkmark -->
+      <div class="flex items-center justify-center h-12">
+        <span class="material-icons text-primary text-3xl">check_circle</span>
+      </div>
+      <div class="text-xs text-primary font-mono">Transcription complete</div>
+    {/if}
   </div>
 
   <!-- Transcription Area -->
-  <div class="bg-surface-dark border border-surface-border rounded p-4 max-w-lg mx-auto mb-6">
-    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Transcription</div>
-    <div class="text-sm text-slate-200 leading-relaxed mb-1">
-      I want to add a dark mode toggle to the settings page. It should persist the preference in local storage and<span class="w-2 h-4 bg-primary inline-block animate-pulse ml-1"></span>
+  {#if displayText || error}
+    <div class="bg-surface-dark border border-surface-border rounded p-4 max-w-lg mx-auto mb-6">
+      <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Transcription</div>
+      {#if error}
+        <div class="text-sm text-red-400 leading-relaxed">{error}</div>
+      {:else}
+        <div class="text-sm text-slate-200 leading-relaxed mb-1">
+          {transcript}{#if interimTranscript}<span class="text-slate-400">{interimTranscript}</span>{/if}{#if recording}<span class="w-2 h-4 bg-primary inline-block animate-pulse ml-1"></span>{/if}
+        </div>
+        <div class="text-[10px] text-slate-500 font-mono">
+          Words: {wordCount}{#if confidencePct > 0} &middot; Confidence: {confidencePct}%{/if}
+        </div>
+      {/if}
     </div>
-    <div class="text-[10px] text-slate-500 font-mono">Words: 24 · Confidence: 94%</div>
-  </div>
+  {/if}
 
   <!-- Action Cards -->
   <div class="flex flex-col gap-2 max-w-lg mx-auto w-full px-4">
-    {#each cards as card, i}
+    {#each $screenCards as card, i}
       {#if i === $selectedCardIndex}
         <!-- Selected card -->
         <div class="relative group cursor-pointer">
@@ -89,48 +185,19 @@
             <div class="absolute top-0 right-0 p-1.5 bg-primary text-black rounded-bl font-bold text-xs shadow-sm">{card.button}</div>
             <h3 class="text-primary font-bold text-sm mb-1 pr-6 truncate">{card.title}</h3>
             <p class="text-xs text-slate-300 leading-snug mb-2">{card.description}</p>
-            <div class="flex items-center gap-2 text-[10px]">
-              <span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">{card.pill}</span>
-            </div>
           </div>
         </div>
       {:else}
         <!-- Unselected card -->
         <div class="relative group opacity-80 hover:opacity-100 transition-opacity">
           <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
-            <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center {i === 1 ? 'bg-secondary/20 text-secondary border border-secondary/30' : 'bg-slate-700 text-slate-300 border border-slate-600'} rounded-full font-bold text-[10px]">{card.button}</div>
+            <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">{card.button}</div>
             <h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">{card.title}</h3>
             <p class="text-xs text-slate-400 leading-snug mb-2">{card.description}</p>
-            <div class="flex items-center gap-2 text-[10px]">
-              <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">{card.pill}</span>
-            </div>
           </div>
         </div>
       {/if}
     {/each}
-
-    <!-- Separator -->
-    <div class="h-px bg-surface-border my-1"></div>
-
-    <!-- Secondary Cards -->
-    <div class="relative group">
-      <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
-        <div class="flex items-center gap-3">
-          <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">LB</div>
-          <span class="text-xs text-slate-300 font-medium">Language: English</span>
-        </div>
-        <span class="material-icons text-slate-500 text-sm">language</span>
-      </div>
-    </div>
-    <div class="relative group">
-      <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
-        <div class="flex items-center gap-3">
-          <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">RB</div>
-          <span class="text-xs text-slate-300 font-medium">Voice Settings</span>
-        </div>
-        <span class="material-icons text-slate-500 text-sm">tune</span>
-      </div>
-    </div>
   </div>
 </div>
 </div>
