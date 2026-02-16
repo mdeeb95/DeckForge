@@ -1,0 +1,49 @@
+app-id: com.deckforge.app
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: deckforge
+
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --share=network
+  - --device=all
+  - --filesystem=home/projects:create
+  - --talk-name=org.freedesktop.Notifications
+
+modules:
+  - name: SDL2
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DSDL_STATIC=OFF
+      - -DSDL_TESTS=OFF
+    sources:
+      - type: archive
+        url: https://github.com/libsdl-org/SDL/releases/download/release-2.30.3/SDL2-2.30.3.tar.gz
+        sha256: 820440072f8f5b50188c1dae104f2ad25984de268785be40c727b95f17f15e58
+
+  - name: whisper-cpp
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DBUILD_SHARED_LIBS=OFF
+    sources:
+      - type: git
+        url: https://github.com/ggerganov/whisper.cpp.git
+        tag: v1.5.5
+
+  - name: deckforge
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 deckforge /app/bin/deckforge
+      - install -Dm644 com.deckforge.app.desktop /app/share/applications/com.deckforge.app.desktop
+      - install -Dm644 icon.png /app/share/icons/hicolor/128x128/apps/com.deckforge.app.png
+    sources:
+      - type: file
+        path: src-tauri/target/release/deckforge
+      - type: file
+        path: com.deckforge.app.desktop
+      - type: file
+        path: src-tauri/icons/128x128.png
+        dest-filename: icon.png

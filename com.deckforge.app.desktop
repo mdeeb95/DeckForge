@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=DeckForge
+Comment=Steam Deck gamepad interface for Claude Code
+Exec=deckforge
+Icon=com.deckforge.app
+Terminal=false
+Type=Application
+Categories=Development;Utility;
+StartupWMClass=deckforge
