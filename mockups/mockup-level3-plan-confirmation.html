@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DeckForge - Level 3 Plan Confirmation</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df2f2",
+                        "primary-dim": "#089090",
+                        "secondary": "#f20dcf",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0d1117",
+                        "surface-dark": "#161b22",
+                        "surface-border": "#30363d",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for dense feeling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0df2f2;
+        }
+
+        .glass-panel {
+            background: rgba(22, 27, 34, 0.95);
+            backdrop-filter: blur(8px);
+        }
+
+        .code-syntax-keyword { color: #ff7b72; }
+        .code-syntax-string { color: #a5d6ff; }
+        .code-syntax-function { color: #d2a8ff; }
+        .code-syntax-comment { color: #8b949e; }
+        .code-syntax-cyan { color: #0df2f2; }
+
+        /* Scanline effect subtlety - barely visible texture */
+        .scan-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-300 font-display h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-black">
+<!-- Top Status Bar -->
+<header class="h-8 border-b border-surface-border bg-surface-dark flex items-center justify-between px-4 text-xs font-mono uppercase tracking-wider shrink-0 z-20">
+<div class="flex items-center gap-4">
+<span class="text-primary font-bold flex items-center gap-2">
+<span class="material-icons text-sm">terminal</span>
+                DeckForge
+            </span>
+<span class="text-slate-500">|</span>
+<span class="text-slate-300">Project: <span class="text-white">neo-dashboard-v2</span></span>
+<span class="text-slate-500">|</span>
+<span class="flex items-center gap-1 text-emerald-400">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                Connected
+            </span>
+</div>
+<div class="flex items-center gap-4 text-slate-400">
+<span>RAM: 42%</span>
+<span>CPU: 12%</span>
+<span class="text-primary">v1.4.2-beta</span>
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="flex-1 flex overflow-hidden relative">
+<!-- Left: Terminal Log (Plan Steps) -->
+<section class="flex-1 flex flex-col min-w-0 border-r border-surface-border bg-background-dark relative">
+<!-- Terminal Header -->
+<div class="h-10 flex items-center justify-between px-4 border-b border-surface-border bg-surface-dark/50">
+<div class="flex items-center gap-2">
+<span class="text-primary font-mono text-sm">&gt; Claude Code Plan</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700">IDLE</span>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-surface-border text-[10px] text-slate-400 flex items-center gap-1">
+<span class="material-icons text-[10px]">attach_money</span>
+                        Est: $0.03
+                    </span>
+<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-surface-border text-[10px] text-slate-400 flex items-center gap-1">
+<span class="material-icons text-[10px]">description</span>
+                        2 Files
+                    </span>
+</div>
+</div>
+<!-- Terminal Content -->
+<div class="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed scroll-smooth" id="terminal-content">
+<!-- User Prompt -->
+<div class="mb-6 pl-3 border-l-2 border-primary/50">
+<div class="text-primary font-bold mb-1">USER PROMPT</div>
+<div class="text-slate-300">Add Search and Filter — Implements fuzzy search logic with useMemo optimization</div>
+</div>
+<!-- Plan Section -->
+<div class="mb-6">
+<div class="text-slate-300 font-bold mb-3">PLAN</div>
+<!-- Step 1: Completed -->
+<div class="mb-2 pl-3">
+<div class="flex items-start gap-2">
+<span class="text-emerald-400 font-bold">1.</span>
+<div>
+<span class="text-slate-300">Create SearchInput component with debounced onChange</span>
+<span class="text-emerald-400 ml-2">✓</span>
+</div>
+</div>
+</div>
+<!-- Step 2: Current (Highlighted) -->
+<div class="mb-2 pl-3 border-l-2 border-primary/50 -ml-3">
+<div class="flex items-start gap-2">
+<span class="text-primary font-bold">2.</span>
+<div>
+<span class="text-slate-300">Add useMemo hook for filtered results</span>
+<span class="text-slate-500 ml-2">← current</span>
+</div>
+</div>
+</div>
+<!-- Step 3: Pending -->
+<div class="mb-2 pl-3">
+<div class="flex items-start gap-2">
+<span class="text-slate-500 font-bold">3.</span>
+<span class="text-slate-300">Wire up activeOnly toggle state</span>
+</div>
+</div>
+<!-- Step 4: Pending -->
+<div class="mb-2 pl-3">
+<div class="flex items-start gap-2">
+<span class="text-slate-500 font-bold">4.</span>
+<span class="text-slate-300">Update UserList render to use filteredUsers</span>
+</div>
+</div>
+<!-- Step 5: Pending -->
+<div class="mb-4 pl-3">
+<div class="flex items-start gap-2">
+<span class="text-slate-500 font-bold">5.</span>
+<span class="text-slate-300">Add unit tests for search and filter logic</span>
+</div>
+</div>
+</div>
+<!-- Scope Summary -->
+<div class="mb-4 text-slate-400 text-xs">
+<span>5 steps · ~45 lines · est. $0.03 · 2 files affected</span>
+</div>
+<!-- Waiting Indicator -->
+<div class="text-slate-400 flex items-center gap-2 animate-pulse">
+<span class="w-2 h-4 bg-primary block"></span>
+<span>Awaiting confirmation...</span>
+</div>
+</div>
+<!-- Scanline overlay -->
+<div class="absolute inset-0 scan-overlay z-10 pointer-events-none opacity-20"></div>
+</section>
+<!-- Right: Action Palette (Plan Review) -->
+<aside class="w-[320px] md:w-[380px] bg-surface-dark border-l border-surface-border flex flex-col shrink-0 z-20 shadow-2xl">
+<div class="p-3 border-b border-surface-border bg-surface-dark">
+<h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Plan Review</h2>
+<p class="text-[10px] text-slate-600">Confirm or modify the plan</p>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-2">
+<!-- Card A: Ship It (Selected) -->
+<div class="relative group cursor-pointer">
+<!-- Selection Indicator -->
+<div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
+<div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
+<div class="absolute top-0 right-0 p-1.5 bg-primary text-black rounded-bl font-bold text-xs shadow-sm">A</div>
+<h3 class="text-primary font-bold text-sm mb-1 pr-6 truncate">Ship It</h3>
+<p class="text-xs text-slate-300 leading-snug mb-2">Execute the plan as-is. Claude Code will implement all 5 steps.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">~2 min</span>
+</div>
+</div>
+</div>
+<!-- Card B: Nah, Go Back -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-secondary/20 text-secondary border border-secondary/30 rounded-full font-bold text-[10px]">B</div>
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">Nah, Go Back</h3>
+<p class="text-xs text-slate-400 leading-snug mb-2">Return to suggestions. This plan won't be saved.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">No cost</span>
+</div>
+</div>
+</div>
+<!-- Card X: Tell Me More -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">X</div>
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">Tell Me More</h3>
+<p class="text-xs text-slate-400 leading-snug mb-2">Ask Claude to explain the reasoning behind each step.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">Clarify</span>
+</div>
+</div>
+</div>
+<!-- Card Y: Yolo Mode -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">Y</div>
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">Yolo Mode</h3>
+<p class="text-xs text-slate-400 leading-snug mb-2">Skip the plan, just let Claude freestyle it.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">Unhinged</span>
+</div>
+</div>
+</div>
+<!-- Separator -->
+<div class="h-px bg-surface-border my-1"></div>
+<!-- Card RB: Edit Plan -->
+<div class="relative group">
+<div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">RB</div>
+<span class="text-xs text-slate-300 font-medium">Edit Plan</span>
+</div>
+<span class="material-icons text-slate-500 text-sm">edit</span>
+</div>
+</div>
+<!-- Card LB: Voice Feedback -->
+<div class="relative group">
+<div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">LB</div>
+<span class="text-xs text-slate-300 font-medium">Voice Feedback</span>
+</div>
+<span class="material-icons text-slate-500 text-sm">mic</span>
+</div>
+</div>
+</div>
+<!-- Bottom Action Hint -->
+<div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
+<p class="text-[10px] text-slate-500 font-mono">Use <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> to navigate cards</p>
+</div>
+</aside>
+<!-- Floating HUD (Bottom) -->
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+<div class="glass-panel px-6 py-2 rounded-full border border-surface-border/50 shadow-2xl flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">START</span>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Execute</span>
+</div>
+<div class="w-px h-3 bg-slate-600"></div>
+<div class="flex items-center gap-2">
+<span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">SELECT</span>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Focus Plan</span>
+</div>
+<div class="w-px h-3 bg-slate-600"></div>
+<div class="flex items-center gap-2">
+<div class="grid grid-cols-3 gap-0.5 w-4 h-4 opacity-70">
+<div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+<div class="bg-slate-400 rounded-[1px]"></div><div class="bg-slate-800 rounded-[1px]"></div><div class="bg-slate-400 rounded-[1px]"></div>
+<div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+</div>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Nav</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Background Image Data (Hidden but present for screen reader / compliance with prompt) -->
+<div class="hidden" data-alt="Dark abstract technical background with subtle grid lines"></div>
+</body></html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DeckForge - Empty State</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df2f2",
+                        "primary-dim": "#089090",
+                        "secondary": "#f20dcf",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0d1117",
+                        "surface-dark": "#161b22",
+                        "surface-border": "#30363d",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for dense feeling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0df2f2;
+        }
+
+        .glass-panel {
+            background: rgba(22, 27, 34, 0.95);
+            backdrop-filter: blur(8px);
+        }
+
+        .code-syntax-keyword { color: #ff7b72; }
+        .code-syntax-string { color: #a5d6ff; }
+        .code-syntax-function { color: #d2a8ff; }
+        .code-syntax-comment { color: #8b949e; }
+        .code-syntax-cyan { color: #0df2f2; }
+
+        /* Scanline effect subtlety - barely visible texture */
+        .scan-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-300 font-display h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-black">
+<!-- Top Status Bar -->
+<header class="h-8 border-b border-surface-border bg-surface-dark flex items-center justify-between px-4 text-xs font-mono uppercase tracking-wider shrink-0 z-20">
+<div class="flex items-center gap-4">
+<span class="text-primary font-bold flex items-center gap-2">
+<span class="material-icons text-sm">terminal</span>
+                DeckForge
+            </span>
+<span class="text-slate-500">|</span>
+<span class="text-slate-300">Project: <span class="text-slate-500">—</span></span>
+<span class="text-slate-500">|</span>
+<span class="flex items-center gap-1 text-red-400">
+<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                Disconnected
+            </span>
+</div>
+<div class="flex items-center gap-4 text-slate-400">
+<span>RAM: 28%</span>
+<span>CPU: 4%</span>
+<span class="text-primary">v1.4.2-beta</span>
+</div>
+</header>
+
+<!-- Main Content Area (Full-width, centered) -->
+<main class="flex-1 flex items-center justify-center bg-background-dark relative overflow-hidden">
+
+<!-- Centered Content Container -->
+<div class="flex flex-col items-center justify-center max-w-sm text-center">
+
+<!-- Top Section: Icon, Branding, Version -->
+<div class="mb-8">
+<!-- Terminal Icon with glow -->
+<div class="flex justify-center mb-4">
+<span class="material-icons text-primary drop-shadow-[0_0_10px_rgba(13,242,242,0.3)]" style="font-size: 48px;">terminal</span>
+</div>
+
+<!-- DeckForge Logo -->
+<h1 class="text-primary font-bold text-2xl font-mono tracking-wide mb-1">DeckForge</h1>
+
+<!-- Version Badge -->
+<p class="text-[10px] text-slate-500 font-mono">v1.4.2-beta</p>
+</div>
+
+<!-- Message Section -->
+<div class="mb-6">
+<!-- Title -->
+<h2 class="text-sm font-bold text-white uppercase tracking-widest mb-3">No Projects Found</h2>
+
+<!-- Description -->
+<p class="text-xs text-slate-400 leading-relaxed">Point DeckForge at a code directory to get started. It'll scan for project structure, detect your stack, and start generating suggestions.</p>
+</div>
+
+<!-- Action Cards -->
+<div class="w-full space-y-2">
+
+<!-- Card A: Open Directory (Selected) -->
+<div class="relative group">
+<!-- Selection Indicator (left accent bar) -->
+<div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
+<!-- Card Body -->
+<div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
+<!-- Corner Badge (A) -->
+<div class="absolute top-0 right-0 p-1.5 bg-primary text-black rounded-bl font-bold text-xs shadow-sm">A</div>
+<!-- Title -->
+<h3 class="text-primary font-bold text-sm mb-1 pr-6 truncate text-left">Open Directory</h3>
+<!-- Description -->
+<p class="text-xs text-slate-300 leading-snug mb-2 text-left">Browse your filesystem and pick a project folder.</p>
+<!-- Pill Badge -->
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">Recommended</span>
+</div>
+</div>
+</div>
+
+<!-- Card B: Paste a Path -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
+<!-- Corner Badge (B) -->
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-secondary/20 text-secondary border border-secondary/30 rounded-full font-bold text-[10px]">B</div>
+<!-- Title -->
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate text-left">Paste a Path</h3>
+<!-- Description -->
+<p class="text-xs text-slate-400 leading-snug mb-2 text-left">Type or paste an absolute path to a project.</p>
+<!-- Pill Badge -->
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">Quick</span>
+</div>
+</div>
+</div>
+
+<!-- Card X: Clone from Git -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
+<!-- Corner Badge (X) -->
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">X</div>
+<!-- Title -->
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate text-left">Clone from Git</h3>
+<!-- Description -->
+<p class="text-xs text-slate-400 leading-snug mb-2 text-left">Clone a repository and set it up automatically.</p>
+<!-- Pill Badge -->
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">Remote</span>
+</div>
+</div>
+</div>
+
+<!-- Card Y: Demo Mode -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
+<!-- Corner Badge (Y) -->
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">Y</div>
+<!-- Title -->
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate text-left">Demo Mode</h3>
+<!-- Description -->
+<p class="text-xs text-slate-400 leading-snug mb-2 text-left">Explore DeckForge with a sample project.</p>
+<!-- Pill Badge -->
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">Try it</span>
+</div>
+</div>
+</div>
+
+</div>
+
+<!-- Separator -->
+<div class="h-px bg-surface-border my-3 w-full"></div>
+
+<!-- Secondary Action Cards -->
+<div class="w-full space-y-2">
+
+<!-- Card LB: Settings -->
+<div class="relative group">
+<div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">LB</div>
+<span class="text-xs text-slate-300 font-medium text-left">Settings</span>
+</div>
+<span class="material-icons text-slate-500 text-sm">settings</span>
+</div>
+</div>
+
+<!-- Card RB: Help -->
+<div class="relative group">
+<div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">RB</div>
+<span class="text-xs text-slate-300 font-medium text-left">Help</span>
+</div>
+<span class="material-icons text-slate-500 text-sm">help_outline</span>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</main>
+
+<!-- Floating Bottom HUD -->
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+<div class="glass-panel px-6 py-2 rounded-full border border-surface-border/50 shadow-2xl flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">A</span>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Select</span>
+</div>
+<div class="w-px h-3 bg-slate-600"></div>
+<div class="flex items-center gap-2">
+<div class="grid grid-cols-3 gap-0.5 w-4 h-4 opacity-70">
+<div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+<div class="bg-slate-400 rounded-[1px]"></div><div class="bg-slate-800 rounded-[1px]"></div><div class="bg-slate-400 rounded-[1px]"></div>
+<div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+</div>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Nav</span>
+</div>
+<div class="w-px h-3 bg-slate-600"></div>
+<div class="flex items-center gap-2">
+<span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">START</span>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Back</span>
+</div>
+</div>
+</div>
+
+</body></html>

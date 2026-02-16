@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DeckForge - Error State</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df2f2",
+                        "primary-dim": "#089090",
+                        "secondary": "#f20dcf",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0d1117",
+                        "surface-dark": "#161b22",
+                        "surface-border": "#30363d",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for dense feeling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0df2f2;
+        }
+
+        .glass-panel {
+            background: rgba(22, 27, 34, 0.95);
+            backdrop-filter: blur(8px);
+        }
+
+        .code-syntax-keyword { color: #ff7b72; }
+        .code-syntax-string { color: #a5d6ff; }
+        .code-syntax-function { color: #d2a8ff; }
+        .code-syntax-comment { color: #8b949e; }
+        .code-syntax-cyan { color: #0df2f2; }
+
+        /* Scanline effect subtlety - barely visible texture */
+        .scan-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-300 font-display h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-black">
+<!-- Top Status Bar -->
+<header class="h-8 border-b border-surface-border bg-surface-dark flex items-center justify-between px-4 text-xs font-mono uppercase tracking-wider shrink-0 z-20">
+<div class="flex items-center gap-4">
+<span class="text-primary font-bold flex items-center gap-2">
+<span class="material-icons text-sm">terminal</span>
+                DeckForge
+            </span>
+<span class="text-slate-500">|</span>
+<span class="text-slate-300">Project: <span class="text-white">neo-dashboard-v2</span></span>
+<span class="text-slate-500">|</span>
+<span class="flex items-center gap-1 text-red-400">
+<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                Disconnected
+            </span>
+</div>
+<div class="flex items-center gap-4 text-slate-400">
+<span>RAM: 42%</span>
+<span>CPU: 12%</span>
+<span class="text-primary">v1.4.2-beta</span>
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="flex-1 flex overflow-hidden relative">
+<!-- Left: Terminal Log (Dense Layout) -->
+<section class="flex-1 flex flex-col min-w-0 border-r border-surface-border bg-background-dark relative">
+<!-- Terminal Header -->
+<div class="h-10 flex items-center justify-between px-4 border-b border-surface-border bg-surface-dark/50">
+<div class="flex items-center gap-2">
+<span class="text-primary font-mono text-sm">&gt; Claude Code Stream</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-400/20 text-red-400 border border-red-400/30">ERROR</span>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-surface-border text-[10px] text-slate-400 flex items-center gap-1">
+<span class="material-icons text-[10px]">attach_money</span>
+                        Cost: $0.03
+                    </span>
+<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-surface-border text-[10px] text-slate-400 flex items-center gap-1">
+<span class="material-icons text-[10px]">description</span>
+                        Scope: 1 File
+                    </span>
+</div>
+</div>
+<!-- Terminal Content -->
+<div class="flex-1 overflow-y-auto p-4 font-mono text-xs md:text-sm leading-relaxed scroll-smooth" id="terminal-content">
+<!-- Normal execution output -->
+<div class="mb-2">
+<div class="flex gap-2 text-slate-400">
+<span class="select-none text-slate-600">10:44:22</span>
+<span>Modifying auth.ts...</span>
+</div>
+</div>
+<div class="mb-2">
+<div class="flex gap-2 text-slate-400">
+<span class="select-none text-slate-600">10:44:25</span>
+<span>Running linter...</span>
+</div>
+</div>
+
+<!-- Error output -->
+<div class="mb-3">
+<div class="flex gap-2 text-red-400 font-bold">
+<span class="select-none text-slate-600">10:44:28</span>
+<span>ERROR: TypeScript compilation failed</span>
+</div>
+</div>
+
+<!-- Error detail block -->
+<div class="bg-[#0b0e11] border border-red-400/30 rounded p-3 mb-4">
+<pre class="whitespace-pre-wrap break-all text-xs leading-relaxed"><code><span class="text-red-400">error TS2345: Argument of type 'string' is not assignable</span>
+<span class="text-slate-400">  to parameter of type 'AuthConfig'.</span>
+
+<span class="text-primary">  src/middleware/auth.ts</span><span class="text-slate-600">:47:12</span>
+<span class="text-slate-600">    47 │</span> <span class="text-red-400">validateToken(rawToken)</span>
+<span class="text-slate-600">       │               ~~~~~~~~</span></code></pre>
+</div>
+
+<!-- Error aftermath -->
+<div class="mb-2">
+<div class="flex gap-2 text-red-400">
+<span class="select-none text-slate-600">10:44:29</span>
+<span>Claude Code stopped.</span>
+</div>
+</div>
+
+<div class="mb-2">
+<div class="flex gap-2 text-slate-400">
+<span class="select-none text-slate-600">10:44:30</span>
+<span>1 error found. The change could not be completed safely.</span>
+</div>
+</div>
+
+<div class="mb-4">
+<div class="flex gap-2 text-amber-400">
+<span class="select-none text-slate-600">10:44:31</span>
+<span>Automatically reverted: auth.ts → last known good state</span>
+</div>
+</div>
+
+<!-- Pulsing cursor -->
+<div class="text-slate-400 flex items-center gap-2">
+<span class="w-2 h-4 bg-red-400 animate-pulse block"></span>
+<span>Awaiting recovery action...</span>
+</div>
+</div>
+<!-- Scanline overlay -->
+<div class="absolute inset-0 scan-overlay z-10 pointer-events-none opacity-20"></div>
+</section>
+<!-- Right: Action Palette (Error Recovery) -->
+<aside class="w-[320px] md:w-[380px] bg-surface-dark border-l border-red-400/20 flex flex-col shrink-0 z-20 shadow-2xl">
+<div class="p-3 border-b border-red-400/20 bg-surface-dark">
+<h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Error Recovery</h2>
+<p class="text-[10px] text-slate-600">Something went wrong — choose how to proceed</p>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-2">
+<!-- Card A: Retry with Fix (Selected) -->
+<div class="relative group cursor-pointer">
+<!-- Selection Indicator (RED) -->
+<div class="absolute -left-2 top-0 bottom-0 w-1 bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.6)] rounded-r"></div>
+<div class="bg-[#1c242e] border-2 border-red-400/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
+<div class="absolute top-0 right-0 p-1.5 bg-red-400 text-black rounded-bl font-bold text-xs shadow-sm">A</div>
+<h3 class="text-red-400 font-bold text-sm mb-1 pr-6 truncate">Retry with Fix</h3>
+<p class="text-xs text-slate-300 leading-snug mb-2">Let Claude analyze the error and attempt an automatic fix.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-red-400/10 text-red-400 px-1.5 py-0.5 rounded border border-red-400/20">Auto-fix</span>
+</div>
+</div>
+</div>
+
+<!-- Card B: Undo and Go Back -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-red-400/20 hover:border-slate-600 p-3 rounded relative">
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-secondary/20 text-secondary border border-secondary/30 rounded-full font-bold text-[10px]">B</div>
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">Undo and Go Back</h3>
+<p class="text-xs text-slate-400 leading-snug mb-2">Revert all changes and return to suggestions.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-red-400/20">Safe revert</span>
+</div>
+</div>
+</div>
+
+<!-- Card X: View Error Details -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-red-400/20 hover:border-slate-600 p-3 rounded relative">
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">X</div>
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">View Error Details</h3>
+<p class="text-xs text-slate-400 leading-snug mb-2">Show the full error log and stack trace.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-red-400/20">Debug</span>
+</div>
+</div>
+</div>
+
+<!-- Card Y: Ignore and Continue -->
+<div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+<div class="bg-surface-dark border border-red-400/20 hover:border-slate-600 p-3 rounded relative">
+<div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">Y</div>
+<h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">Ignore and Continue</h3>
+<p class="text-xs text-slate-400 leading-snug mb-2">Skip this error and continue with remaining tasks. Use with caution.</p>
+<div class="flex items-center gap-2 text-[10px]">
+<span class="bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/20">Risky</span>
+</div>
+</div>
+</div>
+
+<!-- Separator -->
+<div class="h-px bg-surface-border my-1"></div>
+
+<!-- Card RB: Report Bug -->
+<div class="relative group">
+<div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">RB</div>
+<span class="text-xs text-slate-300 font-medium">Report Bug</span>
+</div>
+<span class="material-icons text-slate-500 text-sm">bug_report</span>
+</div>
+</div>
+
+<!-- Card LB: Copy Error Log -->
+<div class="relative group">
+<div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">LB</div>
+<span class="text-xs text-slate-300 font-medium">Copy Error Log</span>
+</div>
+<span class="material-icons text-slate-500 text-sm">content_copy</span>
+</div>
+</div>
+</div>
+
+<!-- Bottom hint -->
+<div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
+<p class="text-[10px] text-slate-500 font-mono">Use <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> to navigate cards</p>
+</div>
+</aside>
+
+<!-- Floating HUD (Bottom) -->
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+<div class="glass-panel px-6 py-2 rounded-full border border-surface-border/50 shadow-2xl flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">START</span>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Run</span>
+</div>
+<div class="w-px h-3 bg-slate-600"></div>
+<div class="flex items-center gap-2">
+<span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">SELECT</span>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Focus Log</span>
+</div>
+<div class="w-px h-3 bg-slate-600"></div>
+<div class="flex items-center gap-2">
+<div class="grid grid-cols-3 gap-0.5 w-4 h-4 opacity-70">
+<div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+<div class="bg-slate-400 rounded-[1px]"></div><div class="bg-slate-800 rounded-[1px]"></div><div class="bg-slate-400 rounded-[1px]"></div>
+<div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+</div>
+<span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Nav</span>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280, height=800">
+<title>DeckForge - Complete Screen Flow</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+    overflow: auto;
+    padding: 40px;
+  }
+  h1 {
+    font-size: 28px;
+    color: #00ff88;
+    text-align: center;
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(0,255,136,0.4);
+  }
+  .subtitle {
+    text-align: center;
+    color: #00ff8866;
+    font-size: 14px;
+    margin-bottom: 40px;
+  }
+
+  /* Flow diagram using CSS grid */
+  .flow-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .phase {
+    margin-bottom: 50px;
+    border: 1px solid #00ff8833;
+    border-radius: 8px;
+    padding: 24px;
+    background: #0d1117;
+  }
+  .phase-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #00ff8866;
+    margin-bottom: 16px;
+  }
+  .phase-title {
+    font-size: 20px;
+    color: #00ff88;
+    margin-bottom: 20px;
+  }
+
+  .screens-row {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .screen-card {
+    background: #111820;
+    border: 1px solid #00ff8844;
+    border-radius: 6px;
+    padding: 16px;
+    width: 220px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .screen-card.active {
+    border-color: #00ff88;
+    box-shadow: 0 0 15px rgba(0,255,136,0.2);
+  }
+  .screen-card h3 {
+    font-size: 14px;
+    color: #ffffff;
+    margin-bottom: 8px;
+  }
+  .screen-card p {
+    font-size: 11px;
+    color: #8899aa;
+    line-height: 1.5;
+  }
+  .screen-id {
+    font-size: 10px;
+    color: #00ff8866;
+    margin-bottom: 6px;
+  }
+
+  /* Arrows between cards */
+  .arrow {
+    display: flex;
+    align-items: center;
+    color: #00ff8844;
+    font-size: 24px;
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .arrow .label {
+    font-size: 9px;
+    color: #00ff8866;
+    white-space: nowrap;
+  }
+
+  /* Input mapping */
+  .input-badge {
+    display: inline-block;
+    background: #1a2533;
+    border: 1px solid #00ff8844;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: #00ff88;
+    margin: 2px;
+  }
+  .input-badge.trigger {
+    border-color: #ff8800;
+    color: #ff8800;
+  }
+  .input-badge.special {
+    border-color: #ff4488;
+    color: #ff4488;
+  }
+
+  .screen-mockup {
+    background: #0a0e14;
+    border: 1px solid #00ff8822;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 10px;
+    font-size: 9px;
+    color: #556677;
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  /* Transition table */
+  .transitions {
+    margin-top: 30px;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .transitions th {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #00ff8844;
+    color: #00ff88;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .transitions td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #00ff8811;
+    color: #8899aa;
+    font-size: 12px;
+  }
+  .transitions tr:hover td {
+    background: #111820;
+  }
+
+  .section-divider {
+    text-align: center;
+    color: #00ff8833;
+    font-size: 20px;
+    margin: 10px 0;
+    letter-spacing: 8px;
+  }
+
+  .note {
+    background: #1a1a0a;
+    border-left: 3px solid #ffaa00;
+    padding: 12px 16px;
+    margin-top: 16px;
+    font-size: 11px;
+    color: #ccaa44;
+    line-height: 1.6;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #667788;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  .global-controls {
+    background: #111820;
+    border: 1px solid #00ff8833;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 40px;
+  }
+  .global-controls h2 {
+    font-size: 16px;
+    color: #00ff88;
+    margin-bottom: 12px;
+  }
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+  }
+  .control-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #00ff8811;
+  }
+  .control-item .action {
+    color: #8899aa;
+    font-size: 12px;
+  }
+
+  /* State diagram SVG styles */
+  .state-diagram {
+    margin: 30px auto;
+    text-align: center;
+  }
+  .state-diagram svg text {
+    font-family: 'Courier New', monospace;
+  }
+
+  .flow-arrow-down {
+    text-align: center;
+    color: #00ff8844;
+    font-size: 28px;
+    margin: 10px 0;
+  }
+  .flow-arrow-down .label {
+    font-size: 10px;
+    color: #00ff8866;
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<h1>D E C K F O R G E</h1>
+<p class="subtitle">Complete Screen Flow & State Diagram v0.2</p>
+
+<!-- ==================== CORE PHILOSOPHY ==================== -->
+<div class="phase" style="border-color:#ff4488;background:#0d1117">
+  <div class="phase-label" style="color:#ff4488">Core Philosophy</div>
+  <div class="phase-title" style="color:#ff4488">> WHAT THIS APP ACTUALLY IS</div>
+
+  <div style="color:#bbccdd;font-size:13px;line-height:1.8">
+    <p><strong style="color:#fff">DeckForge is a side-by-side prompt engineering agent that only takes ABXY inputs.</strong></p>
+    <p style="margin-top:8px">It is a cute way to force users into plan mode. The user picks from predicted actions (A/B/X/Y + D-pad), the AI generates a plan, the user approves or rejects, the AI codes. The user never types. They are the creative director — steering, not driving.</p>
+
+    <p style="margin-top:16px"><strong style="color:#ff4488">LAYOUT: SPLIT SCREEN</strong></p>
+    <p style="margin-top:4px">Left panel = raw Claude Code terminal output. Fully visible. The user CAN see the code flying by — they just can't interact with it directly. This is the "vibes" — watching the machine think. Right panel = DeckForge interface: action palette, status, plans, QA reports, personality. RT switches to the app being built (fullscreen). LT comes back.</p>
+
+    <p style="margin-top:16px"><strong style="color:#ff4488">MICROPHONE IS A SAFETY HATCH — NOT PRIMARY INPUT</strong></p>
+    <p style="margin-top:4px">If we're falling back to mic input, we've done something wrong. The predicted actions, back buttons, and ABXY must be good enough that voice is rarely needed. Voice input should feel like pulling the emergency brake — available, clearly labeled, but slightly inconvenient on purpose. High friction. Maybe a 2-button combo (hold LB + press A), not just a single hold. The goal: make the predictions so good that you NEVER need to speak.</p>
+
+    <p style="margin-top:16px"><strong style="color:#ff4488">PERSONALITY EVERYWHERE</strong></p>
+    <p style="margin-top:4px">Every screen has quirky, slightly sassy randomized messages. Inspired by Claude Code's "canoodling" / "cogitating" style. Splash screen welcome messages, project select flavor text, loading messages, empty state jokes, error messages with personality. This app should feel alive and fun. These messages are a huge part of the brand. We need an UNGODLY amount of them — hundreds per screen context. They should be written by a human, not generated on the fly.</p>
+
+    <p style="margin-top:16px"><strong style="color:#ff4488">TWO MODES: DEVELOPMENT + EXPLORATION</strong></p>
+    <p style="margin-top:4px">Development mode = the core loop (build things). Exploration mode = discover project ideas, browse templates, get inspired. Exploration is a separate flow, not just an action in dev mode. It's for when you sit down on the couch and don't know what to build yet.</p>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#00ff88"></div> Face buttons (A/B/X/Y)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff8800"></div> Triggers / Bumpers</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff4488"></div> Special (Steam / Menu)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4488ff"></div> Sticks / D-pad</div>
+</div>
+
+<!-- Global Controls -->
+<div class="global-controls">
+  <h2>> GLOBAL CONTROLS (available on every screen)</h2>
+  <div class="controls-grid">
+    <div class="control-item">
+      <span class="action">Switch to App Preview</span>
+      <span class="input-badge trigger">RT (Right Trigger)</span>
+    </div>
+    <div class="control-item">
+      <span class="action">Switch to DeckForge</span>
+      <span class="input-badge trigger">LT (Left Trigger)</span>
+    </div>
+    <div class="control-item">
+      <span class="action">Voice Input (SAFETY HATCH: LB + A)</span>
+      <span class="input-badge trigger" style="border-color:#ff4444;color:#ff4444">LB + A (high friction)</span>
+    </div>
+    <div class="control-item">
+      <span class="action">Screenshot to Context</span>
+      <span class="input-badge trigger">RB (Right Bumper)</span>
+    </div>
+    <div class="control-item">
+      <span class="action">QA Mode</span>
+      <span class="input-badge special">Menu Button</span>
+    </div>
+    <div class="control-item">
+      <span class="action">Undo / Rollback</span>
+      <span class="input-badge special">View Button</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PHASE 1: BOOT ==================== -->
+<div class="phase">
+  <div class="phase-label">Phase 1</div>
+  <div class="phase-title">> BOOT & PROJECT SELECT</div>
+
+  <div class="screens-row">
+    <div class="screen-card active">
+      <div class="screen-id">S1.0</div>
+      <h3>Splash Screen</h3>
+      <p>Logo + randomized sassy welcome message + "Press any button". Sets the mood. 1-2 seconds.</p>
+      <div class="screen-mockup">
+  ==============================
+  |                            |
+  |      V I B E D E C K      |
+  |                            |
+  |  "oh, you're back. cute." |
+  |                            |
+  |     [ press any key ]      |
+  ==============================</div>
+      <div class="note" style="margin-top:8px;border-color:#ff4488">
+        <strong>REQ: Quirky welcome messages (100+ variants)</strong><br>
+        Examples of tone: "oh, you're back. cute." / "ready to pretend you're a developer?" / "the couch called. it said build something." / "another day another build" / "your Steam Deck missed you (I didn't)"<br>
+        Pre-written, not generated. Rotated randomly. Should feel like a friend roasting you.
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">any btn</span></div>
+
+    <div class="screen-card" style="width:260px">
+      <div class="screen-id">S1.1</div>
+      <h3>Project Select</h3>
+      <p>List of projects + "New Project" + <strong style="color:#ff4488">Explore Ideas</strong>. Randomized flavor text per project. Bottom bar shows mode options.</p>
+      <div class="screen-mockup">
+  "you've got 3 unfinished
+   masterpieces. classic."
+  -------------------------
+  > NEW PROJECT
+    EXPLORE IDEAS  [X]
+  -------------------------
+    my-drawing-app/
+      "last touched: 3 days
+       ago. it's getting cold"
+    todo-tracker/
+      "ironic."
+    snake-game/
+      "ssso close to done"
+  -------------------------
+  [A] Select  [Y] Delete
+  [X] Explore Ideas</div>
+      <div style="margin-top:8px">
+        <span class="input-badge" style="border-color:#4488ff;color:#4488ff">D-pad</span>
+        <span class="input-badge">A = Select</span>
+        <span class="input-badge">Y = Delete</span>
+        <span class="input-badge">X = Explore Ideas mode</span>
+      </div>
+      <div class="note" style="margin-top:8px;border-color:#ff4488">
+        <strong>REQ: Project select personality (50+ variants)</strong><br>
+        Per-project roasts rotate each visit. Empty states get their own humor pool.<br>
+        Header message rotates: "you've got 3 unfinished masterpieces" / "look at all these abandoned children" / "wow, commitment issues much?"
+      </div>
+    </div>
+
+    <div class="screen-card" style="width:260px;border-color:#ff4488;box-shadow:0 0 15px rgba(255,68,136,0.2)">
+      <div class="screen-id" style="color:#ff4488">S1.1b — EMPTY STATE</div>
+      <h3>No Projects Yet</h3>
+      <p>First-time or empty user. Fun message + 3 AI-suggested project ideas + explore mode.</p>
+      <div class="screen-mockup">
+  "a blank canvas. how
+   poetic. how terrifying."
+  -------------------------
+  > NEW PROJECT
+    EXPLORE IDEAS  [X]
+  -------------------------
+  OR TRY ONE OF THESE:
+
+  > Pixel Art Editor
+    "Bob Ross but lazier"
+
+    Mood Tracker
+    "feelings, gamified"
+
+    Space Invaders Clone
+    "legally distinct aliens"
+  -------------------------
+  [A] Select  [X] Explore</div>
+      <div class="note" style="margin-top:8px;border-color:#ff4488">
+        <strong>REQ: Empty state messages (50+ variants)</strong><br>
+        "a blank canvas. how poetic. how terrifying." / "no projects? that's fine. neither did Picasso at first. probably." / "the void stares back. want to fill it?"<br><br>
+        <strong>REQ: 3 suggested projects</strong> — AI-generated based on trending/fun ideas. Each has a one-liner description with personality. Rotate on each visit.
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">new proj</span></div>
+
+    <div class="screen-card">
+      <div class="screen-id">S1.2</div>
+      <h3>Pitch Your Idea</h3>
+      <p>Full-screen mic prompt. Hold LB and talk. Release to transcribe. Shows text, confirm with A or re-record with B.</p>
+      <div class="screen-mockup">
+  +----------------------------+
+  |                            |
+  |    [MIC] WHAT ARE WE       |
+  |        BUILDING?           |
+  |                            |
+  |   hold [LB] and talk       |
+  |                            |
+  |   "a pixel art editor      |
+  |    with layers and         |
+  |    an eyedropper..."       |
+  |                            |
+  |   [A] Go   [B] Re-rec     |
+  +----------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge trigger">LB = Record</span>
+        <span class="input-badge">A = Confirm</span>
+        <span class="input-badge">B = Redo</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    DECISION: "New Project" goes to S1.2 (Pitch). Existing project goes directly to S2.0 (Main Loop). "Explore Ideas" (X button) goes to S1.5 (Exploration Mode). After pitch confirmed, Claude Code initializes the project and we transition to S2.0.
+  </div>
+
+  <!-- Exploration Mode -->
+  <div style="margin-top:20px">
+    <div class="screens-row">
+      <div class="screen-card" style="width:340px;border-color:#ff4488;box-shadow:0 0 15px rgba(255,68,136,0.2)">
+        <div class="screen-id" style="color:#ff4488">S1.5 — EXPLORATION MODE</div>
+        <h3>Explore Ideas</h3>
+        <p>A separate mode from development. For when you sit down on the couch and don't know what to build. AI suggests ideas in categories. Browse, favorite, or jump into building.</p>
+        <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | EXPLORE IDEAS                  |
+ | "feeling creative? me neither"|
+ |-------------------------------|
+ | CATEGORIES:                    |
+ | > Games                       |
+ |   Tools + Utilities           |
+ |   Art + Creative              |
+ |   Just For Fun                |
+ |   Surprise Me                 |
+ |-------------------------------|
+ | GAMES:                         |
+ |  > Breakout w/ power-ups      |
+ |    "smash things. theraputic."|
+ |    Roguelike dungeon crawler  |
+ |    "die. learn. die again."   |
+ |    Virtual pet simulator      |
+ |    "neglect a fake animal"    |
+ |-------------------------------|
+ | [A] Build this  [X] More     |
+ | [B] Back  [Y] Shuffle all    |
+ +-------------------------------+</div>
+        <div style="margin-top:8px">
+          <span class="input-badge">A</span> Start building selected idea (goes to S1.2 pre-filled)<br>
+          <span class="input-badge">X</span> Load more ideas in category<br>
+          <span class="input-badge">Y</span> Shuffle all categories<br>
+          <span class="input-badge">B</span> Back to project select
+        </div>
+        <div class="note" style="margin-top:8px;border-color:#ff4488">
+          <strong>REQ: Exploration mode personality</strong><br>
+          Every idea has a one-liner roast/description. Categories have rotating headers. "Surprise Me" is literally random. The tone is: a friend who's seen too many hackathons suggesting dumb fun things to build.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px">
+    <div class="screens-row">
+      <div class="screen-card" style="width:300px;border-color:#ffaa00;box-shadow:0 0 15px rgba(255,170,0,0.2)">
+        <div class="screen-id" style="color:#ffaa00">S1.3 — NEW (from UX review)</div>
+        <h3>Initializing Project</h3>
+        <p>Loading screen after pitch confirmation. Claude Code is setting up the project. Shows progress so user knows something is happening.</p>
+        <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ |                               |
+ |   BUILDING YOUR PROJECT...    |
+ |                               |
+ |   "pixel art editor with      |
+ |    layers and eyedropper"     |
+ |                               |
+ |   > Setting up environment    |
+ |   > Installing dependencies   |
+ |   > Creating initial files    |
+ |                               |
+ |   =====-----------  ~25%     |
+ |                               |
+ +-------------------------------+</div>
+        <div style="margin-top:8px">
+          <span class="input-badge">B</span> Cancel (back to pitch)
+        </div>
+      </div>
+
+      <div class="screen-card" style="width:300px;border-color:#ff4444;box-shadow:0 0 15px rgba(255,68,68,0.2)">
+        <div class="screen-id" style="color:#ff4444">S-ERR — NEW (from UX review)</div>
+        <h3>Error State (global)</h3>
+        <p>Shown when Claude Code crashes, build fails, network drops, or voice transcription fails. Describes what went wrong + offers recovery.</p>
+        <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | [!] SOMETHING BROKE           |
+ |-------------------------------|
+ |                               |
+ |  Build failed:                |
+ |  "Module 'canvas' not found"  |
+ |                               |
+ |-------------------------------|
+ | > Let AI fix it               |
+ |   Rollback to last working    |
+ |   Retry                       |
+ |   Go to main menu             |
+ |-------------------------------|
+ | [A] Select   [B] Dismiss     |
+ +-------------------------------+</div>
+        <div style="margin-top:8px">
+          <span class="input-badge">A</span> Select recovery option<br>
+          <span class="input-badge">B</span> Dismiss (if non-fatal)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow-down">&#9660;<span class="label">project initialized by Claude Code</span></div>
+
+<!-- ==================== PHASE 2: MAIN LOOP ==================== -->
+<div class="phase">
+  <div class="phase-label">Phase 2 - The Core Loop</div>
+  <div class="phase-title">> MAIN CODING INTERFACE</div>
+
+  <div class="screens-row">
+    <div class="screen-card active" style="width:500px">
+      <div class="screen-id">S2.0</div>
+      <h3>Main HUD — SPLIT SCREEN LAYOUT</h3>
+      <p>This is where you spend 90% of your time. <strong style="color:#ff4488">LEFT = raw Claude Code terminal. RIGHT = DeckForge interface.</strong> User watches code fly by on the left (the vibes), interacts with the right panel only.</p>
+      <div class="screen-mockup" style="font-size:7px">
+ +-------------------------------+-------------------------------+
+ | RAW CLAUDE CODE (read-only)   | DECKFORGE        [*] CODING  |
+ |-------------------------------|-------------------------------|
+ |                               | "canoodling with your code"  |
+ | $ claude "add layers"         |                               |
+ |                               | STATUS: Adding layers system  |
+ | > Reading src/canvas.js...    |   Step 2/5: Layer panel      |
+ | > Found Canvas component      |   =========----  ~40%        |
+ | > Planning modifications:     |                               |
+ |   - Add Layer class           |-------------------------------|
+ |   - Create layer panel        | PREDICTED NEXT:               |
+ |   - Wire up renderer          |                               |
+ | > Writing src/Layer.js...     |  [>] Add brush sizes     [A] |
+ | > export class Layer {        |  [ ] Add color palette   [A] |
+ |     constructor(name) {       |  [ ] Add export as PNG   [A] |
+ |       this.name = name;       |  [ ] QA test everything  [A] |
+ |       this.visible = true;    |  [ ] Make it prettier    [A] |
+ |       this.opacity = 1.0;     |  [ ] Something else?         |
+ |     }                         |                               |
+ |   }                           |-------------------------------|
+ | > Writing tests...            | [A]Select [B]Back [RT]App    |
+ +-------------------------------+-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge" style="border-color:#4488ff;color:#4488ff">D-pad</span> Navigate predicted actions (right panel)<br>
+        <span class="input-badge">A</span> Select action (goes to plan confirmation)
+        <span class="input-badge">B</span> Cancel / back<br>
+        <span class="input-badge trigger">RT</span> Fullscreen app preview
+        <span class="input-badge" style="border-color:#4488ff;color:#4488ff">R-stick</span> Scroll Claude Code output (left panel)
+      </div>
+      <div class="note" style="margin-top:8px;border-color:#ff4488">
+        <strong>REQ: Status line personality (200+ variants)</strong><br>
+        The status area rotates quirky messages while AI works: "canoodling with your code" / "performing mass surgery" / "teaching electrons to dance" / "making files go brrr" / "contemplating the void (and your CSS)" / "aggressively typing"<br><br>
+        <strong>REQ: "Something else?" is the mic escape hatch</strong> — selecting it triggers voice input (LB+A combo). It's ALWAYS the last option, and it should feel like a last resort, not a first choice. The label should rotate too: "something else?" / "none of these? really?" / "fine, what do YOU want?" / "ugh, using words? ok"
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">A = select</span></div>
+
+    <div class="screen-card" style="width:320px;border-color:#ffaa00;box-shadow:0 0 15px rgba(255,170,0,0.2)">
+      <div class="screen-id" style="color:#ffaa00">S2.0b — PLAN CONFIRMATION</div>
+      <h3>Plan Confirmation (right panel)</h3>
+      <p>AI generates a plan BEFORE coding. User reviews and approves. Left panel shows Claude Code thinking. Right panel shows the plan. This is the whole point — <strong style="color:#ff4488">the app IS plan mode</strong>.</p>
+      <div class="screen-mockup" style="font-size:7px">
+ +-------------------------------+-------------------------------+
+ | RAW CLAUDE CODE                | [!] HERE'S MY PLAN           |
+ |-------------------------------|-------------------------------|
+ |                               | "Add layers system"           |
+ | > Analyzing codebase...       |                               |
+ | > Found 3 components          | "ok here's what I'm thinking" |
+ | > Canvas: 240 lines           |                               |
+ | > Toolbar: 89 lines           | 1. Create Layer data model   |
+ | > App: 45 lines               | 2. Add layer panel sidebar   |
+ |                               | 3. Wire up canvas to layers  |
+ | > Planning approach...        | 4. Add merge + reorder       |
+ |                               | 5. Run tests                 |
+ |                               |                               |
+ |                               | Est: ~2 min                  |
+ |                               |-------------------------------|
+ |                               | [A] Ship it  [B] Nah         |
+ |                               | [X] Tell me more  [Y] Yolo   |
+ +-------------------------------+-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge">A</span> Approve plan, start coding<br>
+        <span class="input-badge">B</span> Reject, back to action palette<br>
+        <span class="input-badge">X</span> Expand step details / ask questions<br>
+        <span class="input-badge">Y</span> "Yolo" — approve AND tell AI to be creative/experimental
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">A = approve</span></div>
+
+    <div class="screen-card" style="width:240px">
+      <div class="screen-id">S2.1</div>
+      <h3>AI Working</h3>
+      <p>Plan approved — AI starts executing. Action palette collapses, activity feed expands. User can play/test the app while waiting (RT).</p>
+      <p style="margin-top:6px;color:#bbccdd">A pulsing border or scanline effect signals "AI is driving". <strong style="color:#ffaa00">User can RT to preview/play the app while AI works in background.</strong></p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | pixel-editor   [*] CODING... |
+ |-------------------------------|
+ | Task: "Add layers system"     |
+ | Plan step 2/5: Layer panel    |
+ |                               |
+ | > Reading existing code...    |
+ | > Writing Layer class         |
+ | > Adding layer panel UI       |
+ |   =========----  ~60%        |
+ |                               |
+ |-------------------------------|
+ | [B] Interrupt  [RT] Play app |
+ +-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge">B</span> Interrupt AI<br>
+        <span class="input-badge trigger">RT</span> Play/test app while waiting
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">task done</span></div>
+
+    <div class="screen-card" style="width:240px">
+      <div class="screen-id">S2.2</div>
+      <h3>Task Complete</h3>
+      <p>AI finished. Brief summary of what was done. New predicted actions generated based on context. Returns to S2.0 with updated palette.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | pixel-editor   [OK] DONE     |
+ |-------------------------------|
+ |                               |
+ |  + Layers system added       |
+ |    - Layer class w/ opacity  |
+ |    - Layer panel sidebar     |
+ |    - Merge &amp; reorder         |
+ |                               |
+ |  What's next?                |
+ |-------------------------------|
+ |  > Test it (QA)              |
+ |    Add eyedropper tool       |
+ |    Add export as PNG         |
+ |    Try it out    [RT]        |
+ |    Something else [LB]       |
+ +-------------------------------+</div>
+    </div>
+  </div>
+
+  <div class="note">
+    KEY INSIGHT: The core loop is now S2.0 -> S2.0b -> S2.1 -> S2.2 -> S2.0. User picks action, reviews plan, approves, AI works, done, repeat. The plan step adds a critical "consider it" moment — the user stays in control without needing to type. During S2.1 (AI Working), user can RT to play/test the app instead of watching progress.
+  </div>
+</div>
+
+<!-- ==================== ACTION PALETTE DEEP DIVE ==================== -->
+<div class="phase" style="border-color:#ff4488;background:#0d1117">
+  <div class="phase-label" style="color:#ff4488">Design Specification</div>
+  <div class="phase-title" style="color:#ff4488">> THE ACTION PALETTE: LLM-GENERATED PROMPT ENGINEERING TREE</div>
+
+  <div style="color:#bbccdd;font-size:12px;line-height:1.8">
+    <p>The action palette is NOT a flat list of suggestions. It's a <strong style="color:#fff">branching prompt engineering tree</strong> where each ABXY press drills deeper into specificity. The LLM generates most options dynamically based on project context. <strong style="color:#ff4488">Y is ALWAYS something ridiculous.</strong></p>
+  </div>
+
+  <div class="screens-row" style="margin-top:16px">
+    <div class="screen-card" style="width:260px;border-color:#ff4488">
+      <div class="screen-id" style="color:#ff4488">LEVEL 1: Category</div>
+      <h3>"What do you wanna do today?"</h3>
+      <div class="screen-mockup" style="font-size:8px">
+ "what do you wanna do today?"
+
+ [A] Feature
+     "build something new"
+
+ [B] Bug
+     "fix something broken"
+
+ [X] Tech Debt
+     "clean up your mess"
+
+ [Y] Yolo
+     "let the AI cook"</div>
+      <div class="note" style="margin-top:8px;border-color:#ff4488;font-size:10px">
+        Level 1 is mostly static categories. The taglines rotate with personality.
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">A = Feature</span></div>
+
+    <div class="screen-card" style="width:260px;border-color:#ff4488">
+      <div class="screen-id" style="color:#ff4488">LEVEL 2: LLM-Generated Options</div>
+      <h3>"what kind of feature?"</h3>
+      <div class="screen-mockup" style="font-size:8px">
+ "pick a feature, any feature"
+
+ [A] Add dark mode
+     "because of course"
+
+ [B] Add search/filter
+     "find your own notes
+      for once"
+
+ [X] Reroll
+     "{with modifier}"
+
+ [Y] Add a secret disco mode
+     "why not?"
+
+ --------
+ [D-pad down] More options...
+ [RB] Reroll all</div>
+      <div class="note" style="margin-top:8px;border-color:#ff4488;font-size:10px">
+        <strong>A, B = sensible LLM suggestions</strong> based on project analysis.<br>
+        <strong>X = Reroll with modifier</strong> (cycles: "more ambitious" / "simpler" / "weirder" / "more useful").<br>
+        <strong>Y = ALWAYS chaotic</strong>. The AI generates something fun/absurd. This is the soul of the app.
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">A = dark mode</span></div>
+
+    <div class="screen-card" style="width:260px;border-color:#ffaa00">
+      <div class="screen-id" style="color:#ffaa00">LEVEL 3: Plan Confirmation (S2.0b)</div>
+      <h3>"here's my plan"</h3>
+      <div class="screen-mockup" style="font-size:8px">
+ "ok I'll add dark mode"
+
+ PLAN:
+ 1. Add theme context
+ 2. Create dark color palette
+ 3. Add toggle in settings
+ 4. Persist preference
+ 5. Test both themes
+
+ [A] Ship it
+ [B] Nah, go back
+ [X] Tell me more
+ [Y] Ship it but make
+     it unhinged</div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px">
+    <div class="screens-row">
+      <div class="screen-card" style="width:260px;border-color:#ff4488">
+        <div class="screen-id" style="color:#ff4488">IF USER PICKED "Bug" (B)</div>
+        <h3>Level 2: Bug Mode</h3>
+        <div class="screen-mockup" style="font-size:8px">
+ "what's broken this time?"
+
+ [A] AI-detected issue #1
+     "the save button doesn't
+      actually save. ironic."
+
+ [B] AI-detected issue #2
+     "dark mode makes text
+      invisible. stealth mode?"
+
+ [X] I'll describe it
+     (voice input: LB+A)
+
+ [Y] Fix everything
+     "scorched earth debugging"</div>
+      </div>
+
+      <div class="screen-card" style="width:260px;border-color:#ff4488">
+        <div class="screen-id" style="color:#ff4488">IF USER PICKED "Yolo" (Y)</div>
+        <h3>Level 2: Chaos Mode</h3>
+        <div class="screen-mockup" style="font-size:8px">
+ "you asked for it"
+
+ The AI just... does something.
+ No options. No plan review.
+ It analyzes the project and
+ adds whatever it thinks would
+ be the most interesting.
+
+ +------+
+ |ADDING|  "adding personality
+ |  ...  |  to your app. don't
+ |      |  worry about it."
+ +------+
+
+ [B] STOP  (only escape)</div>
+      </div>
+
+      <div class="screen-card" style="width:260px;border-color:#ff4488">
+        <div class="screen-id" style="color:#ff4488">IF USER PICKED "Tech Debt" (X)</div>
+        <h3>Level 2: Cleanup Mode</h3>
+        <div class="screen-mockup" style="font-size:8px">
+ "time to adult, huh?"
+
+ [A] Refactor messiest file
+     "src/app.js is 400 lines.
+      that's not a file, that's
+      a cry for help."
+
+ [B] Add tests
+     "you have 0 tests.
+      living dangerously."
+
+ [X] Performance audit
+     "make the fast thing
+      faster"
+
+ [Y] Delete unused code
+     "marie kondo your repo"</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="border-color:#ff4488;margin-top:16px">
+    <strong>ACTION PALETTE DESIGN RULES:</strong><br><br>
+    1. <strong>Y is ALWAYS chaotic/fun.</strong> Level 1 Yolo skips plan mode entirely. Level 2 Y options are absurd but buildable. Level 3 Y ("ship it but unhinged") tells the AI to add extra flair.<br><br>
+    2. <strong>A and B are always sensible LLM-generated options.</strong> Context-aware, project-specific. The AI analyzes the codebase to suggest these.<br><br>
+    3. <strong>X is meta/modifier.</strong> At Level 1 it's "Tech Debt." At Level 2 it's "Reroll with modifier." At Level 3 it's "Tell me more." It's the reflective button.<br><br>
+    4. <strong>D-pad scrolls for more options</strong> beyond the 4 ABXY slots. But ABXY should be enough 80% of the time.<br><br>
+    5. <strong>RB = Reroll all options.</strong> Regenerates the LLM suggestions. Good when nothing resonates.<br><br>
+    6. <strong>Every option has a one-liner personality tagline.</strong> LLM-generated, slightly sassy. These are half the fun.<br><br>
+    7. <strong>Bug mode auto-detects issues.</strong> The AI runs a quick analysis and surfaces known problems. The user doesn't have to describe bugs — the AI finds them.<br><br>
+    8. <strong>Voice input (LB+A) is only offered in Bug mode's X slot</strong> ("I'll describe it") — the one case where you genuinely need to explain something the AI can't auto-detect. This keeps mic usage minimal.
+  </div>
+</div>
+
+<div class="flow-arrow-down">&#9660;<span class="label">RT trigger at any time</span></div>
+
+<!-- ==================== PHASE 3: APP PREVIEW ==================== -->
+<div class="phase">
+  <div class="phase-label">Phase 3</div>
+  <div class="phase-title">> APP PREVIEW / LAUNCH MODE</div>
+
+  <div class="note" style="margin-bottom:20px;border-color:#ff4488">
+    <strong>CRITICAL DESIGN DECISION: App-Type Agnostic Launcher</strong><br>
+    People won't just build web apps. They'll build Pygame games, Godot projects, GTK/Qt desktop apps, CLI tools, Electron apps, Love2D games, Processing sketches — anything. DeckForge needs a flexible launch system, not "open a Chromium tab."<br><br>
+    <strong>Approach:</strong> DeckForge manages app launch via a configurable run command (auto-detected or user-set). On RT, it runs the command, focuses that window via wmctrl/xdotool, and DeckForge yields focus. On LT, DeckForge reclaims focus. The app runs as its own native process — DeckForge never wraps or embeds it.<br><br>
+    <strong>Auto-detection hierarchy:</strong> package.json scripts -> Makefile -> main.py -> index.html -> .godot project -> custom run command in settings.
+  </div>
+
+  <div class="screens-row">
+    <div class="screen-card active" style="width:300px">
+      <div class="screen-id">S3.0</div>
+      <h3>App Running (any type)</h3>
+      <p>The built app runs as its own native window/process. DeckForge yields focus entirely. A small floating overlay (always-on-top, transparent) in corner shows DeckForge status + key hints.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | [ANY app window runs here]    |
+ |                               |
+ |  Could be:                   |
+ |  - Pygame game window        |
+ |  - GTK desktop app           |
+ |  - Web app in Firefox        |
+ |  - Terminal running CLI      |
+ |  - Godot game engine         |
+ |                      +------+|
+ |                      |*idle ||
+ |                      +------+|
+ |-------------------------------|
+ | [LT] Back   [RB] Screenshot |
+ +-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge trigger">LT</span> Back to DeckForge (wmctrl focus switch)<br>
+        <span class="input-badge trigger">RB</span> Screenshot to context (scrot/grim)<br>
+        <span class="input-badge trigger">LB hold</span> Voice feedback<br>
+        <span class="input-badge" style="border-color:#cc44ff;color:#cc44ff">Back buttons</span> User-configured keybinds
+      </div>
+    </div>
+
+    <div class="arrow" style="width:60px">
+      &lt;-&gt;
+      <span class="label">LT / RT</span>
+    </div>
+
+    <div class="screen-card" style="width:300px">
+      <div class="screen-id">S3.1</div>
+      <h3>Screenshot Feedback</h3>
+      <p>After RB, screen capture via scrot (X11) or grim (Wayland). Works regardless of app type. Freeze + flash overlay, voice annotate option.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ |                               |
+ |   [frozen screenshot of      |
+ |    whatever app was running  |
+ |    — works for any window]   |
+ |                               |
+ |  +-------------------------+ |
+ |  | CAPTURED!               | |
+ |  | Hold LB to annotate     | |
+ |  | or A to send as-is      | |
+ |  +-------------------------+ |
+ |                               |
+ +-------------------------------+</div>
+    </div>
+
+    <div class="screen-card" style="width:300px;border-color:#ffaa00;box-shadow:0 0 15px rgba(255,170,0,0.2)">
+      <div class="screen-id" style="color:#ffaa00">S3.2 — NEW</div>
+      <h3>App Launch Config</h3>
+      <p>First time launching, or when auto-detect fails: user picks how to run the app. AI can suggest the command. Saved per-project.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | HOW TO RUN YOUR APP?          |
+ |-------------------------------|
+ |                               |
+ | Detected: package.json       |
+ |                               |
+ | > npm run dev  (auto)        |
+ |   python main.py              |
+ |   ./build/game                |
+ |   Custom command... [LB]     |
+ |                               |
+ |-------------------------------|
+ | [A] Select   [LB] Voice cmd |
+ | [B] Skip                     |
+ +-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge">A</span> Select run command<br>
+        <span class="input-badge trigger">LB</span> Voice a custom command<br>
+        <span class="input-badge">B</span> Skip (no preview yet)
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    The screenshot flow is critical. It's the primary way users give visual feedback. The optional voice annotation turns "here's what I see" into "here's what I see AND here's what's wrong." The AI receives both the image and the transcribed text.<br><br>
+    <strong>Window management under the hood:</strong> DeckForge uses xdotool/wmctrl to track its own window ID and the app's window ID (captured at launch). LT = <code>wmctrl -ia $DECKFORGE_WID</code>, RT = <code>wmctrl -ia $APP_WID</code>. If app has crashed (window gone), RT shows S-ERR with "App not running — relaunch?" option.
+  </div>
+</div>
+
+<div class="flow-arrow-down">&#9660;</div>
+
+<!-- ==================== PHASE 3b: KEYBIND CONFIG ==================== -->
+<div class="phase">
+  <div class="phase-label">Phase 3b — NEW</div>
+  <div class="phase-title">> KEYBIND & INPUT CONFIGURATION</div>
+
+  <div class="note" style="margin-bottom:20px;border-color:#cc44ff">
+    <strong>Steam Deck has 4 back grip buttons (L4, L5, R4, R5)</strong> that are fully programmable. Plus the trackpads can be configured as buttons on click. This gives us up to 6 extra inputs beyond the standard gamepad layout. DeckForge should let users map these to project-specific actions — and these binds should be saveable per-project since different app types need different things.
+  </div>
+
+  <div class="screens-row">
+    <div class="screen-card active" style="width:340px;border-color:#cc44ff;box-shadow:0 0 15px rgba(204,68,255,0.2)">
+      <div class="screen-id" style="color:#cc44ff">S6.0 — NEW</div>
+      <h3>Keybind Settings</h3>
+      <p>Accessible from Main HUD via Steam button or a dedicated settings action. Shows all mappable inputs and their current bindings. Per-project.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | KEYBINDS - pixel-editor       |
+ |-------------------------------|
+ | BACK GRIPS:                   |
+ |  L4: [Quick QA]              |
+ |  L5: [Undo last action]      |
+ |  R4: [Restart app]           |
+ |  R5: [Commit checkpoint]     |
+ |                               |
+ | TRACKPAD CLICKS:              |
+ |  L-pad click: [Toggle term]  |
+ |  R-pad click: [Focus app]    |
+ |                               |
+ | CUSTOM SHORTCUTS:             |
+ |  (voice-triggered macros)    |
+ |-------------------------------|
+ | [A] Edit  [X] Defaults       |
+ | [B] Back  [Y] Clear          |
+ +-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge">A</span> Edit selected binding<br>
+        <span class="input-badge">X</span> Reset to defaults<br>
+        <span class="input-badge">Y</span> Clear binding<br>
+        <span class="input-badge">B</span> Back to Main HUD
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">A = edit</span></div>
+
+    <div class="screen-card" style="width:300px;border-color:#cc44ff;box-shadow:0 0 15px rgba(204,68,255,0.2)">
+      <div class="screen-id" style="color:#cc44ff">S6.1 — NEW</div>
+      <h3>Edit Single Keybind</h3>
+      <p>Pick what an input does. Can bind to: DeckForge actions (QA, undo, commit, etc.), shell commands, AI prompt shortcuts, or app-specific keys.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | BIND: L4 (back left upper)    |
+ |-------------------------------|
+ |                               |
+ | DECKFORGE ACTIONS:            |
+ | > Quick QA                    |
+ |   Undo last                  |
+ |   Commit checkpoint          |
+ |   Restart app                |
+ |   Toggle terminal            |
+ |                               |
+ | SHELL COMMANDS:               |
+ |   Custom... [LB to voice]    |
+ |                               |
+ | AI PROMPTS:                   |
+ |   Custom... [LB to voice]    |
+ |-------------------------------|
+ | [A] Bind   [B] Cancel        |
+ +-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge">A</span> Assign this action<br>
+        <span class="input-badge">B</span> Cancel<br>
+        <span class="input-badge trigger">LB</span> Voice a custom command/prompt
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Default back-button bindings (sensible out of box):</strong><br>
+    L4 = Quick QA (same as Menu button — one-press test run)<br>
+    L5 = Undo last action (quick rollback without opening history)<br>
+    R4 = Restart/relaunch the app<br>
+    R5 = Git commit checkpoint ("save game")<br><br>
+    <strong>Shell command binds</strong> let power users do things like "L4 = run pytest" or "R5 = docker compose restart". <strong>AI prompt binds</strong> are even cooler — "L5 = send 'make it look better' to Claude Code." Basically saved voice commands as buttons.
+  </div>
+</div>
+
+<div class="flow-arrow-down">&#9660;<span class="label">Menu button from any screen</span></div>
+
+<!-- ==================== PHASE 4: QA MODE ==================== -->
+<div class="phase">
+  <div class="phase-label">Phase 4</div>
+  <div class="phase-title">> QA MODE</div>
+
+  <div class="screens-row">
+    <div class="screen-card active" style="width:300px">
+      <div class="screen-id">S4.0</div>
+      <h3>QA Running</h3>
+      <p>AI autonomously tests the app. Launches it, interacts with it, takes screenshots, compares against expected behavior. User just watches.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | pixel-editor  [?] QA MODE    |
+ |-------------------------------|
+ |                               |
+ | Testing: Canvas drawing       |
+ |   + Canvas renders            |
+ |   + Mouse draw works          |
+ |   X Color picker broken       |
+ |   > Testing layers...         |
+ |                               |
+ |   ==========---  75%         |
+ |                               |
+ |-------------------------------|
+ | [B] Stop   [RT] Watch live   |
+ +-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge">B</span> Stop QA<br>
+        <span class="input-badge trigger">RT</span> Watch AI interact with app
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">done</span></div>
+
+    <div class="screen-card" style="width:300px">
+      <div class="screen-id">S4.1</div>
+      <h3>QA Report</h3>
+      <p>Summary of what passed and what broke. Each failing item is a selectable action - "fix this" sends AI to repair it.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | QA REPORT - 5 tests           |
+ |-------------------------------|
+ |  + Canvas renders       PASS |
+ |  + Mouse drawing        PASS |
+ |  X Color picker         FAIL |
+ |  + Layer switching      PASS |
+ |  X Export PNG           FAIL |
+ |-------------------------------|
+ | > Fix color picker            |
+ |   Fix export                  |
+ |   Fix all (2 issues)          |
+ |   Ignore and continue         |
+ |-------------------------------|
+ | [A] Select   [B] Back        |
+ +-------------------------------+</div>
+    </div>
+  </div>
+
+  <div class="note">
+    "Fix all" is the lazy/trust option. "Fix [specific]" gives more control. Both route back to S2.1 (AI Working) then return here after fix.
+  </div>
+</div>
+
+<div class="flow-arrow-down">&#9660;<span class="label">View button from any screen</span></div>
+
+<!-- ==================== PHASE 5: UNDO / HISTORY ==================== -->
+<div class="phase">
+  <div class="phase-label">Phase 5</div>
+  <div class="phase-title">> UNDO / HISTORY</div>
+
+  <div class="screens-row">
+    <div class="screen-card active" style="width:340px">
+      <div class="screen-id">S5.0</div>
+      <h3>History Timeline</h3>
+      <p>Git-backed timeline of every action the AI took. Each entry is a commit. Scroll with D-pad, preview with A, rollback with Y.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ | HISTORY                       |
+ |-------------------------------|
+ | NOW ======================== |
+ |  o Added export as PNG       |
+ |  o Fixed color picker        |
+ |  o Added layer system        |
+ |  o Added color picker        |
+ |  > o Created canvas [HERE]   |
+ |  o Initial project setup     |
+ | START ====================== |
+ |-------------------------------|
+ | [A] Preview  [Y] Rollback    |
+ | [B] Cancel                   |
+ +-------------------------------+</div>
+      <div style="margin-top:8px">
+        <span class="input-badge" style="border-color:#4488ff;color:#4488ff">D-pad</span> Scroll<br>
+        <span class="input-badge">A</span> Preview this state
+        <span class="input-badge">Y</span> Rollback to here<br>
+        <span class="input-badge">B</span> Cancel
+      </div>
+    </div>
+
+    <div class="arrow">-&gt;<span class="label">Y = rollback</span></div>
+
+    <div class="screen-card" style="width:260px">
+      <div class="screen-id">S5.1</div>
+      <h3>Confirm Rollback</h3>
+      <p>Shows what will be undone. Requires confirmation. Uses git reset under the hood.</p>
+      <div class="screen-mockup" style="font-size:8px">
+ +-------------------------------+
+ |  WARNING: ROLLBACK            |
+ |                               |
+ |  Going back to:               |
+ |  "Created canvas"             |
+ |                               |
+ |  This will undo:              |
+ |  - Added color picker        |
+ |  - Added layer system        |
+ |  - Fixed color picker        |
+ |  - Added export as PNG       |
+ |                               |
+ |  [A] Confirm   [B] Cancel    |
+ +-------------------------------+</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow-down">&#9660;</div>
+
+<!-- ==================== COMPLETE STATE TRANSITIONS ==================== -->
+<div class="phase">
+  <div class="phase-label">Reference</div>
+  <div class="phase-title">> COMPLETE STATE TRANSITION TABLE</div>
+
+  <table class="transitions">
+    <tr>
+      <th>From</th>
+      <th>Input</th>
+      <th>To</th>
+      <th>Notes</th>
+    </tr>
+    <tr>
+      <td>S1.0 Splash</td>
+      <td>Any button</td>
+      <td>S1.1 Project Select</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>S1.1 Project Select</td>
+      <td>A on "New"</td>
+      <td>S1.2 Pitch</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>S1.1 Project Select</td>
+      <td>A on existing</td>
+      <td>S2.0 Main HUD</td>
+      <td>Resumes previous session</td>
+    </tr>
+    <tr>
+      <td>S1.2 Pitch</td>
+      <td>A (confirm)</td>
+      <td style="color:#ffaa00">S1.3 Initializing</td>
+      <td>Shows loading progress while Claude Code sets up</td>
+    </tr>
+    <tr>
+      <td>S1.2 Pitch</td>
+      <td>B</td>
+      <td>S1.2 re-record</td>
+      <td>Clears transcription</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S1.3 Initializing</td>
+      <td>Project ready</td>
+      <td>S2.0 Main HUD</td>
+      <td>Auto-transition when setup completes</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S1.3 Initializing</td>
+      <td>B</td>
+      <td>S1.2 Pitch</td>
+      <td>Cancel initialization</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S1.3 Initializing</td>
+      <td>Error</td>
+      <td>S-ERR Error</td>
+      <td>Build failed, dependency error, etc.</td>
+    </tr>
+    <tr><td colspan="4" style="border:none;padding:4px"></td></tr>
+    <tr>
+      <td>S2.0 Main HUD</td>
+      <td>A (select action)</td>
+      <td style="color:#ffaa00">S2.0b Plan Confirmation</td>
+      <td>AI generates plan for user review</td>
+    </tr>
+    <tr>
+      <td>S2.0 Main HUD</td>
+      <td>LB + voice</td>
+      <td style="color:#ffaa00">S2.0b Plan Confirmation</td>
+      <td>Voice transcribed, AI generates plan for review</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S2.0b Plan Confirm</td>
+      <td>A (approve)</td>
+      <td>S2.1 AI Working</td>
+      <td>Plan accepted, AI starts coding</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S2.0b Plan Confirm</td>
+      <td>B (reject)</td>
+      <td>S2.0 Main HUD</td>
+      <td>Back to action palette</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S2.0b Plan Confirm</td>
+      <td>LB + voice</td>
+      <td>S2.0b (updated)</td>
+      <td>Voice modifies plan, AI regenerates</td>
+    </tr>
+    <tr>
+      <td>S2.0 Main HUD</td>
+      <td>RT</td>
+      <td>S3.0 App Preview</td>
+      <td>Window switches to built app</td>
+    </tr>
+    <tr>
+      <td>S2.0 Main HUD</td>
+      <td>Menu</td>
+      <td>S4.0 QA Running</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>S2.0 Main HUD</td>
+      <td>View</td>
+      <td>S5.0 History</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>S2.1 AI Working</td>
+      <td>B</td>
+      <td>S2.0 Main HUD</td>
+      <td>Interrupts current task</td>
+    </tr>
+    <tr>
+      <td>S2.1 AI Working</td>
+      <td>Task completes</td>
+      <td>S2.2 Task Complete</td>
+      <td>Auto-transition</td>
+    </tr>
+    <tr>
+      <td>S2.2 Task Complete</td>
+      <td>A (select next)</td>
+      <td>S2.1 AI Working</td>
+      <td>New task starts</td>
+    </tr>
+    <tr><td colspan="4" style="border:none;padding:4px"></td></tr>
+    <tr>
+      <td>S3.0 App Preview</td>
+      <td>LT</td>
+      <td>S2.0 Main HUD</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>S3.0 App Preview</td>
+      <td>RB</td>
+      <td>S3.1 Screenshot</td>
+      <td>Captures current screen</td>
+    </tr>
+    <tr>
+      <td>S3.1 Screenshot</td>
+      <td>A</td>
+      <td>S3.0 App Preview</td>
+      <td>Screenshot added to context</td>
+    </tr>
+    <tr>
+      <td>S3.1 Screenshot</td>
+      <td>LB + voice, then A</td>
+      <td>S2.1 AI Working</td>
+      <td>Screenshot + annotation = new task</td>
+    </tr>
+    <tr><td colspan="4" style="border:none;padding:4px"></td></tr>
+    <tr>
+      <td>S4.0 QA Running</td>
+      <td>B</td>
+      <td>S2.0 Main HUD</td>
+      <td>Stops QA</td>
+    </tr>
+    <tr>
+      <td>S4.0 QA Running</td>
+      <td>Tests complete</td>
+      <td>S4.1 QA Report</td>
+      <td>Auto-transition</td>
+    </tr>
+    <tr>
+      <td>S4.1 QA Report</td>
+      <td>A on "fix"</td>
+      <td>S2.1 AI Working</td>
+      <td>AI fixes selected issue</td>
+    </tr>
+    <tr>
+      <td>S4.1 QA Report</td>
+      <td>A on "fix all"</td>
+      <td>S2.1 AI Working</td>
+      <td>AI fixes all issues sequentially</td>
+    </tr>
+    <tr>
+      <td>S4.1 QA Report</td>
+      <td>B</td>
+      <td>S2.0 Main HUD</td>
+      <td></td>
+    </tr>
+    <tr><td colspan="4" style="border:none;padding:4px"></td></tr>
+    <tr>
+      <td>S5.0 History</td>
+      <td>Y</td>
+      <td>S5.1 Confirm Rollback</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>S5.0 History</td>
+      <td>B</td>
+      <td>S2.0 Main HUD</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>S5.1 Rollback</td>
+      <td>A</td>
+      <td>S2.0 Main HUD</td>
+      <td>Git reset, app state restored</td>
+    </tr>
+    <tr>
+      <td>S5.1 Rollback</td>
+      <td>B</td>
+      <td>S5.0 History</td>
+      <td></td>
+    </tr>
+    <tr><td colspan="4" style="border:none;padding:4px"></td></tr>
+    <tr style="color:#cc44ff">
+      <td>S2.0 Main HUD</td>
+      <td>Steam button</td>
+      <td>S6.0 Keybind Settings</td>
+      <td>Open settings</td>
+    </tr>
+    <tr style="color:#cc44ff">
+      <td>S6.0 Keybind Settings</td>
+      <td>A (on binding)</td>
+      <td>S6.1 Edit Keybind</td>
+      <td></td>
+    </tr>
+    <tr style="color:#cc44ff">
+      <td>S6.0 Keybind Settings</td>
+      <td>B</td>
+      <td>S2.0 Main HUD</td>
+      <td>Save and return</td>
+    </tr>
+    <tr style="color:#cc44ff">
+      <td>S6.1 Edit Keybind</td>
+      <td>A (select action)</td>
+      <td>S6.0 Keybind Settings</td>
+      <td>Binding saved</td>
+    </tr>
+    <tr style="color:#cc44ff">
+      <td>S6.1 Edit Keybind</td>
+      <td>B</td>
+      <td>S6.0 Keybind Settings</td>
+      <td>Cancel edit</td>
+    </tr>
+    <tr><td colspan="4" style="border:none;padding:4px"></td></tr>
+    <tr style="color:#ffaa00">
+      <td>S3.0 App Running</td>
+      <td>RT (first time)</td>
+      <td>S3.2 App Launch Config</td>
+      <td>If no run command configured yet</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S3.2 App Launch Config</td>
+      <td>A (select cmd)</td>
+      <td>S3.0 App Running</td>
+      <td>Saves run command, launches app</td>
+    </tr>
+    <tr style="color:#ffaa00">
+      <td>S3.2 App Launch Config</td>
+      <td>B</td>
+      <td>S2.0 Main HUD</td>
+      <td>Skip — no app to preview yet</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== GAMEPAD MAPPING ==================== -->
+<div class="phase">
+  <div class="phase-label">Reference</div>
+  <div class="phase-title">> FULL GAMEPAD MAPPING</div>
+
+  <div class="screens-row" style="gap:30px">
+    <div style="flex:1">
+      <h3 style="color:#fff;margin-bottom:12px;font-size:14px">Face Buttons</h3>
+      <table class="transitions">
+        <tr><th>Button</th><th>Action</th></tr>
+        <tr><td><span class="input-badge">A</span></td><td>Confirm / Select</td></tr>
+        <tr><td><span class="input-badge">B</span></td><td>Cancel / Back / Interrupt</td></tr>
+        <tr><td><span class="input-badge">X</span></td><td>Details / Expand (context-sensitive)</td></tr>
+        <tr><td><span class="input-badge">Y</span></td><td>Destructive action (delete / rollback)</td></tr>
+      </table>
+    </div>
+
+    <div style="flex:1">
+      <h3 style="color:#fff;margin-bottom:12px;font-size:14px">Triggers and Bumpers</h3>
+      <table class="transitions">
+        <tr><th>Button</th><th>Action</th></tr>
+        <tr><td><span class="input-badge trigger">LT</span></td><td>Switch to DeckForge</td></tr>
+        <tr><td><span class="input-badge trigger">RT</span></td><td>Switch to App Preview</td></tr>
+        <tr><td><span class="input-badge trigger">LB hold</span></td><td>Voice input</td></tr>
+        <tr><td><span class="input-badge trigger">RB</span></td><td>Screenshot to Context</td></tr>
+      </table>
+    </div>
+
+    <div style="flex:1">
+      <h3 style="color:#fff;margin-bottom:12px;font-size:14px">Special and Sticks</h3>
+      <table class="transitions">
+        <tr><th>Button</th><th>Action</th></tr>
+        <tr><td><span class="input-badge special">Menu</span></td><td>QA Mode</td></tr>
+        <tr><td><span class="input-badge special">View</span></td><td>History / Undo</td></tr>
+        <tr><td><span class="input-badge special">Steam</span></td><td>Settings / Keybinds (S6.0)</td></tr>
+        <tr><td><span class="input-badge" style="border-color:#4488ff;color:#4488ff">L-Stick</span></td><td>Navigate action palette</td></tr>
+        <tr><td><span class="input-badge" style="border-color:#4488ff;color:#4488ff">R-Stick</span></td><td>Scroll activity feed</td></tr>
+        <tr><td><span class="input-badge" style="border-color:#4488ff;color:#4488ff">D-pad</span></td><td>Navigate lists / menus</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-top:20px">
+    <h3 style="color:#cc44ff;margin-bottom:12px;font-size:14px">Back Grip Buttons (configurable per-project)</h3>
+    <table class="transitions">
+      <tr><th>Button</th><th>Default Action</th><th>Notes</th></tr>
+      <tr><td><span class="input-badge" style="border-color:#cc44ff;color:#cc44ff">L4</span></td><td>Quick QA</td><td>Run test suite without opening QA screen</td></tr>
+      <tr><td><span class="input-badge" style="border-color:#cc44ff;color:#cc44ff">L5</span></td><td>Undo last action</td><td>Git revert last commit, no confirmation</td></tr>
+      <tr><td><span class="input-badge" style="border-color:#cc44ff;color:#cc44ff">R4</span></td><td>Restart app</td><td>Kill + relaunch the run command</td></tr>
+      <tr><td><span class="input-badge" style="border-color:#cc44ff;color:#cc44ff">R5</span></td><td>Commit checkpoint</td><td>"Save game" — git commit with auto-message</td></tr>
+    </table>
+    <p style="color:#8899aa;font-size:11px;margin-top:8px">All back buttons rebindable via S6.0 (Keybind Settings). Can map to DeckForge actions, shell commands, or saved AI prompts.</p>
+  </div>
+</div>
+
+<!-- ==================== OPEN QUESTIONS ==================== -->
+<div class="phase">
+  <div class="phase-label">Discussion</div>
+  <div class="phase-title">> OPEN QUESTIONS & EDGE CASES</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="note" style="margin:0">
+      <strong>1. Predicted Action Generation</strong><br>
+      How many predictions? Fixed 6? Dynamic 4-10? How are they categorized? Do we group by type (feature / fix / style / test)?
+    </div>
+    <div class="note" style="margin:0">
+      <strong>2. Error States</strong><br>
+      What happens when Claude Code crashes? When the built app crashes? When voice transcription fails? Need error screens for each.
+    </div>
+    <div class="note" style="margin:0;border-color:#00ff88">
+      <strong>3. Mini-Game During Long Tasks (CONFIRMED)</strong><br>
+      While AI codes, an embedded mini-game is playable (pinball, snake, etc). Could even embed Steam games in a window later. Start/stop with memory management so it doesn't eat resources. This is the killer UX differentiator — you're literally gaming while coding.
+    </div>
+    <div class="note" style="margin:0">
+      <strong>4. Context Window</strong><br>
+      Claude Code has context limits. Do we surface "context is getting full" to the user? Auto-compact? Let them "forget" old features?
+    </div>
+    <div class="note" style="margin:0">
+      <strong>5. Multiplayer?</strong><br>
+      Could two Steam Decks collaborate on the same project? One person tests while the other directs the AI? Future feature but worth thinking about.
+    </div>
+    <div class="note" style="margin:0">
+      <strong>6. Templates</strong><br>
+      Pre-built starting points? "Blank canvas", "Simple game", "Drawing app", "Dashboard"? Speeds up the pitch phase.
+    </div>
+    <div class="note" style="margin:0;border-color:#00ff88">
+      <strong>7. Deployment (Mac to Steam Deck)</strong><br>
+      App runs in Steam Deck's Desktop Mode (KDE/Arch Linux). Build as Electron or similar, push to GitHub, clone on Deck. Could also package as a Flatpak for easy install. Claude Code already runs on Linux — just needs Node.js.
+    </div>
+    <div class="note" style="margin:0;border-color:#00ff88">
+      <strong>8. Plan Confirmation Step (CONFIRMED)</strong><br>
+      From Mathew's mockup: Every action goes through a "plan review" before AI starts coding. User sees numbered steps, can approve (A), reject (B), or voice-modify (LB). This is the key UX insight — control without typing.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

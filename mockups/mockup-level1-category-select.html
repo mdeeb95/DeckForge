@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8" />
+<meta content="width=device-width, initial-scale=1.0" name="viewport" />
+<title>DeckForge — Level 1: Category Select</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "primary": "#0df2f2",
+                    "primary-dim": "#089090",
+                    "secondary": "#f20dcf",
+                    "background-light": "#f5f8f8",
+                    "background-dark": "#0d1117",
+                    "surface-dark": "#161b22",
+                    "surface-border": "#30363d",
+                },
+                fontFamily: {
+                    "display": ["Space Grotesk", "sans-serif"],
+                    "mono": ["JetBrains Mono", "monospace"],
+                },
+                borderRadius: {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "9999px",
+                },
+            },
+        },
+    }
+</script>
+<style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0d1117; }
+    ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #0df2f2; }
+
+    .glass-panel {
+        background: rgba(22, 27, 34, 0.95);
+        backdrop-filter: blur(8px);
+    }
+
+    .code-syntax-keyword { color: #ff7b72; }
+    .code-syntax-string { color: #a5d6ff; }
+    .code-syntax-function { color: #d2a8ff; }
+    .code-syntax-comment { color: #8b949e; }
+    .code-syntax-cyan { color: #0df2f2; }
+
+    .scan-overlay {
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+        background-size: 100% 4px;
+        pointer-events: none;
+    }
+</style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-300 font-display h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-black">
+
+<!-- Top Status Bar -->
+<header class="h-8 border-b border-surface-border bg-surface-dark flex items-center justify-between px-4 text-xs font-mono uppercase tracking-wider shrink-0 z-20">
+    <div class="flex items-center gap-4">
+        <span class="text-primary font-bold flex items-center gap-2">
+            <span class="material-icons text-sm">terminal</span>
+            DeckForge
+        </span>
+        <span class="text-slate-500">|</span>
+        <span class="text-slate-300">Project: <span class="text-white">neo-dashboard-v2</span></span>
+        <span class="text-slate-500">|</span>
+        <span class="flex items-center gap-1 text-emerald-400">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Connected
+        </span>
+    </div>
+    <div class="flex items-center gap-4 text-slate-400">
+        <span>RAM: 42%</span>
+        <span>CPU: 12%</span>
+        <span class="text-primary">v1.4.2-beta</span>
+    </div>
+</header>
+
+<!-- Main Workspace -->
+<main class="flex-1 flex overflow-hidden relative">
+
+    <!-- Left: Terminal Log -->
+    <section class="flex-1 flex flex-col min-w-0 border-r border-surface-border bg-background-dark relative">
+        <!-- Terminal Header -->
+        <div class="h-10 flex items-center justify-between px-4 border-b border-surface-border bg-surface-dark/50">
+            <div class="flex items-center gap-2">
+                <span class="text-primary font-mono text-sm">&gt; Claude Code Stream</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">IDLE</span>
+            </div>
+            <div class="flex gap-2">
+                <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-surface-border text-[10px] text-slate-400 flex items-center gap-1">
+                    <span class="material-icons text-[10px]">attach_money</span>
+                    Session: $0.00
+                </span>
+            </div>
+        </div>
+
+        <!-- Terminal Content -->
+        <div class="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed scroll-smooth">
+            <!-- Boot Sequence -->
+            <div class="mb-4 opacity-60">
+                <div class="flex gap-2 text-slate-500">
+                    <span class="select-none text-slate-600">14:20:01</span>
+                    <span>DeckForge v1.4.2-beta initialized</span>
+                </div>
+                <div class="flex gap-2 text-slate-500">
+                    <span class="select-none text-slate-600">14:20:01</span>
+                    <span>Scanning project workspace...</span>
+                </div>
+                <div class="flex gap-2 text-slate-500">
+                    <span class="select-none text-slate-600">14:20:02</span>
+                    <span>Detected: <span class="text-slate-300">TypeScript + React + Vite</span></span>
+                </div>
+                <div class="flex gap-2 text-slate-500">
+                    <span class="select-none text-slate-600">14:20:02</span>
+                    <span>Git status: on branch <span class="text-secondary">main</span> &mdash; clean</span>
+                </div>
+                <div class="flex gap-2 text-slate-500">
+                    <span class="select-none text-slate-600">14:20:03</span>
+                    <span>Claude Code SDK connected <span class="text-emerald-400">&check;</span></span>
+                </div>
+                <div class="flex gap-2 text-slate-500">
+                    <span class="select-none text-slate-600">14:20:03</span>
+                    <span>Prediction engine warming up...</span>
+                </div>
+            </div>
+
+            <!-- Ready Prompt -->
+            <div class="mb-6 pl-3 border-l-2 border-primary/50">
+                <div class="text-primary font-bold mb-1">SYSTEM</div>
+                <div class="text-slate-200">Ready. Select a category to begin. Predictions loaded for 4 categories.</div>
+            </div>
+
+            <!-- Prediction Context -->
+            <div class="mb-2">
+                <span class="text-secondary font-bold">CONTEXT</span>
+                <p class="text-slate-400 mt-1 mb-3 max-w-3xl">
+                    Analyzing <span class="text-slate-300 bg-slate-800 px-1 rounded">neo-dashboard-v2</span> &mdash; 47 files, 12 open issues, last commit 2h ago. Generating suggestions across <span class="text-primary">Feature</span>, <span class="text-secondary">Bug</span>, <span class="text-slate-300">Tech Debt</span>, and <span class="text-amber-400">Yolo</span> categories.
+                </p>
+            </div>
+
+            <!-- Recent activity summary -->
+            <div class="bg-[#0b0e11] border border-surface-border rounded p-3 mb-6 relative">
+                <div class="absolute top-2 right-2 text-[10px] text-slate-500">project summary</div>
+                <pre class="whitespace-pre-wrap break-all text-slate-400"><code>Last session:  3 features shipped, 1 bug fixed
+Open issues:   12 (4 bugs, 5 features, 3 tech debt)
+Test coverage: 74% <span class="text-amber-400">(target: 80%)</span>
+Bundle size:   248kb <span class="text-emerald-400">(under budget)</span>
+Last deploy:   2 hours ago <span class="text-emerald-400">&check;</span></code></pre>
+            </div>
+
+            <div class="text-slate-400 flex items-center gap-2 animate-pulse">
+                <span class="w-2 h-4 bg-primary block"></span>
+                <span>Awaiting category selection...</span>
+            </div>
+        </div>
+
+        <!-- Scanline overlay -->
+        <div class="absolute inset-0 scan-overlay z-10 pointer-events-none opacity-20"></div>
+    </section>
+
+    <!-- Right: Action Palette — Level 1 Category Select -->
+    <aside class="w-[320px] md:w-[380px] bg-surface-dark border-l border-surface-border flex flex-col shrink-0 z-20 shadow-2xl">
+        <div class="p-3 border-b border-surface-border bg-surface-dark">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">What Are We Doing?</h2>
+            <p class="text-[10px] text-slate-600">Pick a category to see suggestions</p>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-2 space-y-2">
+
+            <!-- Card A: Feature (Selected) -->
+            <div class="relative group cursor-pointer">
+                <!-- Selection Indicator -->
+                <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
+                <div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
+                    <div class="absolute top-0 right-0 p-1.5 bg-primary text-black rounded-bl font-bold text-xs shadow-sm">A</div>
+                    <h3 class="text-primary font-bold text-sm mb-1 pr-6">Feature</h3>
+                    <p class="text-xs text-slate-300 leading-snug mb-2 italic">build something new</p>
+                    <div class="flex items-center gap-2 text-[10px]">
+                        <span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">5 suggestions</span>
+                        <span class="text-slate-500">from open issues + context</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card B: Bug (Unselected) -->
+            <div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+                <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative transition-all">
+                    <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-secondary/20 text-secondary border border-secondary/30 rounded-full font-bold text-[10px]">B</div>
+                    <h3 class="text-white font-medium text-sm mb-1 pr-6">Bug</h3>
+                    <p class="text-xs text-slate-400 leading-snug mb-2 italic">fix something broken</p>
+                    <div class="flex items-center gap-2 text-[10px]">
+                        <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">4 suggestions</span>
+                        <span class="text-slate-500">from error logs + issues</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card X: Tech Debt (Unselected) -->
+            <div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+                <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative transition-all">
+                    <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">X</div>
+                    <h3 class="text-white font-medium text-sm mb-1 pr-6">Tech Debt</h3>
+                    <p class="text-xs text-slate-400 leading-snug mb-2 italic">pay down the mess</p>
+                    <div class="flex items-center gap-2 text-[10px]">
+                        <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">3 suggestions</span>
+                        <span class="text-slate-500">from lint + complexity</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Y: Yolo (Unselected) -->
+            <div class="relative group opacity-80 hover:opacity-100 transition-opacity">
+                <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative transition-all">
+                    <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full font-bold text-[10px]">Y</div>
+                    <h3 class="text-white font-medium text-sm mb-1 pr-6">Yolo</h3>
+                    <p class="text-xs text-slate-400 leading-snug mb-2 italic">surprise me, I'm feeling lucky</p>
+                    <div class="flex items-center gap-2 text-[10px]">
+                        <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">4 suggestions</span>
+                        <span class="text-slate-500">wild cards + experiments</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Separator -->
+            <div class="h-px bg-surface-border my-1"></div>
+
+            <!-- Secondary: Reroll -->
+            <div class="relative group">
+                <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">RB</div>
+                        <span class="text-xs text-slate-300 font-medium">Reroll All Predictions</span>
+                    </div>
+                    <span class="material-icons text-slate-500 text-sm">refresh</span>
+                </div>
+            </div>
+
+            <!-- Secondary: Settings -->
+            <div class="relative group">
+                <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">LB</div>
+                        <span class="text-xs text-slate-300 font-medium">Project Settings</span>
+                    </div>
+                    <span class="material-icons text-slate-500 text-sm">settings</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Action Hint -->
+        <div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
+            <p class="text-[10px] text-slate-500 font-mono">Use <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> to navigate &middot; <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> to select</p>
+        </div>
+    </aside>
+
+    <!-- Floating HUD (Bottom) -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+        <div class="glass-panel px-6 py-2 rounded-full border border-surface-border/50 shadow-2xl flex items-center gap-6">
+            <div class="flex items-center gap-2">
+                <span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">START</span>
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Menu</span>
+            </div>
+            <div class="w-px h-3 bg-slate-600"></div>
+            <div class="flex items-center gap-2">
+                <span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">SELECT</span>
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Focus Log</span>
+            </div>
+            <div class="w-px h-3 bg-slate-600"></div>
+            <div class="flex items-center gap-2">
+                <div class="grid grid-cols-3 gap-0.5 w-4 h-4 opacity-70">
+                    <div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+                    <div class="bg-slate-400 rounded-[1px]"></div><div class="bg-slate-800 rounded-[1px]"></div><div class="bg-slate-400 rounded-[1px]"></div>
+                    <div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+                </div>
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Nav</span>
+            </div>
+            <div class="w-px h-3 bg-slate-600"></div>
+            <div class="flex items-center gap-2">
+                <span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">LB+RB</span>
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Voice</span>
+            </div>
+        </div>
+    </div>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>DeckForge - Exploration Mode</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df2f2",
+                        "primary-dim": "#089090",
+                        "secondary": "#f20dcf",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0d1117",
+                        "surface-dark": "#161b22",
+                        "surface-border": "#30363d",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0df2f2;
+        }
+
+        .glass-panel {
+            background: rgba(22, 27, 34, 0.95);
+            backdrop-filter: blur(8px);
+        }
+
+        .code-syntax-keyword { color: #ff7b72; }
+        .code-syntax-string { color: #a5d6ff; }
+        .code-syntax-function { color: #d2a8ff; }
+        .code-syntax-comment { color: #8b949e; }
+        .code-syntax-cyan { color: #0df2f2; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-300 font-display h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-black">
+    <!-- Top Status Bar -->
+    <header class="h-8 border-b border-surface-border bg-surface-dark flex items-center justify-between px-4 text-xs font-mono uppercase tracking-wider shrink-0 z-20">
+        <div class="flex items-center gap-4">
+            <span class="text-primary font-bold flex items-center gap-2">
+                <span class="material-icons text-sm">terminal</span>
+                DeckForge
+            </span>
+            <span class="text-slate-500">|</span>
+            <span class="text-slate-300">Project: <span class="text-white">neo-dashboard-v2</span></span>
+            <span class="text-slate-500">|</span>
+            <span class="flex items-center gap-1 text-emerald-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                Connected
+            </span>
+        </div>
+        <div class="flex items-center gap-4 text-slate-400">
+            <span>RAM: 42%</span>
+            <span>CPU: 12%</span>
+            <span class="text-primary">v1.4.2-beta</span>
+        </div>
+    </header>
+
+    <!-- Main Content Area (Full-width, no split) -->
+    <main class="flex-1 flex overflow-hidden relative bg-background-dark">
+        <!-- Left: Conversation Area (~65%) -->
+        <section class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div class="flex-1 overflow-y-auto p-6">
+                <!-- Header -->
+                <div class="mb-8">
+                    <h1 class="text-xs font-bold text-primary uppercase tracking-widest mb-1">Exploration Mode</h1>
+                    <p class="text-xs text-slate-500">Ask anything about your codebase</p>
+                </div>
+
+                <!-- Conversation Thread -->
+                <div class="space-y-6 max-w-3xl">
+                    <!-- Message 1: User -->
+                    <div class="pl-3 border-l-2 border-primary/50">
+                        <div class="text-primary font-bold text-[10px] uppercase tracking-wider mb-2">User</div>
+                        <p class="text-sm text-slate-200">How is authentication handled in this project? I want to understand the flow before adding OAuth.</p>
+                    </div>
+
+                    <!-- Message 2: Claude Response -->
+                    <div class="pl-3 border-l-2 border-secondary/30">
+                        <div class="text-secondary font-bold text-[10px] uppercase tracking-wider mb-2">Claude</div>
+                        <p class="text-xs text-slate-300 leading-relaxed mb-3">
+                            The auth system uses JWT tokens stored in httpOnly cookies. The flow goes: LoginForm → /api/auth/login → validates against bcrypt hash → signs JWT → sets cookie. Token refresh happens in middleware. The relevant files are:
+                        </p>
+                        <div class="bg-[#0b0e11] border border-surface-border rounded p-2 text-[10px] font-mono space-y-1">
+                            <div class="text-primary">src/middleware/auth.ts</div>
+                            <div class="text-primary">src/routes/auth/login.ts</div>
+                            <div class="text-primary">src/lib/jwt.ts</div>
+                        </div>
+                    </div>
+
+                    <!-- Message 3: User Follow-up -->
+                    <div class="pl-3 border-l-2 border-primary/50">
+                        <div class="text-primary font-bold text-[10px] uppercase tracking-wider mb-2">User</div>
+                        <p class="text-sm text-slate-200">What would need to change to support OAuth alongside the existing JWT flow?</p>
+                    </div>
+
+                    <!-- Message 4: Claude Streaming Response -->
+                    <div class="pl-3 border-l-2 border-secondary/30">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-secondary font-bold text-[10px] uppercase tracking-wider">Claude</span>
+                            <span class="bg-secondary/20 text-secondary border border-secondary/30 text-[10px] rounded px-1.5 py-0.5">Thinking</span>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed flex items-center gap-2">
+                            To add OAuth support alongside JWT, you'd need to...
+                            <span class="w-2 h-4 bg-primary animate-pulse inline-block"></span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Cards (Bottom of conversation area) -->
+            <div class="border-t border-surface-border bg-background-dark/50 p-4">
+                <div class="flex items-center justify-center gap-3">
+                    <!-- Ask Follow-up -->
+                    <div class="bg-surface-dark border border-primary/30 p-2 rounded cursor-pointer hover:border-primary/50 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-primary">A</span>
+                            <span class="text-[10px] text-slate-300">Ask Follow-up</span>
+                        </div>
+                    </div>
+
+                    <!-- Go Back -->
+                    <div class="bg-surface-dark border border-secondary/30 p-2 rounded cursor-pointer hover:border-secondary/50 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-secondary">B</span>
+                            <span class="text-[10px] text-slate-300">Go Back</span>
+                        </div>
+                    </div>
+
+                    <!-- Save to Notes -->
+                    <div class="bg-surface-dark border border-slate-600 p-2 rounded cursor-pointer hover:border-slate-500 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-slate-300">X</span>
+                            <span class="text-[10px] text-slate-300">Save to Notes</span>
+                        </div>
+                    </div>
+
+                    <!-- Start Task -->
+                    <div class="bg-surface-dark border border-slate-600 p-2 rounded cursor-pointer hover:border-slate-500 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-slate-300">Y</span>
+                            <span class="text-[10px] text-slate-300">Start Task from This</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right: Context Sidebar (~35%) -->
+        <aside class="w-[35%] border-l border-surface-border bg-surface-dark flex flex-col shrink-0">
+            <!-- Context Header -->
+            <div class="p-3 border-b border-surface-border">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Context</h2>
+            </div>
+
+            <!-- File Cards -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-1.5">
+                <!-- File 1 -->
+                <div class="bg-background-dark border border-surface-border p-2 rounded">
+                    <div class="text-[10px] font-mono text-primary truncate">src/middleware/auth.ts</div>
+                    <div class="text-[10px] text-slate-500">JWT verification middleware</div>
+                </div>
+
+                <!-- File 2 -->
+                <div class="bg-background-dark border border-surface-border p-2 rounded">
+                    <div class="text-[10px] font-mono text-primary truncate">src/routes/auth/login.ts</div>
+                    <div class="text-[10px] text-slate-500">Login endpoint handler</div>
+                </div>
+
+                <!-- File 3 -->
+                <div class="bg-background-dark border border-surface-border p-2 rounded">
+                    <div class="text-[10px] font-mono text-primary truncate">src/lib/jwt.ts</div>
+                    <div class="text-[10px] text-slate-500">Token signing and refresh</div>
+                </div>
+
+                <!-- File 4 -->
+                <div class="bg-background-dark border border-surface-border p-2 rounded">
+                    <div class="text-[10px] font-mono text-primary truncate">src/types/auth.d.ts</div>
+                    <div class="text-[10px] text-slate-500">Auth type definitions</div>
+                </div>
+
+                <!-- File 5 -->
+                <div class="bg-background-dark border border-surface-border p-2 rounded">
+                    <div class="text-[10px] font-mono text-primary truncate">package.json</div>
+                    <div class="text-[10px] text-slate-500">Dependencies: jsonwebtoken, bcrypt</div>
+                </div>
+
+                <!-- Separator -->
+                <div class="h-px bg-surface-border my-2"></div>
+
+                <!-- Token Usage -->
+                <div>
+                    <div class="text-[10px] text-slate-500 font-bold uppercase mb-1">Token Usage</div>
+                    <div class="text-xs text-slate-300 font-mono mb-2">2,847 tokens</div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="flex-1 bg-slate-800 rounded-full h-1">
+                            <div class="bg-primary rounded-full h-1 w-[35%]"></div>
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-slate-500">35% of context window</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Floating Bottom HUD -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+        <div class="glass-panel px-6 py-2 rounded-full border border-surface-border/50 shadow-2xl flex items-center gap-6">
+            <div class="flex items-center gap-2">
+                <span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">START</span>
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Submit</span>
+            </div>
+            <div class="w-px h-3 bg-slate-600"></div>
+            <div class="flex items-center gap-2">
+                <span class="bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-white/10">SELECT</span>
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Focus Input</span>
+            </div>
+            <div class="w-px h-3 bg-slate-600"></div>
+            <div class="flex items-center gap-2">
+                <div class="grid grid-cols-3 gap-0.5 w-4 h-4 opacity-70">
+                    <div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+                    <div class="bg-slate-400 rounded-[1px]"></div><div class="bg-slate-800 rounded-[1px]"></div><div class="bg-slate-400 rounded-[1px]"></div>
+                    <div></div><div class="bg-slate-400 rounded-[1px]"></div><div></div>
+                </div>
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Nav</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
