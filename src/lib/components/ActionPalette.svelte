@@ -1,6 +1,72 @@
+<script lang="ts">
+  import ActionCard from './ActionCard.svelte';
+  import SecondaryCard from './SecondaryCard.svelte';
+
+  interface CardData {
+    button: string;
+    title: string;
+    description: string;
+    pills: { label: string; variant: 'active' | 'neutral' }[];
+    variant: 'primary' | 'secondary_pink' | 'neutral' | 'amber';
+  }
+
+  interface SecondaryCardData {
+    button: string;
+    label: string;
+    icon: string;
+  }
+
+  interface Props {
+    title?: string;
+    subtitle?: string;
+    cards?: CardData[];
+    secondaryCards?: SecondaryCardData[];
+    selectedIndex?: number;
+  }
+
+  let {
+    title = '',
+    subtitle = '',
+    cards = [],
+    secondaryCards = [],
+    selectedIndex = 0,
+  }: Props = $props();
+</script>
+
 <aside class="w-[320px] md:w-[380px] bg-surface-dark border-l border-surface-border flex flex-col shrink-0 z-20 shadow-2xl">
-  <div class="flex-1 overflow-y-auto p-2">
-    <p class="text-xs text-slate-500 p-3">No actions available</p>
+  {#if title}
+    <div class="p-3 border-b border-surface-border bg-surface-dark">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{title}</h2>
+      {#if subtitle}
+        <p class="text-[10px] text-slate-600">{subtitle}</p>
+      {/if}
+    </div>
+  {/if}
+
+  <div class="flex-1 overflow-y-auto p-2 space-y-2">
+    {#each cards as card, i}
+      <ActionCard
+        button={card.button}
+        title={card.title}
+        description={card.description}
+        pills={card.pills}
+        selected={i === selectedIndex}
+        variant={card.variant}
+      />
+    {/each}
+
+    {#if secondaryCards.length > 0}
+      <!-- Separator -->
+      <div class="h-px bg-surface-border my-1"></div>
+
+      {#each secondaryCards as card}
+        <SecondaryCard
+          button={card.button}
+          label={card.label}
+          icon={card.icon}
+        />
+      {/each}
+    {/if}
   </div>
 
   <!-- Bottom Action Hint -->

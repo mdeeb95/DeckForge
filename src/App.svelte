@@ -7,7 +7,7 @@
   import { entries, status, cost } from './lib/stores/terminal';
   import type { TerminalEntry } from './lib/stores/terminal';
 
-  // Sample entries matching the mockup
+  // Sample terminal entries matching the mockup
   const sampleEntries: TerminalEntry[] = [
     { type: 'timestamp', time: '14:20:01', message: 'DeckForge v0.1.0 initialized' },
     { type: 'timestamp', time: '14:20:01', message: 'Scanning project workspace...' },
@@ -27,6 +27,43 @@
   status.set('idle');
   cost.set('$0.00');
   sampleEntries.forEach(e => entries.addEntry(e));
+
+  // Level 1 category cards matching mockup
+  const level1Cards = [
+    {
+      button: 'A',
+      title: 'Feature',
+      description: 'build something new',
+      pills: [{ label: '5 suggestions', variant: 'active' as const }, ],
+      variant: 'primary' as const,
+    },
+    {
+      button: 'B',
+      title: 'Bug',
+      description: 'fix something broken',
+      pills: [{ label: '4 suggestions', variant: 'neutral' as const }],
+      variant: 'secondary_pink' as const,
+    },
+    {
+      button: 'X',
+      title: 'Tech Debt',
+      description: 'pay down the mess',
+      pills: [{ label: '3 suggestions', variant: 'neutral' as const }],
+      variant: 'neutral' as const,
+    },
+    {
+      button: 'Y',
+      title: 'Yolo',
+      description: 'surprise me, I\'m feeling lucky',
+      pills: [{ label: '4 suggestions', variant: 'neutral' as const }],
+      variant: 'amber' as const,
+    },
+  ];
+
+  const secondaryCards = [
+    { button: 'RB', label: 'Reroll All Predictions', icon: 'refresh' },
+    { button: 'LB', label: 'Project Settings', icon: 'settings' },
+  ];
 </script>
 
 <div class="h-screen w-screen flex flex-col overflow-hidden">
@@ -36,7 +73,13 @@
   <!-- Main Workspace -->
   <main class="flex-1 flex overflow-hidden relative">
     <TerminalPanel />
-    <ActionPalette />
+    <ActionPalette
+      title="What Are We Doing?"
+      subtitle="Pick a category to see suggestions"
+      cards={level1Cards}
+      {secondaryCards}
+      selectedIndex={0}
+    />
     <BottomHUD />
   </main>
 </div>
