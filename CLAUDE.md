@@ -7,7 +7,7 @@ Mathew (mdeeb95@gmail.com). Building DeckForge solo. Does not write code — fee
 | Field | Value |
 |-------|-------|
 | **DeckForge** | Steam Deck gamepad-only interface for Claude Code. Split-panel: terminal left, ABXY action palette right. |
-| **Stage** | Active build — executing 24 sequenced prompts. Currently around Prompt 13 (FastAPI backend). |
+| **Stage** | Active build — executing 24 sequenced prompts. Currently at Prompt 16 (screenshot + voice). |
 | **Repo** | ~/Documents/DeckForge (local), pushed to GitHub |
 | **Resolution** | 1280x800 fixed (Steam Deck native). No scroll — everything fits in viewport. |
 
@@ -21,7 +21,11 @@ Mathew (mdeeb95@gmail.com). Building DeckForge solo. Does not write code — fee
 | Prediction Engine | Dual-LLM system: generates suggestions for the right panel |
 | Ship It | A button on L3 — approve plan, Claude Code executes |
 | Ship It Unhinged | Y button on L3 — approve with extra creative freedom |
-| Reroll | RB — cycle through cached suggestion pairs |
+| Reroll | RB on L2 — cycle through cached suggestion pairs |
+| Screenshot Capture | RB globally (except L2) — captures screen, shows flash, opens feedback |
+| Screenshot Feedback | Post-capture screen: send to Claude, discard, voice annotate, or new task |
+| Voice Pitch | Voice input screen — Web Speech API transcription with idle/recording/done phases |
+| Flash Overlay | 200ms white flash on screenshot capture, mounted globally in App.svelte |
 | YOLO | Y button category at L1. Always ridiculous. Design rule. |
 | Stitch | External HTML mockup tool. Tends to drift from spec. |
 | Back grips | L4/L5/R4/R5 — configurable per project |
@@ -44,8 +48,11 @@ Mathew (mdeeb95@gmail.com). Building DeckForge solo. Does not write code — fee
 | 1-10 | Scaffold, UI, screens, gamepad, data model | Done |
 | 11 | Claude Code SDK integration | Done |
 | 12 | Prediction engine client (mock) | Done |
-| 13 | FastAPI backend | In progress |
-| 14-24 | Wire frontend, QA, deploy, packaging, Pong demo | Pending |
+| 13 | FastAPI backend | Done |
+| 14 | Wire Svelte frontend to FastAPI backend | Done |
+| 15 | Window management, app launching, auto-detect | Done |
+| 16 | Screenshot capture + voice input | Done |
+| 17-24 | QA, deploy, packaging, Pong demo | Pending |
 
 ## Design Rules
 - No scroll on any screen — 1280x800 is fixed, content must fit

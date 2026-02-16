@@ -3,15 +3,17 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# For SQLite fallback in dev, use aiosqlite
-if settings.database_url.startswith("sqlite"):
+# Use async_database_url to auto-convert postgresql:// → postgresql+asyncpg://
+db_url = settings.async_database_url
+
+if db_url.startswith("sqlite"):
     engine = create_async_engine(
-        settings.database_url,
+        db_url,
         echo=False,
     )
 else:
     engine = create_async_engine(
-        settings.database_url,
+        db_url,
         echo=False,
         pool_size=5,
         max_overflow=10,

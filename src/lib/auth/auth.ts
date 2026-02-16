@@ -9,7 +9,7 @@ import type { GlobalConfig, AuthToken } from '../types/data';
 let currentToken: AuthToken | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-const DEFAULT_BACKEND_URL = 'http://localhost:8000';
+const DEFAULT_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 const AUTH_FILE = 'auth.json';
 
 // ─── Tauri detection (mirrors data/config.ts) ────────────────────────────────

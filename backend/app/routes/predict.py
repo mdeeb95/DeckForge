@@ -221,47 +221,54 @@ def _log_to_langfuse(
     llm_response: LLMResponse,
     request: PredictRequest,
 ) -> None:
-    """Best-effort logging to Langfuse."""
+    """Best-effort logging to Langfuse (v3 SDK via env vars)."""
     settings = get_settings()
     if not settings.langfuse_secret_key:
         return
 
     try:
-        from langfuse import Langfuse
+        from langfuse import get_client, propagate_attributes
 
-        langfuse = Langfuse(
-            public_key=settings.langfuse_public_key,
-            secret_key=settings.langfuse_secret_key,
-            host=settings.langfuse_host,
-        )
+        langfuse = get_client()
 
-        trace = langfuse.trace(
-            id=trace_id,
+        with langfuse.start_as_current_observation(
+            as_type="span",
             name="prediction_call",
-            user_id=request.user_id,
-            metadata={
-                "project_type": request.context_payload.get("project", {}).get("type_detected", "unknown"),
-                "screen": call_type,
-            },
-        )
+            input={"call_type": call_type, "prompt": prompt[:500]},
+        ) as root:
+            with propagate_attributes(
+                user_id=request.user_id or "anonymous",
+                metadata={
+                    "project_type": request.context_payload.get("project", {}).get("type_detected", "unknown"),
+                    "screen": call_type,
+                    "deckforge_trace_id": trace_id,
+                },
+            ):
+                with langfuse.start_as_current_observation(
+                    as_type="generation",
+                    name=call_type,
+                    model=llm_response.model,
+                    input=prompt,
+                ) as generation:
+                    generation.update(
+                        output=llm_response.content,
+                        usage_details={
+                            "input": llm_response.input_tokens,
+                            "output": llm_response.output_tokens,
+                            "total": llm_response.input_tokens + llm_response.output_tokens,
+                        },
+                        metadata={
+                            "call_type": call_type,
+                            "latency_ms": llm_response.latency_ms,
+                        },
+                    )
 
-        trace.generation(
-            name=call_type,
-            model=llm_response.model,
-            model_parameters={"temperature": 0.8},
-            input=prompt,
-            output=llm_response.content,
-            usage={
-                "input": llm_response.input_tokens,
-                "output": llm_response.output_tokens,
-                "total": llm_response.input_tokens + llm_response.output_tokens,
-            },
-            metadata={
-                "call_type": call_type,
-                "latency_ms": llm_response.latency_ms,
-            },
-        )
+            root.update_trace(
+                input={"call_type": call_type},
+                output={"model": llm_response.model, "latency_ms": llm_response.latency_ms},
+            )
 
         langfuse.flush()
+        logger.info(f"Langfuse trace sent for {call_type}")
     except Exception as e:
-        logger.warning(f"Langfuse logging failed: {e}")
+        logger.warning(f"Langfuse logging failed: {e}", exc_info=True)

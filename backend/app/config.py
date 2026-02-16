@@ -22,11 +22,22 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 30
 
+    # CORS
+    allowed_origins: str = "tauri://localhost,http://localhost:1420,http://localhost:8000"
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
 
     model_config = {"env_file": ".env", "extra": "ignore"}
+
+    @property
+    def async_database_url(self) -> str:
+        """Convert DATABASE_URL to async driver format for SQLAlchemy."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
     @property
     def default_provider(self) -> str:

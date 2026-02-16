@@ -23,7 +23,7 @@ FAST_MODELS: dict[str, ModelConfig] = {
 MID_MODELS: dict[str, ModelConfig] = {
     "anthropic": ModelConfig("anthropic", "claude-sonnet-4-5-20250929", 2000, 0.7),
     "openai": ModelConfig("openai", "gpt-4o", 2000, 0.7),
-    "google": ModelConfig("google", "gemini-2.0-pro", 2000, 0.7),
+    "google": ModelConfig("google", "gemini-2.5-pro", 2000, 0.7),
 }
 
 # ─── Call Type → Tier Mapping ─────────────────────────────────────────────────
@@ -73,7 +73,7 @@ COST_PER_1K_TOKENS: dict[str, tuple[float, float]] = {
     "gpt-4o": (0.0025, 0.01),
     # Google
     "gemini-2.0-flash": (0.0001, 0.0004),
-    "gemini-2.0-pro": (0.00125, 0.005),
+    "gemini-2.5-pro": (0.00125, 0.005),
 }
 
 
