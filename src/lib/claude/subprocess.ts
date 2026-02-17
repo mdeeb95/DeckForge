@@ -88,25 +88,37 @@ export async function sendPrompt(
       cwd: options.projectPath,
     });
 
-    // Line-buffered stdout — each line is one JSON event
-    command.stdout.on('data', (line: string) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
+    // Accumulate stdout chunks and split on newlines.
+    // Tauri shell emits arbitrary OS-buffered chunks, NOT line-by-line.
+    let stdoutBuffer = '';
 
-      try {
-        const event = JSON.parse(trimmed) as ClaudeEvent;
+    command.stdout.on('data', (chunk: string) => {
+      stdoutBuffer += chunk;
 
-        // Capture session ID from init event
-        if (event.type === 'system' && event.subtype === 'init') {
-          state.sessionId = event.session_id;
+      // Split on newlines — each complete line is one JSON event
+      const lines = stdoutBuffer.split('\n');
+      // Keep the last element (may be incomplete)
+      stdoutBuffer = lines.pop() ?? '';
+
+      for (const raw of lines) {
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+
+        try {
+          const event = JSON.parse(trimmed) as ClaudeEvent;
+
+          // Capture session ID from init event
+          if (event.type === 'system' && event.subtype === 'init') {
+            state.sessionId = event.session_id;
+          }
+
+          if (event.type === 'result') gotResultEvent = true;
+          devLog('claude', `stdout event: ${event.type}`, event.type === 'result' ? event : undefined);
+          outputCallback?.(event);
+        } catch {
+          // Non-JSON line — show it instead of silently dropping
+          emitDiag(`[stdout non-JSON] (${trimmed.length} chars) ${trimmed.slice(0, 200)}`);
         }
-
-        if (event.type === 'result') gotResultEvent = true;
-        devLog('claude', `stdout event: ${event.type}`, event.type === 'result' ? event : undefined);
-        outputCallback?.(event);
-      } catch {
-        // Non-JSON line — show it instead of silently dropping
-        emitDiag(`[stdout non-JSON] ${trimmed.slice(0, 200)}`);
       }
     });
 
@@ -116,6 +128,18 @@ export async function sendPrompt(
     });
 
     command.on('close', (data: { code: number | null }) => {
+      // Flush any remaining buffer
+      if (stdoutBuffer.trim()) {
+        try {
+          const event = JSON.parse(stdoutBuffer.trim()) as ClaudeEvent;
+          if (event.type === 'result') gotResultEvent = true;
+          outputCallback?.(event);
+        } catch {
+          emitDiag(`[stdout buffer remainder] ${stdoutBuffer.trim().slice(0, 200)}`);
+        }
+        stdoutBuffer = '';
+      }
+
       emitDiag(`Process closed with code ${data.code}`);
       state.active = false;
       childProcess = null;
@@ -223,7 +247,7 @@ export function buildClaudeArgs(prompt: string, options: SessionOptions): string
   // Allowed tools
   if (options.allowedTools.length > 0) {
     for (const tool of options.allowedTools) {
-      args.push('--allowedTools', tool);
+      args.push('--allowed-tools', tool);
     }
   }
 

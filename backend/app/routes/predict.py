@@ -63,6 +63,8 @@ async def predict(
         "selected_scope": request.selected_scope or "",
         "modifier_lens": request.modifier_lens or "",
         "previously_shown_labels": request.previously_shown_labels or [],
+        "original_plan": request.original_plan or "",
+        "depth": request.depth or 1,
     }
 
     # 3. Render the prompt

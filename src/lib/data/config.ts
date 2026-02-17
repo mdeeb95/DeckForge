@@ -8,6 +8,7 @@ import {
   createDefaultProjectConfig,
   createDefaultProjectBehavior,
 } from './defaults';
+import { devLog, devError } from '../utils/devLog';
 
 // ─── Path helpers ────────────────────────────────────────────────────────────
 
@@ -49,13 +50,11 @@ async function writeJsonFile(path: string, data: unknown): Promise<void> {
 
 function validateSchemaVersion(data: { schema_version?: number }, filePath: string): void {
   if (!data.schema_version) {
-    console.warn(`Missing schema_version in ${filePath}, treating as v1`);
+    devLog('fs', `Missing schema_version in ${filePath}, treating as v1`);
     return;
   }
   if (data.schema_version > CURRENT_SCHEMA_VERSION) {
-    console.warn(
-      `${filePath} has schema_version ${data.schema_version} (newer than app v${CURRENT_SCHEMA_VERSION}). Loading in read-only mode.`
-    );
+    devLog('fs', `${filePath} has schema_version ${data.schema_version} (newer than app v${CURRENT_SCHEMA_VERSION}). Loading in read-only mode.`);
   }
   // Future: run migrations if data.schema_version < CURRENT_SCHEMA_VERSION
 }
@@ -71,7 +70,7 @@ function isTauri(): boolean {
 
 export async function loadGlobalConfig(): Promise<GlobalConfig> {
   if (!isTauri()) {
-    console.warn('Not running in Tauri, using default global config');
+    devLog('fs', 'Not running in Tauri, using default global config');
     return createDefaultGlobalConfig();
   }
 
@@ -91,7 +90,7 @@ export async function loadGlobalConfig(): Promise<GlobalConfig> {
     validateSchemaVersion(config, configPath);
     return config;
   } catch (error) {
-    console.error('Failed to load global config:', error);
+    devError('fs', 'Failed to load global config', error);
     return createDefaultGlobalConfig();
   }
 }
@@ -104,7 +103,7 @@ export async function saveGlobalConfig(config: GlobalConfig): Promise<void> {
     await ensureDir(configDir);
     await writeJsonFile(joinPath(configDir, 'global.json'), config);
   } catch (error) {
-    console.error('Failed to save global config:', error);
+    devError('fs', 'Failed to save global config', error);
   }
 }
 
@@ -132,7 +131,7 @@ export async function loadGlobalBehavior(): Promise<GlobalBehavior> {
     validateSchemaVersion(behavior, filePath);
     return behavior;
   } catch (error) {
-    console.error('Failed to load global behavior:', error);
+    devError('fs', 'Failed to load global behavior', error);
     return createDefaultGlobalBehavior();
   }
 }
@@ -145,7 +144,7 @@ export async function saveGlobalBehavior(behavior: GlobalBehavior): Promise<void
     await ensureDir(configDir);
     await writeJsonFile(joinPath(configDir, 'behavior-global.json'), behavior);
   } catch (error) {
-    console.error('Failed to save global behavior:', error);
+    devError('fs', 'Failed to save global behavior', error);
   }
 }
 
@@ -177,9 +176,18 @@ export async function loadProjectConfig(projectPath: string): Promise<ProjectCon
 
     const config = await readJsonFile<ProjectConfig>(configPath);
     validateSchemaVersion(config, configPath);
+
+    // SAFETY: Always use the incoming projectPath as canonical.
+    // The stored project.path may be stale from a previous run.
+    if (config.project.path !== projectPath) {
+      devLog('fs', `loadProjectConfig: correcting stale project.path from "${config.project.path}" to "${projectPath}"`);
+      config.project.path = projectPath;
+      await writeJsonFile(configPath, config);
+    }
+
     return config;
   } catch (error) {
-    console.error('Failed to load project config:', error);
+    devError('fs', 'Failed to load project config', error);
     const name = projectPath.split('/').pop() || 'project';
     return createDefaultProjectConfig(projectPath, name);
   }
@@ -195,7 +203,7 @@ export async function saveProjectConfig(
     await ensureProjectDirs(projectPath);
     await writeJsonFile(joinPath(getDeckforgeDir(projectPath), 'project.json'), config);
   } catch (error) {
-    console.error('Failed to save project config:', error);
+    devError('fs', 'Failed to save project config', error);
   }
 }
 
@@ -223,7 +231,7 @@ export async function loadBehavior(projectPath: string): Promise<ProjectBehavior
     validateSchemaVersion(behavior, filePath);
     return behavior;
   } catch (error) {
-    console.error('Failed to load project behavior:', error);
+    devError('fs', 'Failed to load project behavior', error);
     return createDefaultProjectBehavior();
   }
 }
@@ -238,7 +246,7 @@ export async function saveBehavior(
     await ensureProjectDirs(projectPath);
     await writeJsonFile(joinPath(getDeckforgeDir(projectPath), 'behavior.json'), behavior);
   } catch (error) {
-    console.error('Failed to save project behavior:', error);
+    devError('fs', 'Failed to save project behavior', error);
   }
 }
 

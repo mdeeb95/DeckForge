@@ -86,3 +86,25 @@ export interface SessionState {
   active: boolean;
   projectPath: string;
 }
+
+// ─── Session Reporting ──────────────────────────────────────────────────────
+
+export interface ClaudeSessionReport {
+  session_id: string;
+  prompt: string;
+  result: string;
+  is_error: boolean;
+  was_interrupted: boolean;
+  was_unhinged: boolean;
+  duration_ms: number;
+  duration_api_ms: number;
+  num_turns: number;
+  cost_usd: number;
+  total_cost_usd: number;
+  input_tokens: number;
+  output_tokens: number;
+  tools_used: string[];
+  files_affected: string[];
+  project_path: string;
+  prediction_trace_id?: string;
+}

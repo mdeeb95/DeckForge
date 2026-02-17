@@ -17,6 +17,10 @@ class PredictRequest(BaseModel):
     selected_scope: str | None = None
     category: str | None = None
 
+    # Level 3 expand-specific fields
+    original_plan: str | None = None
+    depth: int | None = None
+
     # Modifier/reroll context
     rejected_features_list: list[str] | None = None
     current_errors: list[str] | None = None

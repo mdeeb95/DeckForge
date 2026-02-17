@@ -7,8 +7,10 @@
   import { sendPrompt, onOutput, interrupt, getSessionState } from '../claude/subprocess';
   import { parseClaudeEvent, extractCost, extractScope } from '../claude/streamParser';
   import { projectConfig } from '../stores/configStores';
-  import type { ClaudeEvent } from '../claude/types';
+  import type { ClaudeEvent, ClaudeSessionReport } from '../claude/types';
   import { getRandomMessage } from '../personality/messages';
+  import { reportClaudeSession } from '../prediction/sessionReporter';
+  import { currentPlan, lastPlanTraceId, lastTraceId } from '../stores/prediction';
 
   let taskComplete = $state(false);
   let taskFailed = $state(false);
@@ -18,7 +20,38 @@
   let workingMessage = $state(getRandomMessage('ai_working'));
   let messageInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Session reporting state
+  let toolNames = $state<Set<string>>(new Set());
+  let filesAffected = $state<Set<string>>(new Set());
+  let sessionPrompt = $state('');
+  let wasUnhinged = $state(false);
+  let startTime = $state(0);
+
   function handleInterrupt() {
+    const config = get(projectConfig);
+    const sessionState = getSessionState();
+    const traceId = get(lastPlanTraceId) ?? get(lastTraceId) ?? undefined;
+
+    reportClaudeSession({
+      session_id: sessionState.sessionId ?? 'unknown',
+      prompt: sessionPrompt,
+      result: 'Interrupted by user',
+      is_error: false,
+      was_interrupted: true,
+      was_unhinged: wasUnhinged,
+      duration_ms: Date.now() - startTime,
+      duration_api_ms: 0,
+      num_turns: 0,
+      cost_usd: 0,
+      total_cost_usd: 0,
+      input_tokens: 0,
+      output_tokens: 0,
+      tools_used: [...toolNames],
+      files_affected: [...filesAffected],
+      project_path: config?.project.path ?? '.',
+      prediction_trace_id: traceId,
+    });
+
     interrupt();
     navigate('level1');
   }
@@ -75,6 +108,14 @@
         scope.set(extractScope(toolEvents));
       }
 
+      // Track tool names and affected files for session reporting
+      if (event.type === 'tool_use') {
+        toolNames.add(event.tool_name);
+        const input = event.tool_input;
+        if (input.file_path) filesAffected.add(input.file_path as string);
+        if (input.path) filesAffected.add(input.path as string);
+      }
+
       // Handle completion
       if (event.type === 'result') {
         cost.set(extractCost(event));
@@ -84,6 +125,29 @@
 
         if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
         if (messageInterval) { clearInterval(messageInterval); messageInterval = null; }
+
+        // Report session to backend for Langfuse observability
+        const config = get(projectConfig);
+        const traceId = get(lastPlanTraceId) ?? get(lastTraceId) ?? undefined;
+        reportClaudeSession({
+          session_id: event.session_id,
+          prompt: sessionPrompt,
+          result: event.result,
+          is_error: event.is_error,
+          was_interrupted: false,
+          was_unhinged: wasUnhinged,
+          duration_ms: event.duration_ms,
+          duration_api_ms: event.duration_api_ms,
+          num_turns: event.num_turns,
+          cost_usd: event.cost_usd ?? 0,
+          total_cost_usd: event.total_cost_usd ?? 0,
+          input_tokens: event.usage?.input_tokens ?? 0,
+          output_tokens: event.usage?.output_tokens ?? 0,
+          tools_used: [...toolNames],
+          files_affected: [...filesAffected],
+          project_path: config?.project.path ?? '.',
+          prediction_trace_id: traceId,
+        });
 
         // Update screenCards to show continue option
         if (!event.is_error) {
@@ -109,6 +173,9 @@
     const prompt = get(pendingClaudePrompt);
     if (prompt) {
       pendingClaudePrompt.set(null);
+      sessionPrompt = prompt;
+      wasUnhinged = prompt.includes('\n\nALSO:');
+      startTime = Date.now();
 
       entries.addEntry({
         type: 'prompt',

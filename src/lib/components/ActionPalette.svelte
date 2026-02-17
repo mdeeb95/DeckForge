@@ -25,6 +25,8 @@
     cards?: CardData[];
     secondaryCards?: SecondaryCardData[];
     selectedIndex?: number;
+    animatingButton?: string | null;
+    animationType?: 'glitch' | 'confirm' | null;
   }
 
   let {
@@ -35,6 +37,8 @@
     cards = [],
     secondaryCards = [],
     selectedIndex = 0,
+    animatingButton = null,
+    animationType = null,
   }: Props = $props();
 </script>
 
@@ -70,6 +74,7 @@
         selected={i === selectedIndex}
         variant={card.variant}
         onclick={card.onclick}
+        animationType={card.button === animatingButton ? animationType : null}
       />
     {/each}
 

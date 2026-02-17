@@ -111,6 +111,14 @@ export interface PlanResponse {
   cost_usd?: number;
 }
 
+// ─── Expanded Plan (Tell Me More) ────────────────────────────────────────────
+
+export interface ExpandedPlanResponse {
+  depth: number;
+  steps: Record<string, unknown>[];
+  commentary: string;
+}
+
 // ─── Cache Entry ─────────────────────────────────────────────────────────────
 
 export interface CacheDisplayState {

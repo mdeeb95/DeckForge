@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro Notes — DeckForge Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --primary: #0df2f2;
+    --secondary: #f20dcf;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --danger: #f85149;
+    --success: #3fb950;
+    --warning: #d29922;
+    --radius: 0.125rem;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Layout ──────────────────────────────────────────────────── */
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .app-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .app-title span { color: var(--text-dim); font-weight: 400; }
+  .main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ─── Timer Panel (left) ──────────────────────────────────────── */
+  .timer-panel {
+    width: 340px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+  }
+  .timer-display {
+    text-align: center;
+    padding: 28px 20px 16px;
+    position: relative;
+  }
+  .timer-mode {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .timer-mode.work { color: var(--primary); }
+  .timer-mode.short-break { color: var(--success); }
+  .timer-mode.long-break { color: var(--secondary); }
+
+  .timer-ring {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin: 0 auto 12px;
+  }
+  .timer-ring svg { transform: rotate(-90deg); }
+  .timer-ring .ring-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 6;
+  }
+  .timer-ring .ring-progress {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke 0.3s;
+  }
+  .timer-ring .ring-progress.work { stroke: var(--primary); }
+  .timer-ring .ring-progress.short-break { stroke: var(--success); }
+  .timer-ring .ring-progress.long-break { stroke: var(--secondary); }
+
+  .timer-time {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 42px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .timer-time.ending { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .session-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .session-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    transition: all 0.3s;
+  }
+  .session-dot.completed {
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 8px rgba(13, 242, 242, 0.4);
+  }
+  .session-dot.active {
+    border-color: var(--primary);
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+  @keyframes dotPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(13, 242, 242, 0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(13, 242, 242, 0); }
+  }
+
+  /* ─── Controls ────────────────────────────────────────────────── */
+  .controls {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 16px;
+    justify-content: center;
+  }
+  .ctrl-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    outline: none;
+  }
+  .ctrl-btn:hover, .ctrl-btn.focused { border-color: var(--primary); color: var(--primary); }
+  .ctrl-btn.primary-btn {
+    background: rgba(13, 242, 242, 0.1);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .ctrl-btn.danger-btn:hover, .ctrl-btn.danger-btn.focused { border-color: var(--danger); color: var(--danger); }
+  .ctrl-btn .badge {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-dim);
+  }
+
+  /* ─── Stats ───────────────────────────────────────────────────── */
+  .stats-section {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .stats-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--primary);
+  }
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* ─── Tomato Streak ───────────────────────────────────────────── */
+  .tomato-streak {
+    padding: 8px 20px 12px;
+    text-align: center;
+    min-height: 36px;
+  }
+  .tomato-streak .tomatoes {
+    font-size: 20px;
+    letter-spacing: 4px;
+    transition: all 0.3s;
+  }
+
+  /* ─── Gamepad Legend ───────────────────────────────────────────── */
+  .gamepad-legend {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    flex-shrink: 0;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .legend-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    min-width: 24px;
+    text-align: center;
+  }
+  .legend-key.a-btn { background: rgba(59, 165, 93, 0.2); color: var(--success); }
+  .legend-key.b-btn { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
+  .legend-key.x-btn { background: rgba(56, 132, 244, 0.2); color: #3884f4; }
+  .legend-key.y-btn { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+  .legend-key.rb-btn { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+  .legend-key.lb-btn { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+
+  /* ─── Notes Panel (right) ─────────────────────────────────────── */
+  .notes-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .notes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .notes-header-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .note-count {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .notes-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .note-textarea {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    resize: none;
+    outline: none;
+  }
+  .note-textarea::placeholder { color: var(--text-dim); opacity: 0.5; }
+  .note-textarea:focus {
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
+
+  .notes-list {
+    border-top: 1px solid var(--border);
+    max-height: 160px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .note-item {
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+  }
+  .note-item:hover, .note-item.focused { background: rgba(13, 242, 242, 0.04); }
+  .note-item.focused { border-left: 3px solid var(--primary); padding-left: 17px; }
+  .note-item-title {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70%;
+  }
+  .note-item-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+  .note-item-meta .tomato-badge { margin-left: 4px; }
+
+  /* ─── Session Overlay ─────────────────────────────────────────── */
+  .session-end-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .session-end-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .session-end-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 32px 48px;
+    text-align: center;
+    max-width: 420px;
+  }
+  .session-end-emoji {
+    font-size: 56px;
+    margin-bottom: 12px;
+    animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  @keyframes bounceIn {
+    0% { transform: scale(0); }
+    80% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  .session-end-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .session-end-subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+  .session-end-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  /* ─── Confetti ────────────────────────────────────────────────── */
+  .confetti-container {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 200;
+    overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 10px;
+    height: 10px;
+    opacity: 0;
+    animation: confettiFall 3s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+    100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+  }
+
+  /* ─── Notification Flash ──────────────────────────────────────── */
+  .notification-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 150;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s;
+  }
+  .notification-bar.active { transform: scaleX(1); }
+  .notification-bar.work { background: var(--primary); }
+  .notification-bar.break { background: var(--success); }
+
+  /* ─── Scrollbar ───────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- Notification bar -->
+<div class="notification-bar" id="notifBar"></div>
+
+<!-- Confetti container -->
+<div class="confetti-container" id="confettiContainer"></div>
+
+<!-- Session End Overlay -->
+<div class="session-end-overlay" id="sessionOverlay">
+  <div class="session-end-card">
+    <div class="session-end-emoji" id="overlayEmoji"></div>
+    <div class="session-end-title" id="overlayTitle"></div>
+    <div class="session-end-subtitle" id="overlaySubtitle"></div>
+    <div class="session-end-actions">
+      <button class="ctrl-btn primary-btn" id="overlayStartBtn" onclick="dismissOverlayAndStart()">
+        <span class="badge">A</span> Start Next
+      </button>
+      <button class="ctrl-btn" id="overlayDismissBtn" onclick="dismissOverlay()">
+        <span class="badge">B</span> Dismiss
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="app-header">
+  <div class="app-title">POMODORO <span>notes</span></div>
+  <div style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;" id="headerClock"></div>
+</div>
+
+<!-- Main Layout -->
+<div class="main-layout">
+
+  <!-- Timer Panel -->
+  <div class="timer-panel">
+    <div class="timer-display">
+      <div class="timer-mode" id="timerMode">WORK</div>
+      <div class="timer-ring">
+        <svg width="180" height="180" viewBox="0 0 180 180">
+          <circle class="ring-bg" cx="90" cy="90" r="82"></circle>
+          <circle class="ring-progress work" id="ringProgress" cx="90" cy="90" r="82"
+            stroke-dasharray="515.22" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="timer-time" id="timerTime">25:00</div>
+      </div>
+
+      <div class="session-dots" id="sessionDots">
+        <div class="session-dot"></div>
+        <div class="session-dot"></div>
+        <div class="session-dot"></div>
+        <div class="session-dot"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl-btn primary-btn" id="startBtn" onclick="toggleTimer()">
+        <span class="badge">A</span> Start
+      </button>
+      <button class="ctrl-btn danger-btn" id="resetBtn" onclick="resetTimer()">
+        <span class="badge">B</span> Reset
+      </button>
+      <button class="ctrl-btn" id="skipBtn" onclick="skipSession()">
+        <span class="badge">X</span> Skip
+      </button>
+    </div>
+
+    <div class="tomato-streak" id="tomatoStreak"></div>
+
+    <div class="stats-section">
+      <div class="stats-title">Today's Stats</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="statPomodoros">0</div>
+          <div class="stat-label">Pomodoros</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statMinutes">0</div>
+          <div class="stat-label">Focus min</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statStreak">0</div>
+          <div class="stat-label">Best streak</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statNotes">0</div>
+          <div class="stat-label">Notes</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gamepad-legend">
+      <div class="legend-item"><span class="legend-key a-btn">A</span> Start/Pause</div>
+      <div class="legend-item"><span class="legend-key b-btn">B</span> Reset</div>
+      <div class="legend-item"><span class="legend-key x-btn">X</span> Skip</div>
+      <div class="legend-item"><span class="legend-key y-btn">Y</span> New Note</div>
+      <div class="legend-item"><span class="legend-key rb-btn">RB</span> Next Note</div>
+      <div class="legend-item"><span class="legend-key lb-btn">LB</span> Prev Note</div>
+    </div>
+  </div>
+
+  <!-- Notes Panel -->
+  <div class="notes-panel">
+    <div class="notes-header">
+      <div class="notes-header-title" id="notesHeaderTitle">Notes</div>
+      <div class="note-count" id="noteCount">0 notes</div>
+    </div>
+    <div class="notes-editor">
+      <textarea class="note-textarea" id="noteTextarea"
+        placeholder="Start writing... your thoughts are saved automatically.&#10;&#10;Tip: Focus works best in 25-minute bursts."></textarea>
+    </div>
+    <div class="notes-list" id="notesList"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── Audio Context (Web Audio API for notifications) ─────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playTone(freq, duration, type = 'sine', volume = 0.3) {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(volume, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + duration);
+}
+
+function playWorkComplete() {
+  // Ascending chime — rewarding
+  playTone(523, 0.15, 'sine', 0.3);
+  setTimeout(() => playTone(659, 0.15, 'sine', 0.3), 120);
+  setTimeout(() => playTone(784, 0.25, 'sine', 0.35), 240);
+  setTimeout(() => playTone(1047, 0.4, 'sine', 0.25), 400);
+}
+
+function playBreakComplete() {
+  // Two quick pings
+  playTone(880, 0.12, 'sine', 0.25);
+  setTimeout(() => playTone(880, 0.12, 'sine', 0.25), 180);
+}
+
+function playVictory() {
+  // Fanfare for 10th pomodoro
+  const notes = [523, 659, 784, 1047, 784, 1047, 1319];
+  notes.forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.2, 'sine', 0.3), i * 130);
+  });
+}
+
+function playNewNote() {
+  playTone(660, 0.08, 'sine', 0.15);
+}
+
+// ─── Confetti ────────────────────────────────────────────────────────────────
+function launchConfetti() {
+  const container = document.getElementById('confettiContainer');
+  const colors = ['#0df2f2', '#f20dcf', '#3fb950', '#d29922', '#f85149', '#fff'];
+  for (let i = 0; i < 80; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.animationDelay = Math.random() * 1.5 + 's';
+    piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+    piece.style.width = (6 + Math.random() * 8) + 'px';
+    piece.style.height = (6 + Math.random() * 8) + 'px';
+    container.appendChild(piece);
+  }
+  setTimeout(() => { container.innerHTML = ''; }, 4000);
+}
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const WORK_DURATION = 25 * 60;
+const SHORT_BREAK = 5 * 60;
+const LONG_BREAK = 15 * 60;
+const RING_CIRCUMFERENCE = 2 * Math.PI * 82; // ~515.22
+
+let timerState = {
+  mode: 'work',         // 'work' | 'short-break' | 'long-break'
+  timeRemaining: WORK_DURATION,
+  totalTime: WORK_DURATION,
+  running: false,
+  sessionsCompleted: 0,  // in current cycle (resets at 4)
+  pomodorosToday: 0,
+  focusMinutesToday: 0,
+  bestStreak: 0,
+  currentStreak: 0,
+};
+
+let notes = [];
+let currentNoteIndex = -1;
+let focusedNoteListIndex = -1;
+let timerInterval = null;
+let saveDebounce = null;
+let overlayVisible = false;
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'pomodoro_state';
+const NOTES_KEY = 'pomodoro_notes';
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function saveState() {
+  const data = {
+    mode: timerState.mode,
+    timeRemaining: timerState.timeRemaining,
+    totalTime: timerState.totalTime,
+    running: timerState.running,
+    sessionsCompleted: timerState.sessionsCompleted,
+    pomodorosToday: timerState.pomodorosToday,
+    focusMinutesToday: timerState.focusMinutesToday,
+    bestStreak: timerState.bestStreak,
+    currentStreak: timerState.currentStreak,
+    savedAt: Date.now(),
+    date: getTodayKey(),
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    // Reset daily stats if new day
+    if (data.date !== getTodayKey()) {
+      data.pomodorosToday = 0;
+      data.focusMinutesToday = 0;
+      data.currentStreak = 0;
+    }
+    // If timer was running, subtract elapsed time
+    if (data.running && data.savedAt) {
+      const elapsed = Math.floor((Date.now() - data.savedAt) / 1000);
+      data.timeRemaining = Math.max(0, data.timeRemaining - elapsed);
+    }
+    Object.assign(timerState, {
+      mode: data.mode || 'work',
+      timeRemaining: data.timeRemaining ?? WORK_DURATION,
+      totalTime: data.totalTime ?? WORK_DURATION,
+      running: false, // don't auto-resume — let user press A
+      sessionsCompleted: data.sessionsCompleted || 0,
+      pomodorosToday: data.pomodorosToday || 0,
+      focusMinutesToday: data.focusMinutesToday || 0,
+      bestStreak: data.bestStreak || 0,
+      currentStreak: data.currentStreak || 0,
+    });
+  } catch {}
+}
+
+function saveNotes() {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+}
+
+function loadNotes() {
+  try {
+    const raw = localStorage.getItem(NOTES_KEY);
+    if (raw) notes = JSON.parse(raw);
+    if (!notes.length) {
+      notes = [{ id: Date.now(), title: 'Welcome', body: '', created: Date.now(), pomodoros: 0 }];
+      currentNoteIndex = 0;
+    } else {
+      currentNoteIndex = 0;
+    }
+  } catch {
+    notes = [{ id: Date.now(), title: 'Welcome', body: '', created: Date.now(), pomodoros: 0 }];
+    currentNoteIndex = 0;
+  }
+}
+
+// ─── Timer Logic ─────────────────────────────────────────────────────────────
+function toggleTimer() {
+  if (timerState.running) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  if (timerState.running) return;
+  timerState.running = true;
+  timerInterval = setInterval(timerTick, 1000);
+  updateControls();
+  saveState();
+}
+
+function pauseTimer() {
+  timerState.running = false;
+  clearInterval(timerInterval);
+  timerInterval = null;
+  updateControls();
+  saveState();
+}
+
+function resetTimer() {
+  pauseTimer();
+  timerState.mode = 'work';
+  timerState.timeRemaining = WORK_DURATION;
+  timerState.totalTime = WORK_DURATION;
+  timerState.sessionsCompleted = 0;
+  timerState.currentStreak = 0;
+  updateDisplay();
+  saveState();
+}
+
+function skipSession() {
+  pauseTimer();
+  advanceSession(true);
+}
+
+function timerTick() {
+  timerState.timeRemaining--;
+
+  if (timerState.mode === 'work') {
+    timerState.focusMinutesToday = Math.round(
+      (timerState.pomodorosToday * 25) + (WORK_DURATION - timerState.timeRemaining) / 60
+    );
+  }
+
+  if (timerState.timeRemaining <= 0) {
+    pauseTimer();
+    advanceSession(false);
+    return;
+  }
+
+  updateDisplay();
+
+  // Save every 10 seconds to avoid localStorage spam
+  if (timerState.timeRemaining % 10 === 0) saveState();
+}
+
+function advanceSession(skipped) {
+  if (timerState.mode === 'work' && !skipped) {
+    // Completed a pomodoro!
+    timerState.pomodorosToday++;
+    timerState.sessionsCompleted++;
+    timerState.currentStreak++;
+    timerState.focusMinutesToday = timerState.pomodorosToday * 25;
+    if (timerState.currentStreak > timerState.bestStreak) {
+      timerState.bestStreak = timerState.currentStreak;
+    }
+
+    // Attribute to current note
+    if (currentNoteIndex >= 0 && notes[currentNoteIndex]) {
+      notes[currentNoteIndex].pomodoros = (notes[currentNoteIndex].pomodoros || 0) + 1;
+      saveNotes();
+    }
+
+    // 10th pomodoro = confetti + victory
+    if (timerState.pomodorosToday === 10) {
+      playVictory();
+      setTimeout(launchConfetti, 300);
+      showSessionOverlay('victory');
+    } else {
+      playWorkComplete();
+      showSessionOverlay('work-done');
+    }
+
+    // Decide next break
+    if (timerState.sessionsCompleted >= 4) {
+      timerState.mode = 'long-break';
+      timerState.timeRemaining = LONG_BREAK;
+      timerState.totalTime = LONG_BREAK;
+      timerState.sessionsCompleted = 0;
+    } else {
+      timerState.mode = 'short-break';
+      timerState.timeRemaining = SHORT_BREAK;
+      timerState.totalTime = SHORT_BREAK;
+    }
+  } else if (timerState.mode === 'work' && skipped) {
+    // Skipped work — break the streak
+    timerState.currentStreak = 0;
+    timerState.mode = 'short-break';
+    timerState.timeRemaining = SHORT_BREAK;
+    timerState.totalTime = SHORT_BREAK;
+  } else {
+    // Break ended
+    if (!skipped) {
+      playBreakComplete();
+      showSessionOverlay('break-done');
+    }
+    timerState.mode = 'work';
+    timerState.timeRemaining = WORK_DURATION;
+    timerState.totalTime = WORK_DURATION;
+  }
+
+  showNotificationBar();
+  updateDisplay();
+  saveState();
+}
+
+// ─── Notification Bar ────────────────────────────────────────────────────────
+function showNotificationBar() {
+  const bar = document.getElementById('notifBar');
+  bar.className = 'notification-bar active ' + (timerState.mode === 'work' ? 'work' : 'break');
+  setTimeout(() => { bar.classList.remove('active'); }, 2000);
+}
+
+// ─── Session End Overlay ─────────────────────────────────────────────────────
+function showSessionOverlay(type) {
+  const overlay = document.getElementById('sessionOverlay');
+  const emoji = document.getElementById('overlayEmoji');
+  const title = document.getElementById('overlayTitle');
+  const subtitle = document.getElementById('overlaySubtitle');
+
+  if (type === 'victory') {
+    emoji.textContent = '👑🍅🏆';
+    title.textContent = '10 POMODOROS!';
+    title.style.color = '#d29922';
+    subtitle.textContent = 'Absolute legend. You crushed it today.';
+  } else if (type === 'work-done') {
+    const tomato = getTomatoEmoji(timerState.pomodorosToday);
+    emoji.textContent = tomato;
+    title.textContent = 'Session Complete!';
+    title.style.color = 'var(--primary)';
+    subtitle.textContent = getRewardMessage(timerState.pomodorosToday);
+  } else {
+    emoji.textContent = '💪';
+    title.textContent = 'Break Over';
+    title.style.color = 'var(--text)';
+    subtitle.textContent = 'Time to focus. You got this.';
+  }
+
+  overlayVisible = true;
+  overlay.classList.add('visible');
+}
+
+function dismissOverlay() {
+  const overlay = document.getElementById('sessionOverlay');
+  overlay.classList.remove('visible');
+  overlayVisible = false;
+}
+
+function dismissOverlayAndStart() {
+  dismissOverlay();
+  setTimeout(startTimer, 200);
+}
+
+// ─── Tomato Emoji Tiers ──────────────────────────────────────────────────────
+function getTomatoEmoji(count) {
+  if (count >= 10) return '👑🍅';
+  if (count >= 7)  return '💎🍅';
+  if (count >= 4)  return '🔥🍅';
+  return '🍅';
+}
+
+function getRewardMessage(count) {
+  const msgs = {
+    1: 'First one down. Momentum starts here.',
+    2: 'Two deep. Building rhythm.',
+    3: 'Hat trick. You\'re in the zone.',
+    4: 'Full cycle complete! Earned that long break.',
+    5: 'Five strong. Most people quit by now.',
+    6: 'Six sessions. This is discipline.',
+    7: 'Diamond tier unlocked. Relentless.',
+    8: 'Eight pomodoros. Machine mode.',
+    9: 'One more for the crown...',
+    10: 'TEN. Absolute legend.',
+  };
+  return msgs[count] || `${count} pomodoros. Unstoppable.`;
+}
+
+function renderTomatoStreak() {
+  const el = document.getElementById('tomatoStreak');
+  if (timerState.pomodorosToday === 0) {
+    el.innerHTML = '<span style="font-size:11px; color:var(--text-dim);">Complete a session to earn your first 🍅</span>';
+    return;
+  }
+  let tomatoes = '';
+  for (let i = 1; i <= timerState.pomodorosToday; i++) {
+    tomatoes += getTomatoEmoji(i) + ' ';
+  }
+  el.innerHTML = `<div class="tomatoes">${tomatoes.trim()}</div>`;
+}
+
+// ─── Display ─────────────────────────────────────────────────────────────────
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function updateDisplay() {
+  // Time
+  const timeEl = document.getElementById('timerTime');
+  timeEl.textContent = formatTime(timerState.timeRemaining);
+  timeEl.classList.toggle('ending', timerState.running && timerState.timeRemaining <= 30);
+
+  // Mode label
+  const modeEl = document.getElementById('timerMode');
+  const modeLabels = { 'work': 'WORK', 'short-break': 'SHORT BREAK', 'long-break': 'LONG BREAK' };
+  modeEl.textContent = modeLabels[timerState.mode];
+  modeEl.className = 'timer-mode ' + timerState.mode;
+
+  // Ring progress
+  const ring = document.getElementById('ringProgress');
+  const progress = 1 - (timerState.timeRemaining / timerState.totalTime);
+  ring.setAttribute('stroke-dashoffset', RING_CIRCUMFERENCE * (1 - progress));
+  ring.className = 'ring-progress ' + timerState.mode;
+
+  // Session dots
+  const dotsContainer = document.getElementById('sessionDots');
+  const dots = dotsContainer.children;
+  for (let i = 0; i < 4; i++) {
+    dots[i].className = 'session-dot';
+    if (i < timerState.sessionsCompleted) {
+      dots[i].classList.add('completed');
+    } else if (i === timerState.sessionsCompleted && timerState.mode === 'work') {
+      dots[i].classList.add('active');
+    }
+  }
+
+  // Stats
+  document.getElementById('statPomodoros').textContent = timerState.pomodorosToday;
+  document.getElementById('statMinutes').textContent = timerState.focusMinutesToday;
+  document.getElementById('statStreak').textContent = timerState.bestStreak;
+  document.getElementById('statNotes').textContent = notes.length;
+
+  // Tomato streak
+  renderTomatoStreak();
+
+  // Controls text
+  updateControls();
+}
+
+function updateControls() {
+  const startBtn = document.getElementById('startBtn');
+  startBtn.innerHTML = timerState.running
+    ? '<span class="badge">A</span> Pause'
+    : '<span class="badge">A</span> Start';
+  startBtn.classList.toggle('primary-btn', !timerState.running);
+}
+
+// ─── Notes ───────────────────────────────────────────────────────────────────
+function createNote() {
+  playNewNote();
+  const note = {
+    id: Date.now(),
+    title: '',
+    body: '',
+    created: Date.now(),
+    pomodoros: 0,
+  };
+  notes.unshift(note);
+  currentNoteIndex = 0;
+  renderNotes();
+  loadCurrentNote();
+  document.getElementById('noteTextarea').focus();
+  saveNotes();
+  updateDisplay();
+}
+
+function loadCurrentNote() {
+  const textarea = document.getElementById('noteTextarea');
+  if (currentNoteIndex >= 0 && notes[currentNoteIndex]) {
+    textarea.value = notes[currentNoteIndex].body;
+    document.getElementById('notesHeaderTitle').textContent =
+      notes[currentNoteIndex].title || 'Untitled Note';
+  } else {
+    textarea.value = '';
+    document.getElementById('notesHeaderTitle').textContent = 'Notes';
+  }
+}
+
+function saveCurrentNote() {
+  if (currentNoteIndex < 0 || !notes[currentNoteIndex]) return;
+  const textarea = document.getElementById('noteTextarea');
+  const body = textarea.value;
+  notes[currentNoteIndex].body = body;
+  // Auto-title from first line
+  const firstLine = body.split('\n')[0].trim();
+  notes[currentNoteIndex].title = firstLine.slice(0, 60) || 'Untitled Note';
+  saveNotes();
+  renderNotes();
+  updateDisplay();
+}
+
+function selectNote(index) {
+  // Save current before switching
+  saveCurrentNote();
+  currentNoteIndex = index;
+  loadCurrentNote();
+  renderNotes();
+}
+
+function nextNote() {
+  if (notes.length <= 1) return;
+  saveCurrentNote();
+  currentNoteIndex = (currentNoteIndex + 1) % notes.length;
+  loadCurrentNote();
+  renderNotes();
+}
+
+function prevNote() {
+  if (notes.length <= 1) return;
+  saveCurrentNote();
+  currentNoteIndex = (currentNoteIndex - 1 + notes.length) % notes.length;
+  loadCurrentNote();
+  renderNotes();
+}
+
+function renderNotes() {
+  const list = document.getElementById('notesList');
+  const countEl = document.getElementById('noteCount');
+  countEl.textContent = `${notes.length} note${notes.length !== 1 ? 's' : ''}`;
+
+  list.innerHTML = notes.map((note, i) => {
+    const title = note.title || 'Untitled Note';
+    const date = new Date(note.created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const tomato = note.pomodoros ? ` <span class="tomato-badge">${getTomatoEmoji(note.pomodoros)} ${note.pomodoros}</span>` : '';
+    const focused = i === currentNoteIndex ? ' focused' : '';
+    return `<div class="note-item${focused}" onclick="selectNote(${i})">
+      <div class="note-item-title">${escapeHtml(title)}</div>
+      <div class="note-item-meta">${date}${tomato}</div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ─── Clock ───────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('headerClock').textContent =
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── Keyboard Input ──────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  // Don't capture if typing in textarea (unless specific control keys)
+  const inTextarea = document.activeElement === document.getElementById('noteTextarea');
+
+  if (e.key === 'Escape') {
+    if (overlayVisible) { dismissOverlay(); return; }
+    document.getElementById('noteTextarea').blur();
+    return;
+  }
+
+  // These work regardless of focus
+  if (e.ctrlKey || e.metaKey) return; // don't intercept system shortcuts
+
+  if (!inTextarea) {
+    if (e.key === 'a' || e.key === 'A') { e.preventDefault(); if (overlayVisible) dismissOverlayAndStart(); else toggleTimer(); }
+    if (e.key === 'b' || e.key === 'B') { e.preventDefault(); if (overlayVisible) dismissOverlay(); else resetTimer(); }
+    if (e.key === 'x' || e.key === 'X') { e.preventDefault(); skipSession(); }
+    if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); createNote(); }
+  }
+});
+
+// ─── Gamepad Support ─────────────────────────────────────────────────────────
+let prevGamepadState = {};
+
+function pollGamepad() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const gp of gamepads) {
+    if (!gp) continue;
+    const id = gp.index;
+    if (!prevGamepadState[id]) prevGamepadState[id] = { buttons: [] };
+
+    const prev = prevGamepadState[id].buttons;
+
+    // Button indices (standard mapping):
+    // 0=A, 1=B, 2=X, 3=Y, 4=LB, 5=RB, 6=LT, 7=RT
+    const btnA = gp.buttons[0]?.pressed;
+    const btnB = gp.buttons[1]?.pressed;
+    const btnX = gp.buttons[2]?.pressed;
+    const btnY = gp.buttons[3]?.pressed;
+    const btnLB = gp.buttons[4]?.pressed;
+    const btnRB = gp.buttons[5]?.pressed;
+
+    // Rising edge detection
+    if (btnA && !prev[0]) {
+      if (overlayVisible) dismissOverlayAndStart();
+      else toggleTimer();
+    }
+    if (btnB && !prev[1]) {
+      if (overlayVisible) dismissOverlay();
+      else resetTimer();
+    }
+    if (btnX && !prev[2]) skipSession();
+    if (btnY && !prev[3]) createNote();
+    if (btnLB && !prev[4]) prevNote();
+    if (btnRB && !prev[5]) nextNote();
+
+    // Store current state
+    prevGamepadState[id].buttons = gp.buttons.map(b => b.pressed);
+  }
+  requestAnimationFrame(pollGamepad);
+}
+requestAnimationFrame(pollGamepad);
+
+// ─── Auto-save notes on input ────────────────────────────────────────────────
+document.getElementById('noteTextarea').addEventListener('input', () => {
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(saveCurrentNote, 500);
+});
+
+// ─── Page visibility — pause awareness ───────────────────────────────────────
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    saveState();
+    saveCurrentNote();
+  } else {
+    // Recalculate elapsed time on return
+    if (timerState.running) {
+      // Timer was ticking via setInterval which doesn't fire when hidden
+      // Rely on the next timerTick to naturally continue
+    }
+  }
+});
+
+// Save on unload
+window.addEventListener('beforeunload', () => {
+  saveState();
+  saveCurrentNote();
+});
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+loadState();
+loadNotes();
+loadCurrentNote();
+renderNotes();
+updateDisplay();
+</script>
+</body>
+</html>

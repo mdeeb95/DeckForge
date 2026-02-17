@@ -10,6 +10,10 @@
   let suggestion = $derived($selectedSuggestion);
   let plan = $derived($currentPlan);
 
+  let animatingShip = $state<'glitch' | 'confirm' | null>(null);
+  let animatingButton = $state<'A' | 'Y' | null>(null);
+  let shipAnimationCount = 0; // persists across L3 visits within session
+
   // Populate terminal with plan details when plan loads
   $effect(() => {
     if (!plan) return;
@@ -60,7 +64,7 @@
   });
 
   function shipIt(unhinged = false) {
-    if (!plan) return;
+    if (!plan || animatingShip) return;
 
     trackPlanApproval(unhinged);
 
@@ -69,8 +73,18 @@
       prompt += `\n\nALSO: ${plan.unhinged_modifier}`;
     }
 
+    // Alternate between glitch and confirm
+    animatingShip = shipAnimationCount % 2 === 0 ? 'glitch' : 'confirm';
+    animatingButton = unhinged ? 'Y' : 'A';
+    shipAnimationCount++;
+    screenCards.set([]); // lock gamepad during animation
     pendingClaudePrompt.set(prompt);
-    navigate('ai_working');
+
+    setTimeout(() => {
+      animatingShip = null;
+      animatingButton = null;
+      navigate('ai_working');
+    }, 450);
   }
 
   function goBack() {
@@ -78,66 +92,130 @@
     navigate('level2');
   }
 
-  function expandPlan() {
+  let expandDepth = $state(0);
+  let isExpanding = $state(false);
+
+  async function expandPlan() {
     if (!plan) {
-      entries.addEntry({ type: 'cursor', message: 'No additional details available for this plan.' });
+      entries.addEntry({ type: 'cursor', message: 'No plan to expand.' });
       return;
     }
+    if (isExpanding) return; // debounce
 
+    isExpanding = true;
+    expandDepth++;
     status.set('streaming');
 
     entries.addEntry({
       type: 'prompt',
-      label: 'EXPANDED PLAN',
-      body: plan.summary,
+      label: `EXPANDING (DEPTH ${expandDepth})`,
+      body: expandDepth === 1
+        ? 'Digging deeper into the plan...'
+        : expandDepth === 2
+          ? 'Going even deeper...'
+          : expandDepth === 3
+            ? 'How deep does this rabbit hole go?'
+            : `Depth ${expandDepth}. You really like hitting X, huh?`,
     });
 
-    // Show each step with detail
-    for (const step of plan.steps) {
+    try {
+      const { expandPlanRemote } = await import('../prediction/client');
+      const { buildContextPayload } = await import('../prediction/contextAssembler');
+      const { get } = await import('svelte/store');
+      const { projectConfig, projectBehavior } = await import('../stores/configStores');
+
+      const config = get(projectConfig);
+      const behavior = get(projectBehavior);
+
+      let expanded;
+      if (config) {
+        const context = await buildContextPayload(config, behavior);
+        expanded = await expandPlanRemote(plan, context, expandDepth);
+      } else {
+        expanded = await expandPlanRemote(plan, {} as any, expandDepth);
+      }
+
+      // Render expansion results to terminal
+      for (const step of expanded.steps) {
+        const stepData = step as Record<string, unknown>;
+        const n = stepData.n as number;
+        const label = `STEP ${n} · DEPTH ${expandDepth}`;
+
+        if (stepData.substeps) {
+          const subs = stepData.substeps as string[];
+          entries.addEntry({
+            type: 'thought',
+            label,
+            body: subs.map((s, i) => `${i + 1}. ${s}`).join('\n'),
+          });
+        }
+        if (stepData.files_affected) {
+          entries.addEntry({
+            type: 'timestamp',
+            time: `${n}.`,
+            message: `Files: ${(stepData.files_affected as string[]).join(', ')}`,
+          });
+        }
+        if (stepData.risks) {
+          entries.addEntry({
+            type: 'thought',
+            label: `STEP ${n} RISKS`,
+            body: (stepData.risks as string[]).join(' · '),
+          });
+        }
+        if (stepData.alternatives) {
+          entries.addEntry({
+            type: 'thought',
+            label: `ALT · STEP ${n}`,
+            body: (stepData.alternatives as string[]).join('\n'),
+          });
+        }
+        if (stepData.what_could_go_wrong) {
+          entries.addEntry({
+            type: 'thought',
+            label: `WORST CASE · STEP ${n}`,
+            body: stepData.what_could_go_wrong as string,
+          });
+        }
+      }
+
+      // Commentary
+      if (expanded.commentary) {
+        entries.addEntry({
+          type: 'cursor',
+          message: expanded.commentary,
+        });
+      }
+    } catch (err) {
       entries.addEntry({
-        type: 'thought',
-        label: `STEP ${step.n}`,
-        body: step.text,
+        type: 'cursor',
+        message: `Expansion failed: ${err}. Press X to try again.`,
       });
+      expandDepth--; // allow retry at same depth
     }
-
-    // Show scope and confidence
-    entries.addEntry({
-      type: 'thought',
-      label: 'ASSESSMENT',
-      body: `Scope: ${plan.scope} · Confidence: ${plan.confidence} · ${plan.steps.length} steps total`,
-    });
-
-    // Show the unhinged modifier as a teaser
-    if (plan.unhinged_modifier) {
-      entries.addEntry({
-        type: 'thought',
-        label: 'UNHINGED VARIANT',
-        body: plan.unhinged_modifier,
-      });
-    }
-
-    entries.addEntry({
-      type: 'cursor',
-      message: 'Plan expanded. Press A to ship or B to go back.',
-    });
 
     status.set('idle');
+    isExpanding = false;
   }
 
   // Level 3 cards
   let cards = $derived.by(() => {
+    const planReady = plan != null;
     const stepCount = plan?.steps.length ?? 0;
     const scopeLabel = plan?.scope ?? 'decent chunk';
 
     return [
       {
         button: 'A',
-        title: 'Ship It',
-        description: `Execute the plan as-is. Claude Code will implement all ${stepCount} steps.`,
-        pills: [{ label: scopeLabel, variant: 'active' as const }],
-        variant: 'primary' as const,
-        onclick: () => shipIt(),
+        title: planReady ? 'Ship It' : 'Generating Plan...',
+        description: planReady
+          ? `Execute the plan as-is. Claude Code will implement all ${stepCount} steps.`
+          : 'Waiting for plan to finish generating...',
+        pills: planReady
+          ? [{ label: scopeLabel, variant: 'active' as const }]
+          : [{ label: 'loading', variant: 'neutral' as const }],
+        variant: planReady ? 'primary' as const : 'neutral' as const,
+        onclick: planReady ? () => shipIt() : undefined,
       },
       {
         button: 'B',
@@ -149,19 +227,27 @@
       },
       {
         button: 'X',
-        title: 'Tell Me More',
-        description: 'Ask Claude to explain the reasoning behind each step.',
-        pills: [{ label: 'Clarify', variant: 'neutral' as const }],
+        title: expandDepth === 0 ? 'Tell Me More' : `Dig Deeper (${expandDepth})`,
+        description: planReady
+          ? expandDepth === 0
+            ? 'Ask Claude to explain the reasoning behind each step.'
+            : `Press again for depth ${expandDepth + 1}. Each press reveals more.`
+          : 'Available after plan generates.',
+        pills: [{ label: expandDepth === 0 ? 'Clarify' : `Depth ${expandDepth}`, variant: 'neutral' as const }],
         variant: 'neutral' as const,
-        onclick: () => expandPlan(),
+        onclick: planReady ? () => expandPlan() : undefined,
       },
       {
         button: 'Y',
-        title: 'Ship It Unhinged',
-        description: plan?.unhinged_modifier ?? 'Approve with extra creative freedom.',
-        pills: [{ label: 'Unhinged', variant: 'neutral' as const }],
-        variant: 'amber' as const,
-        onclick: () => shipIt(true),
+        title: planReady ? 'Ship It Unhinged' : 'Generating...',
+        description: planReady
+          ? (plan?.unhinged_modifier ?? 'Approve with extra creative freedom.')
+          : 'Waiting for plan...',
+        pills: planReady
+          ? [{ label: 'Unhinged', variant: 'neutral' as const }]
+          : [{ label: 'loading', variant: 'neutral' as const }],
+        variant: planReady ? 'amber' as const : 'neutral' as const,
+        onclick: planReady ? () => shipIt(true) : undefined,
       },
     ];
   });
@@ -203,4 +289,6 @@
   {cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
+  {animatingButton}
+  animationType={animatingShip}
 />

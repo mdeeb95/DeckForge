@@ -8,6 +8,7 @@ import type {
   WildCard,
   PlanResponse,
   ScopeLevel,
+  ExpandedPlanResponse,
 } from './types';
 import { getAccessToken, getBackendUrl, refreshAuth } from '../auth/auth';
 import { isDemoMode } from '../stores/app';
@@ -60,6 +61,26 @@ export async function generatePlan(
     }
   }
   return getMockPlan(suggestion);
+}
+
+/**
+ * Expand a plan with more detail. Each call deepens the plan.
+ * Uses the level_3_expand backend call type.
+ */
+export async function expandPlanRemote(
+  plan: PlanResponse,
+  context: ContextPayload,
+  depth: number,
+): Promise<ExpandedPlanResponse> {
+  const token = getAccessToken();
+  if (token) {
+    try {
+      return await remoteExpandPlan(plan, context, depth, token);
+    } catch (e) {
+      console.warn('Remote plan expansion failed, falling back to mock:', e);
+    }
+  }
+  return getMockExpandedPlan(plan, depth);
 }
 
 // ─── Remote Backend Calls ────────────────────────────────────────────────────
@@ -154,6 +175,53 @@ async function remoteGeneratePlan(
 
   const data = await res.json();
   return mapBackendToPlanResponse(data);
+}
+
+async function remoteExpandPlan(
+  plan: PlanResponse,
+  context: ContextPayload,
+  depth: number,
+  token: string,
+): Promise<ExpandedPlanResponse> {
+  const backendUrl = getBackendUrl();
+
+  const body = {
+    call_type: 'level_3_expand',
+    context_payload: context,
+    original_plan: JSON.stringify({
+      summary: plan.summary,
+      steps: plan.steps,
+      scope: plan.scope,
+      confidence: plan.confidence,
+    }),
+    depth,
+  };
+
+  let res = await fetch(`${backendUrl}/api/v1/predict`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (res.status === 401) {
+    const refreshed = await refreshAuth();
+    if (refreshed) {
+      res = await fetch(`${backendUrl}/api/v1/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshed.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
+    }
+  }
+
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+  return await res.json();
 }
 
 // ─── Response Mappers ────────────────────────────────────────────────────────
@@ -556,6 +624,52 @@ export function getMockPlan(suggestion: Suggestion): PlanResponse {
     confidence: 'medium',
     unhinged_modifier: `Go beyond the strict plan. Add extra flair, unexpected polish, and anything else that makes ${suggestion.label.toLowerCase()} feel magical.`,
     claude_code_intent: `Implement ${suggestion.label}: ${suggestion.rationale}. The implementation should be clean, well-tested, and follow existing project conventions.`,
+  };
+}
+
+// ─── Mock Plan Expansion ─────────────────────────────────────────────────────
+
+function getMockExpandedPlan(plan: PlanResponse, depth: number): ExpandedPlanResponse {
+  const flavorByDepth = [
+    // depth 1 — substeps
+    plan.steps.map(s => ({
+      n: s.n,
+      text: s.text,
+      substeps: [
+        `Check existing code for conflicts with step ${s.n}`,
+        `Implement the core logic for: ${s.text.toLowerCase()}`,
+        `Add error handling and edge cases`,
+      ],
+      files_affected: ['src/lib/components/...', 'src/lib/stores/...'],
+      risks: ['May need refactoring if current patterns differ'],
+    })),
+    // depth 2 — alternative approaches
+    plan.steps.map(s => ({
+      n: s.n,
+      text: s.text,
+      alternatives: [
+        `Could also be done by modifying the store layer instead`,
+        `A simpler approach: skip this step and handle it in step ${Math.min(s.n + 1, plan.steps.length)}`,
+      ],
+      estimated_lines: Math.floor(Math.random() * 80) + 20,
+    })),
+    // depth 3 — wild speculation
+    plan.steps.map(s => ({
+      n: s.n,
+      text: s.text,
+      what_could_go_wrong: `If this step fails, the whole ${plan.scope} scope might need rethinking`,
+      confidence_if_skipped: 'low',
+      fun_fact: `This is the kind of step that looks easy until you actually start coding it`,
+    })),
+  ];
+
+  const idx = Math.min(depth - 1, flavorByDepth.length - 1);
+  return {
+    depth,
+    steps: flavorByDepth[idx],
+    commentary: depth >= 3
+      ? "You're really digging deep. At this point you might just want to ship it and see what happens."
+      : `Expansion depth ${depth} — press X again for more detail.`,
   };
 }
 

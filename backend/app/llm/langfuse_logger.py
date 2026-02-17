@@ -196,6 +196,68 @@ def log_feedback_scores(
         logger.warning(f"Langfuse feedback logging failed: {e}", exc_info=True)
 
 
+# ─── Claude Code session tracing ─────────────────────────────────────────────
+
+
+def log_claude_session_trace(report: Any) -> None:
+    """Log a Claude Code session as a Langfuse trace with scores.
+
+    Creates:
+      - A trace named 'claude_code_session' with prompt/result/metadata
+      - Scores: session_cost_usd, session_duration_ms, session_outcome, total_tokens
+    """
+    langfuse = _get_langfuse()
+    if langfuse is None:
+        return
+
+    try:
+        # Determine outcome score: 1.0 = success, 0.5 = interrupted, 0.0 = error
+        if report.was_interrupted:
+            outcome = 0.5
+        elif report.is_error:
+            outcome = 0.0
+        else:
+            outcome = 1.0
+
+        trace_id = report.prediction_trace_id or _context_hash(report.prompt)
+
+        trace = langfuse.trace(
+            id=f"session-{report.session_id}-{trace_id}",
+            name="claude_code_session",
+            input=report.prompt[:500],
+            output={
+                "result": report.result[:500] if report.result else "",
+                "is_error": report.is_error,
+                "was_interrupted": report.was_interrupted,
+            },
+            metadata={
+                "was_unhinged": report.was_unhinged,
+                "num_turns": report.num_turns,
+                "tools_used": report.tools_used[:20],
+                "files_affected": report.files_affected[:20],
+                "project_path": report.project_path,
+                "prediction_trace_id": report.prediction_trace_id,
+            },
+        )
+
+        # Attach scores
+        trace.score(name="session_cost_usd", value=report.cost_usd, data_type="NUMERIC")
+        trace.score(name="session_duration_ms", value=report.duration_ms, data_type="NUMERIC")
+        trace.score(name="session_outcome", value=outcome, data_type="NUMERIC")
+        trace.score(
+            name="total_tokens",
+            value=float(report.input_tokens + report.output_tokens),
+            data_type="NUMERIC",
+        )
+
+        langfuse.flush()
+        logger.info(
+            f"Langfuse session trace logged (session_id={report.session_id}, outcome={outcome})"
+        )
+    except Exception as e:
+        logger.warning(f"Langfuse session logging failed: {e}", exc_info=True)
+
+
 # ─── Shutdown ─────────────────────────────────────────────────────────────────
 
 

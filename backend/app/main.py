@@ -8,7 +8,7 @@ from app.config import get_settings
 from app.db.session import engine, AsyncSessionLocal
 from app.db.models import Base
 from app.prompts.seed import seed_prompt_templates
-from app.routes import predict, feedback, templates, auth
+from app.routes import predict, feedback, templates, auth, claude_session
 from app.llm.langfuse_logger import shutdown_langfuse
 
 logging.basicConfig(level=logging.INFO)
@@ -63,6 +63,7 @@ app.include_router(predict.router, prefix="/api/v1", tags=["predict"])
 app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(templates.router, prefix="/api/v1", tags=["templates"])
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
+app.include_router(claude_session.router, prefix="/api/v1", tags=["claude_session"])
 
 
 @app.get("/health")

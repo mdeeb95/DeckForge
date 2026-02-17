@@ -172,6 +172,7 @@ setInterval(() => { tick(); broadcast(); }, 1000 / TICK_RATE);
 
 // ─── HTTP ────────────────────────────────────────────────────────────────────
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/pomodoro', (_req, res) => res.sendFile(path.join(__dirname, 'pomodoro.html')));
 
 server.listen(PORT, () => {
   console.log(`Pong server running on http://localhost:${PORT}`);

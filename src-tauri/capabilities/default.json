@@ -10,19 +10,47 @@
     "fs:default",
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/.*" },
+        { "path": "$HOME/.*/**" },
+        { "path": "$HOME/.config/**" },
+        { "path": "$HOME/.config/deckforge/**" },
+        { "path": "$HOME/**/.deckforge/**" }
+      ]
     },
     {
       "identifier": "fs:allow-mkdir",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/.*" },
+        { "path": "$HOME/.*/**" },
+        { "path": "$HOME/.config/**" },
+        { "path": "$HOME/.config/deckforge/**" },
+        { "path": "$HOME/**/.deckforge/**" }
+      ]
     },
     {
       "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/.*" },
+        { "path": "$HOME/.*/**" },
+        { "path": "$HOME/.config/**" },
+        { "path": "$HOME/.config/deckforge/**" },
+        { "path": "$HOME/**/.deckforge/**" }
+      ]
     },
     {
       "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/.*" },
+        { "path": "$HOME/.*/**" },
+        { "path": "$HOME/.config/**" },
+        { "path": "$HOME/.config/deckforge/**" },
+        { "path": "$HOME/**/.deckforge/**" }
+      ]
     },
     "shell:default",
     {
@@ -136,6 +164,66 @@
         {
           "name": "gh",
           "cmd": "gh",
+          "args": true
+        },
+        {
+          "name": "ls",
+          "cmd": "ls",
+          "args": true
+        },
+        {
+          "name": "find",
+          "cmd": "find",
+          "args": true
+        },
+        {
+          "name": "wc",
+          "cmd": "wc",
+          "args": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "ls",
+          "cmd": "ls",
+          "args": true
+        },
+        {
+          "name": "find",
+          "cmd": "find",
+          "args": true
+        },
+        {
+          "name": "wc",
+          "cmd": "wc",
+          "args": true
+        },
+        {
+          "name": "git",
+          "cmd": "git",
+          "args": true
+        },
+        {
+          "name": "claude",
+          "cmd": "/Users/mdeeb95/.local/bin/claude",
+          "args": true
+        },
+        {
+          "name": "sh",
+          "cmd": "sh",
+          "args": true
+        },
+        {
+          "name": "npm",
+          "cmd": "npm",
+          "args": true
+        },
+        {
+          "name": "npx",
+          "cmd": "npx",
           "args": true
         }
       ]
