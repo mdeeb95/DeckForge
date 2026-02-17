@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import TerminalPanel from '../components/TerminalPanel.svelte';
   import ActionPalette from '../components/ActionPalette.svelte';
   import { selectedCardIndex, navigate, screenCards } from '../stores/app';
@@ -18,8 +18,14 @@
   import type { TerminalEntry } from '../stores/terminal';
   import { getRandomMessage } from '../personality/messages';
 
+  let abortController: AbortController;
+
   // Modifier toggle state
   let modifierActive = $state(false);
+
+  // Animation state
+  let animatingType = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
+  let animatingButton = $state<string | null>(null);
 
   // Reactive state from stores
   let prediction = $derived($currentPrediction);
@@ -69,8 +75,16 @@
         pills: [{ label: pairA.scope, variant: 'active' as const }],
         variant: 'primary' as const,
         onclick: () => {
+          if (animatingType) return;
+          animatingType = 'confirm';
+          animatingButton = 'A';
+          screenCards.set([]);
           selectAndPlan(pairA!);
-          navigate('level3');
+          setTimeout(() => {
+            animatingType = null;
+            animatingButton = null;
+            navigate('level3');
+          }, 350);
         },
       });
     }
@@ -84,8 +98,16 @@
         pills: [{ label: pairB.scope, variant: 'neutral' as const }],
         variant: 'secondary_pink' as const,
         onclick: () => {
+          if (animatingType) return;
+          animatingType = 'confirm';
+          animatingButton = 'B';
+          screenCards.set([]);
           selectAndPlan(pairB!);
-          navigate('level3');
+          setTimeout(() => {
+            animatingType = null;
+            animatingButton = null;
+            navigate('level3');
+          }, 350);
         },
       });
     }
@@ -225,10 +247,15 @@
 
   // Expose reroll for the input router
   onMount(() => {
+    abortController = new AbortController();
     // Re-check: if no predictions loaded yet and we have a category, load them
     if (!prediction && category) {
-      loadPredictions(category);
+      loadPredictions(category, abortController.signal);
     }
+  });
+
+  onDestroy(() => {
+    abortController.abort();
   });
 </script>
 
@@ -241,4 +268,12 @@
   {cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
+  {animatingButton}
+  animationType={animatingType}
+  hints={[
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'RB', label: 'Reroll' },
+    { key: 'START', label: 'Menu' },
+  ]}
 />

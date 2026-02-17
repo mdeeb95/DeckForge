@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeckForge — Card Switch Animations</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --primary: #0df2f2;
+    --secondary: #f20dcf;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --radius: 0.125rem;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 2rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 1100px;
+    width: 100%;
+  }
+
+  .demo-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .demo-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    opacity: 0.6;
+  }
+
+  .demo-label {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--primary);
+    letter-spacing: 0.05em;
+  }
+
+  .demo-desc {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.4;
+    max-width: 280px;
+  }
+
+  /* Card stack area */
+  .card-stage {
+    width: 260px;
+    height: 200px;
+    position: relative;
+    perspective: 800px;
+  }
+
+  .card {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .card .card-button {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .card .card-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .card .card-quip {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.3;
+  }
+
+  .card .card-scope {
+    margin-top: auto;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .card.active {
+    border-left: 3px solid var(--primary);
+    box-shadow: -4px 0 12px rgba(13, 242, 242, 0.15);
+    z-index: 2;
+  }
+
+  .card.inactive {
+    opacity: 0.4;
+    z-index: 1;
+  }
+
+  /* Card colors */
+  .card-a .card-button { background: #238636; color: #fff; }
+  .card-b .card-button { background: #da3633; color: #fff; }
+  .card-x .card-button { background: #1f6feb; color: #fff; }
+  .card-y .card-button { background: #d29922; color: #fff; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    transition: border-color 0.2s;
+  }
+
+  .btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .card-idx {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    min-width: 20px;
+    text-align: center;
+  }
+
+  /* ── ANIMATION 1: Glitch Slide ── */
+  .anim-glitch .card {
+    transition: transform 0.35s, opacity 0.35s, filter 0.35s;
+  }
+  .anim-glitch .card.exit-up {
+    transform: translateY(-110%);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  .anim-glitch .card.exit-down {
+    transform: translateY(110%);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  .anim-glitch .card.enter-from-up {
+    transform: translateY(-110%);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  .anim-glitch .card.enter-from-down {
+    transform: translateY(110%);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  .anim-glitch .card.active {
+    transform: translateY(0);
+    opacity: 1;
+    filter: none;
+  }
+  @keyframes glitch-flash {
+    0% { box-shadow: -4px 0 12px rgba(13, 242, 242, 0.15); }
+    25% { box-shadow: -4px 0 12px rgba(242, 13, 207, 0.4), 4px 0 8px rgba(13, 242, 242, 0.3); }
+    50% { box-shadow: -6px 0 16px rgba(13, 242, 242, 0.5), 2px -2px 8px rgba(242, 13, 207, 0.2); }
+    75% { box-shadow: -4px 0 12px rgba(242, 13, 207, 0.3); }
+    100% { box-shadow: -4px 0 12px rgba(13, 242, 242, 0.15); }
+  }
+  .anim-glitch .card.active.animate-in {
+    animation: glitch-flash 0.4s ease-out;
+  }
+
+  /* ── ANIMATION 2: Flip Rotate ── */
+  .anim-flip .card {
+    transition: transform 0.45s, opacity 0.45s;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+  }
+  .anim-flip .card.exit-up {
+    transform: rotateX(90deg) scale(0.85);
+    opacity: 0;
+  }
+  .anim-flip .card.exit-down {
+    transform: rotateX(-90deg) scale(0.85);
+    opacity: 0;
+  }
+  .anim-flip .card.enter-from-up {
+    transform: rotateX(-90deg) scale(0.85);
+    opacity: 0;
+  }
+  .anim-flip .card.enter-from-down {
+    transform: rotateX(90deg) scale(0.85);
+    opacity: 0;
+  }
+  .anim-flip .card.active {
+    transform: rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+
+  /* ── ANIMATION 3: Warp Zoom ── */
+  .anim-warp .card {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s, filter 0.3s;
+  }
+  .anim-warp .card.exit-up {
+    transform: scale(0.5) translateY(-40px);
+    opacity: 0;
+    filter: brightness(2) saturate(0);
+  }
+  .anim-warp .card.exit-down {
+    transform: scale(0.5) translateY(40px);
+    opacity: 0;
+    filter: brightness(2) saturate(0);
+  }
+  .anim-warp .card.enter-from-up {
+    transform: scale(1.3) translateY(-20px);
+    opacity: 0;
+    filter: brightness(0.5);
+  }
+  .anim-warp .card.enter-from-down {
+    transform: scale(1.3) translateY(20px);
+    opacity: 0;
+    filter: brightness(0.5);
+  }
+  .anim-warp .card.active {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    filter: none;
+  }
+  @keyframes warp-border {
+    0% { border-color: var(--secondary); }
+    50% { border-color: var(--primary); }
+    100% { border-color: var(--border); border-left-color: var(--primary); }
+  }
+  .anim-warp .card.active.animate-in {
+    animation: warp-border 0.5s ease-out;
+  }
+
+  /* ── ANIMATION 4: Crossfade Stack ── */
+  .anim-stack .card {
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s, filter 0.25s;
+  }
+  .anim-stack .card.exit-up {
+    transform: translateX(-30px) scale(0.92);
+    opacity: 0;
+    filter: blur(4px);
+  }
+  .anim-stack .card.exit-down {
+    transform: translateX(30px) scale(0.92);
+    opacity: 0;
+    filter: blur(4px);
+  }
+  .anim-stack .card.enter-from-up {
+    transform: translateX(30px) scale(1.04);
+    opacity: 0;
+  }
+  .anim-stack .card.enter-from-down {
+    transform: translateX(-30px) scale(1.04);
+    opacity: 0;
+  }
+  .anim-stack .card.active {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+    filter: none;
+  }
+  @keyframes stack-glow {
+    0% { box-shadow: 0 0 0 rgba(13, 242, 242, 0); }
+    40% { box-shadow: 0 0 20px rgba(13, 242, 242, 0.25), -4px 0 12px rgba(13, 242, 242, 0.15); }
+    100% { box-shadow: -4px 0 12px rgba(13, 242, 242, 0.15); }
+  }
+  .anim-stack .card.active.animate-in {
+    animation: stack-glow 0.5s ease-out;
+  }
+
+  /* ── ANIMATION 5: Cyber Shutter ── */
+  .anim-shutter .card {
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s, clip-path 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    clip-path: inset(0 0 0 0);
+  }
+  .anim-shutter .card.exit-up {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  .anim-shutter .card.exit-down {
+    clip-path: inset(100% 0 0 0);
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  .anim-shutter .card.enter-from-up {
+    clip-path: inset(100% 0 0 0);
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  .anim-shutter .card.enter-from-down {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  .anim-shutter .card.active {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: translateY(0);
+  }
+  @keyframes shutter-scanline {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 4px; }
+  }
+  .anim-shutter .card.active.animate-in::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 2px,
+      rgba(13, 242, 242, 0.04) 2px,
+      rgba(13, 242, 242, 0.04) 4px
+    );
+    animation: shutter-scanline 0.3s steps(1) forwards;
+    pointer-events: none;
+    opacity: 0;
+    animation: fade-scanline 0.6s ease-out;
+  }
+  @keyframes fade-scanline {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── ANIMATION 6: Neon Whip ── */
+  .anim-whip .card {
+    transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.25s;
+  }
+  .anim-whip .card.exit-up {
+    transform: translateY(-100%) rotate(-3deg);
+    opacity: 0;
+  }
+  .anim-whip .card.exit-down {
+    transform: translateY(100%) rotate(3deg);
+    opacity: 0;
+  }
+  .anim-whip .card.enter-from-up {
+    transform: translateY(-80%) rotate(3deg);
+    opacity: 0;
+  }
+  .anim-whip .card.enter-from-down {
+    transform: translateY(80%) rotate(-3deg);
+    opacity: 0;
+  }
+  .anim-whip .card.active {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  @keyframes neon-trail {
+    0% {
+      box-shadow:
+        -4px 0 12px rgba(13, 242, 242, 0.15),
+        0 -8px 20px rgba(242, 13, 207, 0.3),
+        0 8px 20px rgba(13, 242, 242, 0.3);
+    }
+    100% {
+      box-shadow: -4px 0 12px rgba(13, 242, 242, 0.15);
+    }
+  }
+  .anim-whip .card.active.animate-in {
+    animation: neon-trail 0.5s ease-out;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 2rem;
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<h1>Card Switch Animations</h1>
+<p class="subtitle">↑ / ↓ arrows or click buttons to cycle cards</p>
+
+<div class="demo-grid" id="grid"></div>
+
+<p class="footer">DeckForge — pick your vibe</p>
+
+<script>
+const CARDS = [
+  { cls: 'card-a', btn: 'A', label: 'A', title: 'Add AI opponent logic', quip: 'Basic chase-the-ball AI — nothing fancy, just enough to lose to', scope: 'DECENT CHUNK' },
+  { cls: 'card-b', btn: 'B', label: 'B', title: 'Fix paddle drift on idle', quip: 'Paddle slowly creeps left when no input — physics leak', scope: 'QUICK TWEAK' },
+  { cls: 'card-x', btn: 'X', label: 'X', title: 'Refactor collision math', quip: 'Current AABB is fine but angle reflection is wrong at edges', scope: 'DECENT CHUNK' },
+  { cls: 'card-y', btn: 'Y', label: 'Y', title: 'Ball leaves a comet trail', quip: 'RGB particle trail that speeds up with ball velocity — totally unnecessary', scope: 'STRAP IN' },
+];
+
+const DEMOS = [
+  { id: 'glitch', name: '1 · Glitch Slide', desc: 'Vertical slide with blur + a quick cyan/magenta glitch flash on arrival. Fast and punchy — feels like a CRT switching channels.' },
+  { id: 'flip', name: '2 · Flip Rotate', desc: '3D rotation around the X-axis. Cards flip like a departures board. Satisfying depth effect with backface hidden.' },
+  { id: 'warp', name: '3 · Warp Zoom', desc: 'Outgoing card shrinks bright, incoming scales down from oversized. Springy overshoot easing with border color sweep.' },
+  { id: 'stack', name: '4 · Crossfade Stack', desc: 'Horizontal crossfade with subtle scale shift. Incoming card slides in from the direction of travel. Clean glow pulse on land.' },
+  { id: 'shutter', name: '5 · Cyber Shutter', desc: 'Clip-path reveal that wipes the card into view like a shutter. CRT scanline overlay flashes briefly on arrival.' },
+  { id: 'whip', name: '6 · Neon Whip', desc: 'Slight rotation during travel — cards whip in with overshoot bounce. Neon trail shadow dissipates on arrival.' },
+];
+
+const state = {};
+
+function makeCard(card, isActive) {
+  return `
+    <div class="card ${card.cls} ${isActive ? 'active' : 'inactive'}" style="position:absolute;top:0;left:0;">
+      <div class="card-button">${card.label}</div>
+      <div class="card-title">${card.title}</div>
+      <div class="card-quip">${card.quip}</div>
+      <div class="card-scope">${card.scope}</div>
+    </div>
+  `;
+}
+
+function initDemo(demo) {
+  state[demo.id] = { current: 0 };
+  const box = document.getElementById(`demo-${demo.id}`);
+  const stage = box.querySelector('.card-stage');
+  const idx = box.querySelector('.card-idx');
+  renderCard(demo.id, stage, idx, 0, null);
+}
+
+function renderCard(demoId, stage, idxEl, newIndex, oldIndex) {
+  const card = CARDS[newIndex];
+  const direction = oldIndex !== null ? (newIndex > oldIndex ? 'down' : 'up') : null;
+
+  // Remove old cards after animation
+  const oldCards = stage.querySelectorAll('.card');
+  if (direction && oldCards.length) {
+    oldCards.forEach(c => {
+      c.classList.remove('active', 'animate-in');
+      c.classList.add('inactive');
+      c.classList.add(direction === 'down' ? 'exit-up' : 'exit-down');
+      setTimeout(() => c.remove(), 500);
+    });
+  } else {
+    stage.innerHTML = '';
+  }
+
+  // Create new card
+  const div = document.createElement('div');
+  div.className = `card ${card.cls} active`;
+  div.style.position = 'absolute';
+  div.style.top = '0';
+  div.style.left = '0';
+  div.innerHTML = `
+    <div class="card-button">${card.label}</div>
+    <div class="card-title">${card.title}</div>
+    <div class="card-quip">${card.quip}</div>
+    <div class="card-scope">${card.scope}</div>
+  `;
+
+  if (direction) {
+    div.classList.add(direction === 'down' ? 'enter-from-down' : 'enter-from-up');
+    div.classList.remove('active');
+    stage.appendChild(div);
+    // Force reflow then animate in
+    void div.offsetWidth;
+    div.classList.remove('enter-from-down', 'enter-from-up');
+    div.classList.add('active', 'animate-in');
+    setTimeout(() => div.classList.remove('animate-in'), 600);
+  } else {
+    stage.appendChild(div);
+  }
+
+  idxEl.textContent = `${newIndex + 1}/${CARDS.length}`;
+}
+
+function navigate(demoId, dir) {
+  const s = state[demoId];
+  const old = s.current;
+  if (dir === 'up') {
+    s.current = (s.current - 1 + CARDS.length) % CARDS.length;
+  } else {
+    s.current = (s.current + 1) % CARDS.length;
+  }
+  const box = document.getElementById(`demo-${demoId}`);
+  const stage = box.querySelector('.card-stage');
+  const idx = box.querySelector('.card-idx');
+  renderCard(demoId, stage, idx, s.current, old);
+}
+
+// Build grid
+const grid = document.getElementById('grid');
+DEMOS.forEach(demo => {
+  const box = document.createElement('div');
+  box.className = `demo-box`;
+  box.id = `demo-${demo.id}`;
+  box.innerHTML = `
+    <div class="demo-label">${demo.name}</div>
+    <div class="demo-desc">${demo.desc}</div>
+    <div class="card-stage anim-${demo.id}"></div>
+    <div class="controls">
+      <button class="btn" onclick="navigate('${demo.id}','up')">▲ Prev</button>
+      <span class="card-idx">1/${CARDS.length}</span>
+      <button class="btn" onclick="navigate('${demo.id}','down')">▼ Next</button>
+    </div>
+  `;
+  grid.appendChild(box);
+});
+
+// Init all
+DEMOS.forEach(initDemo);
+
+// Keyboard — focus a demo by clicking it, then use arrows
+let focusedDemo = null;
+document.querySelectorAll('.demo-box').forEach(box => {
+  box.addEventListener('click', (e) => {
+    if (e.target.closest('.btn')) return;
+    document.querySelectorAll('.demo-box').forEach(b => b.style.outline = 'none');
+    box.style.outline = `1px solid var(--primary)`;
+    focusedDemo = box.id.replace('demo-', '');
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (!focusedDemo) focusedDemo = DEMOS[0].id;
+  if (e.key === 'ArrowUp') { e.preventDefault(); navigate(focusedDemo, 'up'); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); navigate(focusedDemo, 'down'); }
+  // Tab through demos
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const ids = DEMOS.map(d => d.id);
+    const ci = ids.indexOf(focusedDemo);
+    focusedDemo = ids[(ci + (e.shiftKey ? -1 : 1) + ids.length) % ids.length];
+    document.querySelectorAll('.demo-box').forEach(b => b.style.outline = 'none');
+    document.getElementById(`demo-${focusedDemo}`).style.outline = `1px solid var(--primary)`;
+  }
+});
+</script>
+</body>
+</html>

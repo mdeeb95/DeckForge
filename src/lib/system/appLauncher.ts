@@ -1,6 +1,7 @@
 // ─── App Launcher — spawn, kill, restart the user's app process ──────────────
 
 import { appRunning, appPid, lastLaunchError, appOutput } from '../stores/launcher';
+import { activeTab } from '../stores/terminal';
 
 // ─── Module state ────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export async function launchApp(command: string, cwd: string): Promise<void> {
     running = true;
     appRunning.set(true);
     appPid.set(9999);
+    activeTab.set('app');
 
     // Simulate output
     setTimeout(() => {
@@ -101,6 +103,7 @@ export async function launchApp(command: string, cwd: string): Promise<void> {
     running = true;
     appRunning.set(true);
     appPid.set(child.pid);
+    activeTab.set('app');
     console.log(`[appLauncher] Launched PID ${child.pid}: ${command}`);
   } catch (error) {
     running = false;

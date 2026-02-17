@@ -16,7 +16,9 @@
         { "path": "$HOME/.*/**" },
         { "path": "$HOME/.config/**" },
         { "path": "$HOME/.config/deckforge/**" },
-        { "path": "$HOME/**/.deckforge/**" }
+        { "path": "$HOME/**/.deckforge/**" },
+        { "path": "$HOME/**/.*" },
+        { "path": "$HOME/**/.*/**" }
       ]
     },
     {
@@ -27,7 +29,9 @@
         { "path": "$HOME/.*/**" },
         { "path": "$HOME/.config/**" },
         { "path": "$HOME/.config/deckforge/**" },
-        { "path": "$HOME/**/.deckforge/**" }
+        { "path": "$HOME/**/.deckforge/**" },
+        { "path": "$HOME/**/.*" },
+        { "path": "$HOME/**/.*/**" }
       ]
     },
     {
@@ -38,7 +42,9 @@
         { "path": "$HOME/.*/**" },
         { "path": "$HOME/.config/**" },
         { "path": "$HOME/.config/deckforge/**" },
-        { "path": "$HOME/**/.deckforge/**" }
+        { "path": "$HOME/**/.deckforge/**" },
+        { "path": "$HOME/**/.*" },
+        { "path": "$HOME/**/.*/**" }
       ]
     },
     {
@@ -49,7 +55,9 @@
         { "path": "$HOME/.*/**" },
         { "path": "$HOME/.config/**" },
         { "path": "$HOME/.config/deckforge/**" },
-        { "path": "$HOME/**/.deckforge/**" }
+        { "path": "$HOME/**/.deckforge/**" },
+        { "path": "$HOME/**/.*" },
+        { "path": "$HOME/**/.*/**" }
       ]
     },
     "shell:default",

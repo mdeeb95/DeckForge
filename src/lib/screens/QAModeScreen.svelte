@@ -15,6 +15,10 @@
   let fileCount = $state(0);
   let testPill = $state('0 tests');
 
+  // Animation state
+  let animatingType = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
+  let animatingButton = $state<string | null>(null);
+
   function getCwd(): string {
     return get(projectConfig)?.project.path ?? '.';
   }
@@ -130,6 +134,14 @@
   // ─── Card onclick handlers ──────────────────────────────────────────────
 
   function handleApproveAndCommit() {
+    if (animatingType) return;
+    animatingType = 'confirm';
+    animatingButton = 'A';
+    setTimeout(() => {
+      animatingType = null;
+      animatingButton = null;
+    }, 350);
+
     const cwd = getCwd();
     const message = getCommitMessage();
 
@@ -186,6 +198,14 @@
   }
 
   function handleRejectChanges() {
+    if (animatingType) return;
+    animatingType = 'dismiss';
+    animatingButton = 'B';
+    setTimeout(() => {
+      animatingType = null;
+      animatingButton = null;
+    }, 300);
+
     const cwd = getCwd();
 
     entries.clear();
@@ -218,10 +238,24 @@
   }
 
   function handleRunTestsAgain() {
+    if (animatingType) return;
+    animatingType = 'pulse';
+    animatingButton = 'X';
+    setTimeout(() => {
+      animatingType = null;
+      animatingButton = null;
+    }, 350);
     loadQA();
   }
 
   function handleViewDiff() {
+    if (animatingType) return;
+    animatingType = 'confirm';
+    animatingButton = 'Y';
+    setTimeout(() => {
+      animatingType = null;
+      animatingButton = null;
+    }, 350);
     const cwd = getCwd();
 
     entries.clear();
@@ -297,4 +331,12 @@
   cards={cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
+  {animatingButton}
+  animationType={animatingType}
+  hints={[
+    { key: 'A', label: 'Approve' },
+    { key: 'B', label: 'Reject' },
+    { key: 'X', label: 'Re-test' },
+    { key: 'Y', label: 'View Diff' },
+  ]}
 />

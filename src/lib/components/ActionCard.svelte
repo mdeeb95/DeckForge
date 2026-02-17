@@ -12,7 +12,8 @@
     selected?: boolean;
     variant?: 'primary' | 'secondary_pink' | 'neutral' | 'amber';
     onclick?: () => void;
-    animationType?: 'glitch' | 'confirm' | null;
+    animationType?: 'glitch' | 'confirm' | 'dismiss' | 'pulse' | null;
+    switchAnimation?: 'zoom-in' | 'zoom-out' | null;
   }
 
   let {
@@ -24,6 +25,7 @@
     variant = 'neutral',
     onclick,
     animationType = null,
+    switchAnimation = null,
   }: Props = $props();
 
   const unselectedBadgeClasses: Record<string, string> = {
@@ -39,12 +41,12 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="relative group {onclick ? 'cursor-pointer' : 'cursor-default'} {animationType === 'glitch' ? 'ship-glitch-warp' : ''}"
+    class="relative group {onclick ? 'cursor-pointer' : 'cursor-default'} {animationType === 'glitch' ? 'ship-glitch-warp' : ''} {animationType === 'dismiss' ? 'card-dismiss' : ''} {switchAnimation === 'zoom-in' ? 'card-warp-in' : ''}"
     onclick={onclick}
   >
     <!-- Selection Indicator -->
     <div class="absolute -left-2 top-0 bottom-0 w-1 {onclick ? 'bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)]' : 'bg-slate-600'} rounded-r"></div>
-    <div class="{onclick ? 'bg-[#1c242e] border-2 border-primary/50' : 'bg-[#1a1e24] border-2 border-slate-700'} p-3 rounded shadow-lg relative overflow-hidden transition-all duration-150 {onclick ? 'pulse-glow' : 'opacity-60'} {animationType === 'confirm' ? 'ship-confirm-border' : ''}">
+    <div class="{onclick ? 'bg-[#1c242e] border-2 border-primary/50' : 'bg-[#1a1e24] border-2 border-slate-700'} p-3 rounded shadow-lg relative overflow-hidden transition-all duration-150 {onclick ? 'pulse-glow' : 'opacity-60'} {animationType === 'confirm' ? 'ship-confirm-border' : ''} {animationType === 'pulse' ? 'card-info-pulse' : ''}">
       <!-- Glitch Warp: scanline overlay -->
       {#if animationType === 'glitch'}
         <div class="ship-scanline"></div>
@@ -82,8 +84,19 @@
   <!-- UNSELECTED STATE -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="relative group {onclick ? 'opacity-80 hover:opacity-100' : 'opacity-40 cursor-default'} transition-opacity" onclick={onclick}>
-    <div class="bg-surface-dark border {onclick ? 'border-surface-border hover:border-slate-600' : 'border-surface-border'} p-3 rounded relative transition-all duration-150">
+  <div class="relative group {onclick ? 'opacity-80 hover:opacity-100' : 'opacity-40 cursor-default'} transition-opacity {animationType === 'glitch' ? 'ship-glitch-warp' : ''} {animationType === 'dismiss' ? 'card-dismiss' : ''} {switchAnimation === 'zoom-out' ? 'card-warp-out' : ''}" onclick={onclick}>
+    <div class="bg-surface-dark border {onclick ? 'border-surface-border hover:border-slate-600' : 'border-surface-border'} p-3 rounded relative transition-all duration-150 {animationType === 'confirm' ? 'ship-confirm-border' : ''} {animationType === 'pulse' ? 'card-info-pulse' : ''}">
+      <!-- Glitch Warp: scanline overlay -->
+      {#if animationType === 'glitch'}
+        <div class="ship-scanline"></div>
+        <div class="ship-crt-overlay"></div>
+      {/if}
+
+      <!-- Confirm Pulse: expanding ring -->
+      {#if animationType === 'confirm'}
+        <div class="ship-pulse-ring"></div>
+      {/if}
+
       <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center {unselectedBadgeClasses[variant]} rounded-full font-bold text-[10px]">{button}</div>
       <h3 class="text-white font-medium text-sm mb-1 pr-6">{title}</h3>
       <p class="text-xs text-slate-400 leading-snug mb-2 italic">{description}</p>
@@ -185,5 +198,55 @@
     z-index: 10;
     pointer-events: none;
     animation: pulse-ring 600ms ease-out forwards;
+  }
+
+  /* ── Dismiss Animation ── */
+  @keyframes dismiss-slide {
+    0% { transform: translateX(0); opacity: 1; }
+    40% { transform: translateX(-12px); opacity: 0.7; }
+    100% { transform: translateX(-24px); opacity: 0; }
+  }
+
+  :global(.card-dismiss) {
+    animation: dismiss-slide 300ms ease-in forwards;
+  }
+
+  /* ── Info Pulse Animation ── */
+  @keyframes info-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(13, 242, 242, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(13, 242, 242, 0.15); }
+    100% { box-shadow: 0 0 0 16px rgba(13, 242, 242, 0); }
+  }
+
+  :global(.card-info-pulse) {
+    animation: info-pulse 350ms ease-out forwards;
+  }
+
+  /* ── Warp Zoom Card Switch ── */
+  @keyframes warp-zoom-out {
+    0%   { transform: scale(1); opacity: 1; filter: none; }
+    40%  { transform: scale(0.92); opacity: 0.7; filter: brightness(1.6) saturate(0); }
+    100% { transform: scale(1); opacity: 1; filter: none; }
+  }
+
+  @keyframes warp-zoom-in {
+    0%   { transform: scale(1.08); opacity: 0.6; filter: brightness(0.6); }
+    60%  { transform: scale(0.98); opacity: 1; filter: none; }
+    100% { transform: scale(1); opacity: 1; filter: none; }
+  }
+
+  @keyframes warp-glow {
+    0%   { box-shadow: 0 0 0 rgba(13, 242, 242, 0); }
+    40%  { box-shadow: 0 0 20px rgba(13, 242, 242, 0.3), -4px 0 12px rgba(13, 242, 242, 0.15); }
+    100% { box-shadow: -4px 0 12px rgba(13, 242, 242, 0.15); }
+  }
+
+  :global(.card-warp-out) {
+    animation: warp-zoom-out 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  :global(.card-warp-in) {
+    animation: warp-zoom-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+               warp-glow 400ms ease-out forwards;
   }
 </style>

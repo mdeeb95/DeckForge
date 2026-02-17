@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "project": {
+    "id": "60b8952e-e532-4761-9e9f-13ff876eec0a",
+    "name": "pong-template",
+    "path": "/Users/mdeeb95/Documents/DeckForge/src/lib/demo/pong-template",
+    "created_at": "2026-02-17T03:48:32.489Z",
+    "created_via": "imported",
+    "initial_pitch": ""
+  },
+  "tech_stack": {
+    "type_detected": "unknown",
+    "framework": "",
+    "build_tool": "",
+    "language": "",
+    "dependencies": [],
+    "detected_at": "2026-02-17T03:48:32.489Z"
+  },
+  "run_config": {
+    "command": "npm run dev",
+    "auto_detected": true,
+    "detection_source": "package.json scripts.dev",
+    "working_directory": "/Users/mdeeb95/Documents/DeckForge/src/lib/demo/pong-template",
+    "env_vars": {},
+    "port": null,
+    "window_class": ""
+  },
+  "display": {
+    "split_ratio": 55
+  },
+  "input": {
+    "back_grip_overrides": {}
+  },
+  "deploy": {
+    "provider": null,
+    "domain": null,
+    "project_id": null,
+    "team_id": null,
+    "branch_strategy": "merge_to_main",
+    "target_branch": "main",
+    "auto_detected": false,
+    "detection_source": null,
+    "configured_at": null,
+    "last_deploy": null,
+    "deploy_history_count": 0
+  },
+  "claude_code": {
+    "session_id": null,
+    "last_session_resumed_at": null,
+    "total_tasks_completed": 0,
+    "current_task_in_progress": false
+  },
+  "features_detected": [],
+  "session_history": {
+    "total_sessions": 0,
+    "current_session_number": 0,
+    "sessions": []
+  }
+}

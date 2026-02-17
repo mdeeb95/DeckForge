@@ -27,15 +27,30 @@ function now(): string {
   return d.toTimeString().slice(0, 8);
 }
 
+// ── Tool color scheme ──────────────────────────────────────────────────────
+
+const toolColorMap: Record<string, string> = {
+  Read: 'text-cyan-400',
+  Write: 'text-emerald-400',
+  Edit: 'text-amber-400',
+  Bash: 'text-blue-400',
+  Glob: 'text-slate-400',
+  Grep: 'text-slate-400',
+  TodoWrite: 'text-purple-400',
+};
+
+// ── System event ───────────────────────────────────────────────────────────
+
 function parseSystemEvent(event: ClaudeEvent & { type: 'system' }): TerminalEntry[] {
-  return [
-    {
-      type: 'timestamp',
-      time: now(),
-      message: `<span class="text-emerald-400">●</span> Session started <span class="text-slate-500">(${event.session_id.slice(0, 8)}...)</span>`,
-    },
-  ];
+  const model = event.model ?? 'unknown';
+  return [{
+    type: 'timestamp',
+    time: now(),
+    message: `<span class="text-emerald-400">●</span> Session started <span class="text-slate-500">(${event.session_id.slice(0, 8)}...)</span> <span class="text-slate-600">— ${model}</span>`,
+  }];
 }
+
+// ── Assistant event — no "CLAUDE" label, text flows naturally ──────────────
 
 function parseAssistantEvent(event: ClaudeEvent & { type: 'assistant' }): TerminalEntry[] {
   const entries: TerminalEntry[] = [];
@@ -44,7 +59,7 @@ function parseAssistantEvent(event: ClaudeEvent & { type: 'assistant' }): Termin
     if (block.type === 'text' && block.text) {
       entries.push({
         type: 'thought',
-        label: 'CLAUDE',
+        label: '',
         body: block.text,
       });
     }
@@ -53,92 +68,177 @@ function parseAssistantEvent(event: ClaudeEvent & { type: 'assistant' }): Termin
   return entries;
 }
 
+// ── Tool use event — prominent colored headers ─────────────────────────────
+
 function parseToolUseEvent(event: ClaudeEvent & { type: 'tool_use' }): TerminalEntry[] {
   const toolName = event.tool_name;
   const input = event.tool_input;
+  const headerClass = toolColorMap[toolName] ?? 'text-purple-400';
 
-  // File operations → code entry
-  if (toolName === 'Write' || toolName === 'Edit') {
-    const filePath = (input.file_path as string) ?? (input.path as string) ?? '';
-    const content = (input.content as string) ?? (input.new_string as string) ?? '';
+  let summary = '';
+  let content: string | undefined;
+  let isDiff = false;
 
-    return [
-      {
-        type: 'timestamp',
-        time: now(),
-        message: `${toolName === 'Write' ? 'Creating' : 'Editing'} <span class="text-slate-300">${filePath}</span>...`,
-      },
-      {
-        type: 'code',
-        filePath,
-        content: content.length > 500 ? content.slice(0, 500) + '\n// ... truncated' : content,
-        diff: toolName === 'Edit',
-      },
-    ];
+  switch (toolName) {
+    case 'Read': {
+      summary = (input.file_path as string) ?? '';
+      break;
+    }
+    case 'Write': {
+      const filePath = (input.file_path as string) ?? '';
+      const code = (input.content as string) ?? '';
+      summary = filePath;
+      const lines = code.split('\n');
+      content = lines.length > 30
+        ? lines.slice(0, 30).join('\n') + `\n// ... (+${lines.length - 30} more lines)`
+        : code;
+      break;
+    }
+    case 'Edit': {
+      const filePath = (input.file_path as string) ?? '';
+      const oldStr = (input.old_string as string) ?? '';
+      const newStr = (input.new_string as string) ?? '';
+      summary = filePath;
+      const diffLines: string[] = [];
+      for (const line of oldStr.split('\n')) {
+        diffLines.push(`- ${line}`);
+      }
+      for (const line of newStr.split('\n')) {
+        diffLines.push(`+ ${line}`);
+      }
+      content = diffLines.length > 40
+        ? diffLines.slice(0, 40).join('\n') + `\n// ... (+${diffLines.length - 40} more lines)`
+        : diffLines.join('\n');
+      isDiff = true;
+      break;
+    }
+    case 'Bash': {
+      const command = (input.command as string) ?? '';
+      summary = '';
+      content = `$ ${command}`;
+      break;
+    }
+    case 'Glob': {
+      summary = (input.pattern as string) ?? '';
+      break;
+    }
+    case 'Grep': {
+      const pattern = (input.pattern as string) ?? '';
+      const path = (input.path as string) ?? '';
+      summary = `"${pattern}"${path ? ` in ${path}` : ''}`;
+      break;
+    }
+    default: {
+      const keys = Object.keys(input);
+      summary = keys.length > 0 ? keys.join(', ') : '';
+    }
   }
 
-  // Read → timestamp
-  if (toolName === 'Read') {
-    const filePath = (input.file_path as string) ?? '';
-    return [{
-      type: 'timestamp',
-      time: now(),
-      message: `Reading <span class="text-slate-300">${filePath}</span>...`,
-    }];
-  }
-
-  // Bash → code block
-  if (toolName === 'Bash') {
-    const command = (input.command as string) ?? '';
-    return [
-      {
-        type: 'timestamp',
-        time: now(),
-        message: `Running command...`,
-      },
-      {
-        type: 'code',
-        content: `$ ${command}`,
-      },
-    ];
-  }
-
-  // Glob / Grep → timestamp
-  if (toolName === 'Glob' || toolName === 'Grep') {
-    const pattern = (input.pattern as string) ?? '';
-    return [{
-      type: 'timestamp',
-      time: now(),
-      message: `${toolName}: <span class="text-slate-300">${pattern}</span>`,
-    }];
-  }
-
-  // Generic tool use
   return [{
-    type: 'timestamp',
-    time: now(),
-    message: `Using tool: <span class="text-slate-300">${toolName}</span>`,
+    type: 'tool_call',
+    toolName,
+    headerClass,
+    summary,
+    content,
+    isDiff,
   }];
 }
+
+// ── Tool result event — show actual output ─────────────────────────────────
 
 function parseToolResultEvent(event: ClaudeEvent & { type: 'tool_result' }): TerminalEntry[] {
-  const icon = event.is_error
-    ? '<span class="text-red-400">✗</span>'
-    : '<span class="text-emerald-400">✓</span>';
+  const entries: TerminalEntry[] = [];
 
-  const label = event.is_error ? 'Error' : 'Done';
+  if (event.is_error) {
+    entries.push({
+      type: 'tool_call',
+      toolName: event.tool_name,
+      headerClass: 'text-red-400',
+      summary: 'Error',
+      content: event.output.length > 500
+        ? event.output.slice(0, 500) + '\n... (truncated)'
+        : event.output,
+    });
+    return entries;
+  }
 
-  // Truncate long output for display
-  const output = event.output.length > 200
-    ? event.output.slice(0, 200) + '...'
-    : event.output;
+  switch (event.tool_name) {
+    case 'Read': {
+      const lineCount = event.output.split('\n').length;
+      entries.push({
+        type: 'tool_call',
+        toolName: '',
+        headerClass: 'text-slate-600',
+        summary: '',
+        meta: `  (${lineCount} lines)`,
+      });
+      break;
+    }
+    case 'Bash': {
+      if (event.output.trim()) {
+        const lines = event.output.trim().split('\n');
+        const display = lines.length > 25
+          ? lines.slice(0, 25).join('\n') + `\n... (+${lines.length - 25} more lines)`
+          : lines.join('\n');
+        entries.push({
+          type: 'code',
+          content: display,
+        });
+      }
+      break;
+    }
+    case 'Glob':
+    case 'Grep': {
+      if (event.output.trim()) {
+        const lines = event.output.trim().split('\n');
+        const display = lines.length > 15
+          ? lines.slice(0, 15).join('\n') + `\n... (+${lines.length - 15} more)`
+          : lines.join('\n');
+        entries.push({
+          type: 'code',
+          content: display,
+        });
+      }
+      break;
+    }
+    case 'Write': {
+      entries.push({
+        type: 'tool_call',
+        toolName: '',
+        headerClass: 'text-slate-600',
+        summary: '',
+        meta: '  \u2713 File written',
+      });
+      break;
+    }
+    case 'Edit': {
+      entries.push({
+        type: 'tool_call',
+        toolName: '',
+        headerClass: 'text-slate-600',
+        summary: '',
+        meta: '  \u2713 Changes applied',
+      });
+      break;
+    }
+    default: {
+      if (event.output.trim()) {
+        const display = event.output.length > 300
+          ? event.output.slice(0, 300) + '...'
+          : event.output;
+        entries.push({
+          type: 'code',
+          content: display,
+        });
+      }
+      break;
+    }
+  }
 
-  return [{
-    type: 'timestamp',
-    time: now(),
-    message: `${icon} ${event.tool_name}: ${label}${output ? ` — <span class="text-slate-500">${escapeHtml(output)}</span>` : ''}`,
-  }];
+  return entries;
 }
+
+// ── Result event — enhanced cost + token summary ───────────────────────────
 
 function parseResultEvent(event: ClaudeEvent & { type: 'result' }): TerminalEntry[] {
   const entries: TerminalEntry[] = [];
@@ -147,7 +247,7 @@ function parseResultEvent(event: ClaudeEvent & { type: 'result' }): TerminalEntr
     entries.push({
       type: 'timestamp',
       time: now(),
-      message: `<span class="text-red-400">✗</span> Task failed: ${escapeHtml(event.result)}`,
+      message: `<span class="text-red-400">\u2717</span> Task failed: ${escapeHtml(event.result)}`,
     });
   } else {
     entries.push({
@@ -157,13 +257,16 @@ function parseResultEvent(event: ClaudeEvent & { type: 'result' }): TerminalEntr
     });
   }
 
-  // Cost summary
+  // Cost summary with token counts
   if (event.cost_usd != null || event.total_cost_usd != null) {
     const cost = event.total_cost_usd ?? event.cost_usd ?? 0;
+    const tokens = event.usage
+      ? ` (${event.usage.input_tokens.toLocaleString()}\u2192${event.usage.output_tokens.toLocaleString()} tokens)`
+      : '';
     entries.push({
       type: 'timestamp',
       time: now(),
-      message: `<span class="text-emerald-400">●</span> Complete — ${event.num_turns} turns, $${cost.toFixed(3)}`,
+      message: `<span class="text-emerald-400">\u25CF</span> Complete \u2014 ${event.num_turns} turns, $${cost.toFixed(3)}${tokens}`,
     });
   }
 
@@ -175,12 +278,33 @@ function parseResultEvent(event: ClaudeEvent & { type: 'result' }): TerminalEntr
   return entries;
 }
 
+// ── Cost extraction ────────────────────────────────────────────────────────
+
 /**
  * Extract cost string from a result event for the terminal header.
  */
 export function extractCost(event: ClaudeEvent & { type: 'result' }): string {
   const cost = event.total_cost_usd ?? event.cost_usd ?? 0;
   return `$${cost.toFixed(2)}`;
+}
+
+/**
+ * Extract running cost from any event that includes usage data.
+ * Call this for every event and update the cost store if non-null.
+ */
+export function extractRunningCost(event: ClaudeEvent): string | null {
+  if (event.type === 'assistant' && event.message.usage) {
+    const u = event.message.usage;
+    // Rough cost estimate: $3/M input, $15/M output for Opus
+    const inputCost = (u.input_tokens / 1_000_000) * 3;
+    const outputCost = (u.output_tokens / 1_000_000) * 15;
+    const total = inputCost + outputCost;
+    if (total > 0) return `$${total.toFixed(2)}`;
+  }
+  if (event.type === 'result') {
+    return extractCost(event);
+  }
+  return null;
 }
 
 /**

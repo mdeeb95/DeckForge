@@ -6,8 +6,6 @@
 
   let demoStatus = $state<'idle' | 'loading' | 'error'>('idle');
   let demoError = $state('');
-  let pasteStatus = $state<'idle' | 'pressed'>('idle');
-  let cloneStatus = $state<'idle' | 'pressed'>('idle');
 
   async function openDirectory() {
     devLog('lifecycle', 'Open Directory: starting file dialog');
@@ -25,16 +23,6 @@
     } catch (e) {
       devError('error', 'Open directory failed', e);
     }
-  }
-
-  function pastePath() {
-    devLog('lifecycle', 'Paste Path: not yet implemented');
-    pasteStatus = 'pressed';
-  }
-
-  function cloneFromGit() {
-    devLog('lifecycle', 'Clone from Git: not yet implemented');
-    cloneStatus = 'pressed';
   }
 
   async function launchDemo() {
@@ -56,17 +44,6 @@
     }
   }
 
-  // Derive descriptions reactively
-  let pasteDesc = $derived(
-    pasteStatus === 'pressed'
-      ? 'Coming soon — not yet implemented'
-      : 'Enter a full path to your project directory.'
-  );
-  let cloneDesc = $derived(
-    cloneStatus === 'pressed'
-      ? 'Coming soon — not yet implemented'
-      : 'Clone a repository from a Git URL.'
-  );
   let demoDesc = $derived(
     demoStatus === 'loading'
       ? 'Setting up Pong demo...'
@@ -77,8 +54,6 @@
 
   screenCards.set([
     { button: 'A', title: 'Open Directory', description: 'Browse and select a project folder from your filesystem.', onclick: openDirectory },
-    { button: 'B', title: 'Paste a Path', description: 'Enter a full path to your project directory.', onclick: pastePath },
-    { button: 'X', title: 'Clone from Git', description: 'Clone a repository from a Git URL.', onclick: cloneFromGit },
     { button: 'Y', title: 'Demo Mode', description: 'Scaffold a Pong game and explore DeckForge.', onclick: launchDemo },
   ]);
 </script>
@@ -115,48 +90,34 @@
         </div>
       </div>
 
-      <!-- B: Paste Path -->
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-      <div class="relative group cursor-pointer" onclick={pastePath}>
-        {#if $selectedCardIndex === 1}
-          <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
-        {/if}
-        <div class="{$selectedCardIndex === 1 ? 'bg-[#1c242e] border-2 border-primary/50 shadow-lg' : 'bg-surface-dark border border-surface-border hover:border-slate-600'} p-3 rounded relative transition-all {$selectedCardIndex !== 1 ? 'opacity-80 hover:opacity-100' : ''}">
-          <div class="{$selectedCardIndex === 1 ? 'bg-primary text-black rounded-bl font-bold text-xs shadow-sm p-1.5 absolute top-0 right-0' : 'absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-secondary/20 text-secondary border border-secondary/30 rounded-full font-bold text-[10px]'}">B</div>
-          <h3 class="{$selectedCardIndex === 1 ? 'text-primary font-bold' : 'text-white font-medium'} text-sm mb-1 pr-6 truncate text-left">Paste a Path</h3>
-          <p class="{$selectedCardIndex === 1 ? 'text-slate-300' : 'text-slate-400'} text-xs leading-snug mb-2 text-left {pasteStatus === 'pressed' ? 'text-amber-400' : ''}">{pasteDesc}</p>
-          <div class="flex items-center gap-2 text-[10px]">
-            <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">Quick</span>
-          </div>
+      <!-- B + X: Coming soon row (side by side, greyed out) -->
+      <div class="grid grid-cols-2 gap-2 opacity-40 cursor-not-allowed">
+        <!-- B: Paste Path -->
+        <div class="bg-surface-dark border border-surface-border p-2.5 rounded relative">
+          <div class="absolute top-1.5 right-1.5 w-4 h-4 flex items-center justify-center bg-slate-700/40 text-slate-500 border border-slate-600/40 rounded-full font-bold text-[9px]">B</div>
+          <h3 class="text-slate-500 font-medium text-xs mb-0.5 pr-5 truncate text-left">Paste a Path</h3>
+          <p class="text-slate-600 text-[10px] leading-snug mb-1.5 text-left">Enter a full path.</p>
+          <span class="bg-slate-800/50 text-slate-500 px-1.5 py-0.5 rounded border border-surface-border/50 text-[9px]">Coming Soon</span>
         </div>
-      </div>
-
-      <!-- X: Clone from Git -->
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-      <div class="relative group cursor-pointer" onclick={cloneFromGit}>
-        {#if $selectedCardIndex === 2}
-          <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
-        {/if}
-        <div class="{$selectedCardIndex === 2 ? 'bg-[#1c242e] border-2 border-primary/50 shadow-lg' : 'bg-surface-dark border border-surface-border hover:border-slate-600'} p-3 rounded relative transition-all {$selectedCardIndex !== 2 ? 'opacity-80 hover:opacity-100' : ''}">
-          <div class="{$selectedCardIndex === 2 ? 'bg-primary text-black rounded-bl font-bold text-xs shadow-sm p-1.5 absolute top-0 right-0' : 'absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]'}">X</div>
-          <h3 class="{$selectedCardIndex === 2 ? 'text-primary font-bold' : 'text-white font-medium'} text-sm mb-1 pr-6 truncate text-left">Clone from Git</h3>
-          <p class="{$selectedCardIndex === 2 ? 'text-slate-300' : 'text-slate-400'} text-xs leading-snug mb-2 text-left {cloneStatus === 'pressed' ? 'text-amber-400' : ''}">{cloneDesc}</p>
-          <div class="flex items-center gap-2 text-[10px]">
-            <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">Remote</span>
-          </div>
+        <!-- X: Clone from Git -->
+        <div class="bg-surface-dark border border-surface-border p-2.5 rounded relative">
+          <div class="absolute top-1.5 right-1.5 w-4 h-4 flex items-center justify-center bg-slate-700/40 text-slate-500 border border-slate-600/40 rounded-full font-bold text-[9px]">X</div>
+          <h3 class="text-slate-500 font-medium text-xs mb-0.5 pr-5 truncate text-left">Clone from Git</h3>
+          <p class="text-slate-600 text-[10px] leading-snug mb-1.5 text-left">Clone a repository.</p>
+          <span class="bg-slate-800/50 text-slate-500 px-1.5 py-0.5 rounded border border-surface-border/50 text-[9px]">Coming Soon</span>
         </div>
       </div>
 
       <!-- Y: Demo Mode (Amber branded -- Y is always ridiculous) -->
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
       <div class="relative group cursor-pointer" onclick={launchDemo}>
-        {#if $selectedCardIndex === 3}
+        {#if $selectedCardIndex === 1}
           <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
         {/if}
-        <div class="{$selectedCardIndex === 3 ? 'bg-[#1e1a13] border-2 border-primary/50 shadow-lg' : 'bg-[#1e1a13] border border-amber-500/40 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(245,158,11,0.15)]'} p-3 rounded relative transition-all">
-          <div class="{$selectedCardIndex === 3 ? 'bg-primary text-black rounded-bl font-bold text-xs shadow-sm p-1.5 absolute top-0 right-0' : 'absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full font-bold text-[10px]'}">Y</div>
-          <h3 class="{$selectedCardIndex === 3 ? 'text-primary font-bold' : 'text-amber-400 font-medium'} text-sm mb-1 pr-6 truncate text-left {demoStatus === 'loading' ? 'animate-pulse' : ''}">Demo Mode</h3>
-          <p class="{$selectedCardIndex === 3 ? 'text-slate-300' : 'text-amber-200/60'} text-xs leading-snug mb-2 text-left {demoStatus === 'error' ? 'text-red-400' : ''}">{demoDesc}</p>
+        <div class="{$selectedCardIndex === 1 ? 'bg-[#1e1a13] border-2 border-primary/50 shadow-lg' : 'bg-[#1e1a13] border border-amber-500/40 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(245,158,11,0.15)]'} p-3 rounded relative transition-all">
+          <div class="{$selectedCardIndex === 1 ? 'bg-primary text-black rounded-bl font-bold text-xs shadow-sm p-1.5 absolute top-0 right-0' : 'absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full font-bold text-[10px]'}">Y</div>
+          <h3 class="{$selectedCardIndex === 1 ? 'text-primary font-bold' : 'text-amber-400 font-medium'} text-sm mb-1 pr-6 truncate text-left {demoStatus === 'loading' ? 'animate-pulse' : ''}">Demo Mode</h3>
+          <p class="{$selectedCardIndex === 1 ? 'text-slate-300' : 'text-amber-200/60'} text-xs leading-snug mb-2 text-left {demoStatus === 'error' ? 'text-red-400' : ''}">{demoDesc}</p>
           <div class="flex items-center gap-2 text-[10px]">
             {#if demoStatus === 'loading'}
               <span class="bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/20 animate-pulse">Loading...</span>

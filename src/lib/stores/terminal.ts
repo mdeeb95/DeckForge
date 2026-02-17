@@ -37,7 +37,22 @@ export interface ThinkingEntry {
   message: string;
 }
 
-export type TerminalEntry = TimestampEntry | PromptEntry | ThoughtEntry | CodeEntry | CursorEntry | ThinkingEntry;
+export interface ToolCallEntry {
+  type: 'tool_call';
+  toolName: string;
+  /** Colored CSS class for the tool header */
+  headerClass: string;
+  /** Primary parameter (file path, command, pattern) */
+  summary: string;
+  /** Optional code/content block below the header */
+  content?: string;
+  /** Whether content is a diff (show +/- coloring) */
+  isDiff?: boolean;
+  /** Optional line count or result summary */
+  meta?: string;
+}
+
+export type TerminalEntry = TimestampEntry | PromptEntry | ThoughtEntry | CodeEntry | CursorEntry | ThinkingEntry | ToolCallEntry;
 
 function createTerminalStore() {
   const { subscribe, update, set } = writable<TerminalEntry[]>([]);
@@ -57,3 +72,7 @@ export const entries = createTerminalStore();
 export const status = writable<TerminalStatus>('idle');
 export const cost = writable('$0.00');
 export const scope = writable('');
+export const turns = writable(0);
+
+export type TerminalTab = 'claude' | 'app';
+export const activeTab = writable<TerminalTab>('claude');

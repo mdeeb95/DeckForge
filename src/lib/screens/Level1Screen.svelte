@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import TerminalPanel from '../components/TerminalPanel.svelte';
   import ActionPalette from '../components/ActionPalette.svelte';
   import { selectedCardIndex, projectName, navigate, screenCards } from '../stores/app';
@@ -9,8 +9,14 @@
   import type { Category } from '../prediction/types';
   import type { TerminalEntry } from '../stores/terminal';
   import { getRandomMessage } from '../personality/messages';
+  import { appRunning, appPid } from '../stores/launcher';
+  import { projectConfig } from '../stores/configStores';
+  import { launchApp, restartApp, isRunning } from '../system/appLauncher';
+
+  let abortController: AbortController;
 
   onMount(() => {
+    abortController = new AbortController();
     entries.clear();
 
     const name = get(projectName) || 'project';
@@ -35,10 +41,32 @@
     bootEntries.forEach(e => entries.addEntry(e));
   });
 
-  function selectCategory(category: Category) {
+  onDestroy(() => {
+    abortController.abort();
+  });
+
+  let animatingType = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
+  let animatingButton = $state<string | null>(null);
+
+  function selectCategory(category: Category, button: string) {
+    if (animatingType) return;
+
+    // Y (YOLO) always gets glitch — design rule: Y is always ridiculous
+    const anim = button === 'Y' ? 'glitch' : 'confirm';
+    const duration = button === 'Y' ? 450 : 350;
+
+    animatingType = anim;
+    animatingButton = button;
+    screenCards.set([]); // lock gamepad during animation
+
     // Start loading predictions before navigating (fires async, doesn't block)
-    loadPredictions(category);
-    navigate('level2');
+    loadPredictions(category, abortController.signal);
+
+    setTimeout(() => {
+      animatingType = null;
+      animatingButton = null;
+      navigate('level2');
+    }, duration);
   }
 
   // Level 1 category cards — all 4 get branded colors per style guide section 13
@@ -49,7 +77,7 @@
       description: 'build something new',
       pills: [{ label: '8 suggestions', variant: 'active' as const }],
       variant: 'primary' as const,
-      onclick: () => selectCategory('feature'),
+      onclick: () => selectCategory('feature', 'A'),
     },
     {
       button: 'B',
@@ -57,7 +85,7 @@
       description: 'fix something broken',
       pills: [{ label: '8 suggestions', variant: 'neutral' as const }],
       variant: 'secondary_pink' as const,
-      onclick: () => selectCategory('bug'),
+      onclick: () => selectCategory('bug', 'B'),
     },
     {
       button: 'X',
@@ -65,7 +93,7 @@
       description: 'pay down the mess',
       pills: [{ label: '8 suggestions', variant: 'neutral' as const }],
       variant: 'neutral' as const,
-      onclick: () => selectCategory('tech_debt'),
+      onclick: () => selectCategory('tech_debt', 'X'),
     },
     {
       button: 'Y',
@@ -73,14 +101,28 @@
       description: 'surprise me, I\'m feeling lucky',
       pills: [{ label: '8 suggestions', variant: 'neutral' as const }],
       variant: 'amber' as const,
-      onclick: () => selectCategory('yolo'),
+      onclick: () => selectCategory('yolo', 'Y'),
     },
   ];
 
-  const secondaryCards = [
+  function runApp() {
+    if (isRunning()) {
+      restartApp();
+    } else {
+      const config = get(projectConfig);
+      const cmd = config?.run_config?.command;
+      const cwd = config?.run_config?.working_directory || config?.project?.path || '.';
+      if (cmd) {
+        launchApp(cmd, cwd);
+      }
+    }
+  }
+
+  let secondaryCards = $derived([
     { button: 'START', label: 'QA Mode', icon: 'checklist' },
+    { button: 'R4', label: $appRunning ? `App Running (PID ${$appPid})` : 'Run App', icon: $appRunning ? 'stop_circle' : 'play_arrow', variant: 'emerald' as const },
     { button: 'SELECT', label: 'History', icon: 'history' },
-  ];
+  ]);
 
   screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
 </script>
@@ -94,4 +136,13 @@
   {cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
+  {animatingButton}
+  animationType={animatingType}
+  hints={[
+    { key: 'A/B/X/Y', label: 'Select' },
+    { key: 'D-PAD', label: 'Navigate' },
+    { key: 'R4', label: 'Run App' },
+    { key: 'RB', label: 'Screenshot' },
+    { key: 'START', label: 'Menu' },
+  ]}
 />

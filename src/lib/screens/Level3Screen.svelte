@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import TerminalPanel from '../components/TerminalPanel.svelte';
   import ActionPalette from '../components/ActionPalette.svelte';
   import { selectedCardIndex, navigate, screenCards, pendingClaudePrompt } from '../stores/app';
@@ -7,11 +7,13 @@
   import { selectedSuggestion, currentPlan, trackPlanApproval, trackPlanRejection } from '../stores/prediction';
   import type { TerminalEntry } from '../stores/terminal';
 
+  let abortController: AbortController;
+
   let suggestion = $derived($selectedSuggestion);
   let plan = $derived($currentPlan);
 
-  let animatingShip = $state<'glitch' | 'confirm' | null>(null);
-  let animatingButton = $state<'A' | 'Y' | null>(null);
+  let animatingShip = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
+  let animatingButton = $state<'A' | 'B' | 'X' | 'Y' | null>(null);
   let shipAnimationCount = 0; // persists across L3 visits within session
 
   // Populate terminal with plan details when plan loads
@@ -88,8 +90,18 @@
   }
 
   function goBack() {
+    if (animatingShip) return;
     trackPlanRejection();
-    navigate('level2');
+
+    animatingShip = 'dismiss';
+    animatingButton = 'B';
+    screenCards.set([]); // lock gamepad
+
+    setTimeout(() => {
+      animatingShip = null;
+      animatingButton = null;
+      navigate('level2');
+    }, 300);
   }
 
   let expandDepth = $state(0);
@@ -101,6 +113,14 @@
       return;
     }
     if (isExpanding) return; // debounce
+
+    // Flash the pulse animation (cosmetic, doesn't block the action)
+    animatingShip = 'pulse';
+    animatingButton = 'X';
+    setTimeout(() => {
+      animatingShip = null;
+      animatingButton = null;
+    }, 350);
 
     isExpanding = true;
     expandDepth++;
@@ -130,51 +150,78 @@
       let expanded;
       if (config) {
         const context = await buildContextPayload(config, behavior);
-        expanded = await expandPlanRemote(plan, context, expandDepth);
+        expanded = await expandPlanRemote(plan, context, expandDepth, abortController.signal);
       } else {
-        expanded = await expandPlanRemote(plan, {} as any, expandDepth);
+        expanded = await expandPlanRemote(plan, {} as any, expandDepth, abortController.signal);
       }
+
+      // If aborted between fetch and rendering, bail
+      if (abortController.signal.aborted) return;
+
+      console.log('[expand-plan] Parsed response:', {
+        depth: expanded.depth,
+        stepCount: expanded.steps.length,
+        commentary: expanded.commentary,
+        firstStep: expanded.steps[0],
+      });
 
       // Render expansion results to terminal
       for (const step of expanded.steps) {
-        const stepData = step as Record<string, unknown>;
-        const n = stepData.n as number;
+        const n = step.n ?? 0;
+        const title = step.title || step.text || '';
         const label = `STEP ${n} · DEPTH ${expandDepth}`;
 
-        if (stepData.substeps) {
-          const subs = stepData.substeps as string[];
-          entries.addEntry({
-            type: 'thought',
-            label,
-            body: subs.map((s, i) => `${i + 1}. ${s}`).join('\n'),
-          });
-        }
-        if (stepData.files_affected) {
+        // Show step title if present
+        if (title) {
           entries.addEntry({
             type: 'timestamp',
             time: `${n}.`,
-            message: `Files: ${(stepData.files_affected as string[]).join(', ')}`,
+            message: title,
           });
         }
-        if (stepData.risks) {
+
+        // Show description as a separate thought if present and different from title
+        if (step.description && step.description !== title) {
+          entries.addEntry({
+            type: 'thought',
+            label,
+            body: step.description,
+          });
+        }
+
+        if (step.substeps) {
+          entries.addEntry({
+            type: 'thought',
+            label: `${label} · SUBSTEPS`,
+            body: step.substeps.map((s, i) => `${i + 1}. ${s}`).join('\n'),
+          });
+        }
+        if (step.files_affected) {
+          entries.addEntry({
+            type: 'timestamp',
+            time: `${n}.`,
+            message: `Files: ${step.files_affected.join(', ')}`,
+          });
+        }
+        if (step.risks) {
           entries.addEntry({
             type: 'thought',
             label: `STEP ${n} RISKS`,
-            body: (stepData.risks as string[]).join(' · '),
+            body: step.risks.join(' · '),
           });
         }
-        if (stepData.alternatives) {
+        if (step.alternatives) {
           entries.addEntry({
             type: 'thought',
             label: `ALT · STEP ${n}`,
-            body: (stepData.alternatives as string[]).join('\n'),
+            body: step.alternatives.join('\n'),
           });
         }
-        if (stepData.what_could_go_wrong) {
+        if (step.what_could_go_wrong) {
           entries.addEntry({
             type: 'thought',
             label: `WORST CASE · STEP ${n}`,
-            body: stepData.what_could_go_wrong as string,
+            body: step.what_could_go_wrong,
           });
         }
       }
@@ -187,6 +234,8 @@
         });
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('[expand-plan] Expansion failed:', err);
       entries.addEntry({
         type: 'cursor',
         message: `Expansion failed: ${err}. Press X to try again.`,
@@ -194,6 +243,8 @@
       expandDepth--; // allow retry at same depth
     }
 
+    // Only update UI state if still on this screen
+    if (abortController.signal.aborted) return;
     status.set('idle');
     isExpanding = false;
   }
@@ -268,6 +319,7 @@
   });
 
   onMount(() => {
+    abortController = new AbortController();
     // If no plan loaded, show a loading state
     if (!plan) {
       entries.clear();
@@ -277,6 +329,10 @@
       });
       status.set('streaming');
     }
+  });
+
+  onDestroy(() => {
+    abortController.abort();
   });
 </script>
 
@@ -291,4 +347,10 @@
   selectedIndex={$selectedCardIndex}
   {animatingButton}
   animationType={animatingShip}
+  hints={[
+    { key: 'A', label: 'Ship It' },
+    { key: 'B', label: 'Back' },
+    { key: 'X', label: 'Tell Me More' },
+    { key: 'Y', label: 'Ship Unhinged' },
+  ]}
 />

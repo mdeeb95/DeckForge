@@ -84,10 +84,22 @@ export async function sendPrompt(
     const { Command } = await import('@tauri-apps/plugin-shell');
     emitDiag('Tauri shell plugin imported OK');
 
-    // Spawn through shell to ensure proper stdout delivery.
-    // Direct Tauri → claude pipe can buffer/stall; sh -c mediates reliably.
+    // Spawn through PTY wrapper to force line-buffered stdout.
+    // - `unset CLAUDECODE CLAUDE_CODE` prevents nesting detection from blocking output
+    // - `script` creates a pseudo-TTY so Node/claude flushes stdout per-line
     const escapedArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
-    const command = Command.create('sh', ['-c', `claude ${escapedArgs}`], {
+    const isMac = navigator.platform === 'MacIntel' || navigator.platform.startsWith('Mac');
+
+    let shellCmd: string;
+    if (isMac) {
+      shellCmd = `unset CLAUDECODE CLAUDE_CODE; exec script -q /dev/null claude ${escapedArgs}`;
+    } else {
+      shellCmd = `unset CLAUDECODE CLAUDE_CODE; exec script -qfc "claude ${escapedArgs}" /dev/null`;
+    }
+
+    emitDiag(`Shell command: ${shellCmd.slice(0, 120)}...`);
+
+    const command = Command.create('sh', ['-c', shellCmd], {
       cwd: options.projectPath,
     });
 
@@ -98,7 +110,7 @@ export async function sendPrompt(
 
     command.stdout.on('data', (chunk: string) => {
       gotAnyStdout = true;
-      stdoutBuffer += chunk;
+      stdoutBuffer += chunk.replace(/\r/g, '');
 
       // Split on newlines — each complete line is one JSON event
       const lines = stdoutBuffer.split('\n');
@@ -121,8 +133,11 @@ export async function sendPrompt(
           devLog('claude', `stdout event: ${event.type}`, event.type === 'result' ? event : undefined);
           outputCallback?.(event);
         } catch {
-          // Non-JSON line — show it instead of silently dropping
-          emitDiag(`[stdout non-JSON] (${trimmed.length} chars) ${trimmed.slice(0, 200)}`);
+          if (trimmed.startsWith('Script ') || trimmed.startsWith('Typescript ')) {
+            devLog('claude', `[script banner] ${trimmed}`);
+          } else {
+            emitDiag(`[stdout non-JSON] (${trimmed.length} chars) ${trimmed.slice(0, 200)}`);
+          }
         }
       }
     });
@@ -267,6 +282,10 @@ export function buildClaudeArgs(prompt: string, options: SessionOptions): string
   // System prompt append
   if (options.systemPromptAppend) {
     args.push('--append-system-prompt', options.systemPromptAppend);
+  }
+
+  if (!args.includes('--max-turns')) {
+    args.push('--max-turns', '50');
   }
 
   return args;

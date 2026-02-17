@@ -87,7 +87,7 @@ function getCostWarningThreshold(): number {
 /**
  * Load predictions for a category. Checks cache first, then calls prediction client.
  */
-export async function loadPredictions(category: Category): Promise<void> {
+export async function loadPredictions(category: Category, signal?: AbortSignal): Promise<void> {
   selectedCategory.set(category);
   predictionError.set(null);
   rerollCount.set(0);
@@ -98,6 +98,7 @@ export async function loadPredictions(category: Category): Promise<void> {
   // Check cache first
   const cached = getCached(category, context);
   if (cached) {
+    if (signal?.aborted) return;
     currentPrediction.set(cached.response);
     lastTraceId.set(cached.response.trace_id ?? null);
     const [a, b] = getCurrentPair(cached);
@@ -110,7 +111,11 @@ export async function loadPredictions(category: Category): Promise<void> {
   predictionsLoading.set(true);
 
   try {
-    const response = await predictSuggestions(category, context);
+    const response = await predictSuggestions(category, context, signal);
+
+    // Guard: check if aborted before writing stores
+    if (signal?.aborted) return;
+
     currentPrediction.set(response);
 
     // Capture metadata from backend response
@@ -126,10 +131,11 @@ export async function loadPredictions(category: Category): Promise<void> {
     currentPairA.set(a);
     currentPairB.set(b);
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
     console.error('Prediction failed:', error);
     predictionError.set('predictions failed — showing backup ideas');
   } finally {
-    predictionsLoading.set(false);
+    if (!signal?.aborted) predictionsLoading.set(false);
   }
 }
 
@@ -172,7 +178,7 @@ export async function rerollSuggestions(): Promise<void> {
 /**
  * Select a suggestion and generate its plan (transition to Level 3).
  */
-export async function selectAndPlan(suggestion: Suggestion | WildCard): Promise<void> {
+export async function selectAndPlan(suggestion: Suggestion | WildCard, signal?: AbortSignal): Promise<void> {
   selectedSuggestion.set(suggestion);
   currentPlan.set(null);
 
@@ -212,7 +218,11 @@ export async function selectAndPlan(suggestion: Suggestion | WildCard): Promise<
   const context = await getContext();
 
   try {
-    const plan = await generatePlan(suggestion as Suggestion, context);
+    const plan = await generatePlan(suggestion as Suggestion, context, signal);
+
+    // Guard: check if aborted before writing stores
+    if (signal?.aborted) return;
+
     currentPlan.set(plan);
     lastPlanTraceId.set(plan.trace_id ?? null);
 
@@ -221,8 +231,10 @@ export async function selectAndPlan(suggestion: Suggestion | WildCard): Promise<
       addSessionCost(plan.cost_usd, getCostWarningThreshold());
     }
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
     console.error('Plan generation failed:', error);
     // Generate a minimal fallback plan
+    if (signal?.aborted) return;
     currentPlan.set({
       summary: suggestion.label,
       quip: suggestion.quip,

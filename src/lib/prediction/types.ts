@@ -113,9 +113,23 @@ export interface PlanResponse {
 
 // ─── Expanded Plan (Tell Me More) ────────────────────────────────────────────
 
+export interface ExpandedStep {
+  n: number;
+  text: string;
+  title?: string;
+  description?: string;
+  substeps?: string[];
+  files_affected?: string[];
+  risks?: string[];
+  alternatives?: string[];
+  what_could_go_wrong?: string;
+  estimated_lines?: number;
+  confidence_if_skipped?: string;
+}
+
 export interface ExpandedPlanResponse {
   depth: number;
-  steps: Record<string, unknown>[];
+  steps: ExpandedStep[];
   commentary: string;
 }
 

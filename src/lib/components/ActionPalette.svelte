@@ -1,6 +1,7 @@
 <script lang="ts">
   import ActionCard from './ActionCard.svelte';
   import SecondaryCard from './SecondaryCard.svelte';
+  import HintGrid from './HintGrid.svelte';
 
   interface CardData {
     button: string;
@@ -15,6 +16,7 @@
     button: string;
     label: string;
     icon: string;
+    variant?: 'default' | 'emerald';
   }
 
   interface Props {
@@ -26,7 +28,8 @@
     secondaryCards?: SecondaryCardData[];
     selectedIndex?: number;
     animatingButton?: string | null;
-    animationType?: 'glitch' | 'confirm' | null;
+    animationType?: 'glitch' | 'confirm' | 'dismiss' | 'pulse' | null;
+    hints?: { key: string; label: string }[];
   }
 
   let {
@@ -39,7 +42,30 @@
     selectedIndex = 0,
     animatingButton = null,
     animationType = null,
+    hints = [],
   }: Props = $props();
+
+  // Track card switch animations
+  let prevIndex = $state(-1);
+  let enteringIndex = $state(-1);
+  let exitingIndex = $state(-1);
+
+  $effect(() => {
+    // Don't trigger switch animation during action animations
+    if (animatingButton) return;
+
+    if (selectedIndex !== prevIndex && prevIndex >= 0) {
+      exitingIndex = prevIndex;
+      enteringIndex = selectedIndex;
+
+      // Clear transition flags after animation completes
+      setTimeout(() => {
+        exitingIndex = -1;
+        enteringIndex = -1;
+      }, 320);
+    }
+    prevIndex = selectedIndex;
+  });
 </script>
 
 <aside class="flex-1 min-w-[280px] bg-surface-dark border-l border-surface-border flex flex-col z-20 shadow-2xl">
@@ -75,6 +101,7 @@
         variant={card.variant}
         onclick={card.onclick}
         animationType={card.button === animatingButton ? animationType : null}
+        switchAnimation={i === enteringIndex ? 'zoom-in' : i === exitingIndex ? 'zoom-out' : null}
       />
     {/each}
 
@@ -87,15 +114,11 @@
           button={card.button}
           label={card.label}
           icon={card.icon}
+          variant={card.variant}
         />
       {/each}
     {/if}
   </div>
 
-  <!-- Bottom Action Hint -->
-  <div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
-    <p class="text-[10px] text-slate-500 font-mono">
-      Use <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> to navigate &middot; <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> to select
-    </p>
-  </div>
+  <HintGrid {hints} />
 </aside>

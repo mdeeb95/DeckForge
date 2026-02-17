@@ -1,17 +1,20 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import TerminalPanel from '../components/TerminalPanel.svelte';
+  import ActionCard from '../components/ActionCard.svelte';
+  import HintGrid from '../components/HintGrid.svelte';
   import { selectedCardIndex, navigate, screenCards, pendingClaudePrompt } from '../stores/app';
-  import { entries, status, cost, scope } from '../stores/terminal';
+  import { entries, status, cost, scope, activeTab } from '../stores/terminal';
   import { get } from 'svelte/store';
   import { sendPrompt, onOutput, interrupt, getSessionState } from '../claude/subprocess';
-  import { parseClaudeEvent, extractCost, extractScope } from '../claude/streamParser';
+  import { parseClaudeEvent, extractCost, extractScope, extractRunningCost } from '../claude/streamParser';
   import { projectConfig } from '../stores/configStores';
   import type { ClaudeEvent, ClaudeSessionReport } from '../claude/types';
   import { getRandomMessage } from '../personality/messages';
   import { reportClaudeSession } from '../prediction/sessionReporter';
   import { currentPlan, lastPlanTraceId, lastTraceId } from '../stores/prediction';
 
+  let abortController: AbortController;
   let taskComplete = $state(false);
   let taskFailed = $state(false);
   let elapsedSeconds = $state(0);
@@ -19,6 +22,10 @@
   let elapsedInterval: ReturnType<typeof setInterval> | null = null;
   let workingMessage = $state(getRandomMessage('ai_working'));
   let messageInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Animation state for post-completion cards
+  let animatingType = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
+  let animatingButton = $state<string | null>(null);
 
   // Session reporting state
   let toolNames = $state<Set<string>>(new Set());
@@ -57,7 +64,29 @@
   }
 
   function handleContinue() {
-    navigate('qa_mode');
+    if (animatingType) return;
+    animatingType = 'confirm';
+    animatingButton = 'A';
+    screenCards.set([]);
+
+    setTimeout(() => {
+      animatingType = null;
+      animatingButton = null;
+      navigate('qa_mode');
+    }, 350);
+  }
+
+  function handleBackToHome() {
+    if (animatingType) return;
+    animatingType = 'dismiss';
+    animatingButton = 'B';
+    screenCards.set([]);
+
+    setTimeout(() => {
+      animatingType = null;
+      animatingButton = null;
+      navigate('level1');
+    }, 300);
   }
 
   const cards = [
@@ -74,6 +103,8 @@
   screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
 
   onMount(() => {
+    abortController = new AbortController();
+    activeTab.set('claude');
     entries.clear();
     status.set('streaming');
     cost.set('$0.00');
@@ -97,10 +128,15 @@
 
     // Register output handler
     onOutput((event: ClaudeEvent) => {
+      if (abortController.signal.aborted) return; // screen was destroyed
       const terminalEntries = parseClaudeEvent(event);
       for (const entry of terminalEntries) {
         entries.addEntry(entry);
       }
+
+      // Update running cost estimate
+      const runningCost = extractRunningCost(event);
+      if (runningCost) cost.set(runningCost);
 
       // Track tool events for scope calculation
       if (event.type === 'tool_use' || event.type === 'tool_result') {
@@ -162,7 +198,7 @@
               button: 'B',
               title: 'Back to Home',
               description: 'Return to the main screen.',
-              onclick: () => navigate('level1'),
+              onclick: handleBackToHome,
             },
           ]);
         }
@@ -215,6 +251,7 @@
   });
 
   onDestroy(() => {
+    abortController.abort();
     if (elapsedInterval) clearInterval(elapsedInterval);
     if (messageInterval) clearInterval(messageInterval);
   });
@@ -289,42 +326,51 @@
 
     <!-- Action cards -->
     {#if taskComplete}
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="relative group opacity-80 hover:opacity-100 transition-opacity mb-2" onclick={handleContinue}>
-        <div class="bg-surface-dark border border-primary/30 hover:border-primary/50 p-3 rounded relative transition-all">
-          <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-primary/20 text-primary border border-primary/30 rounded-full font-bold text-[10px]">A</div>
-          <h3 class="text-primary font-medium text-sm mb-1 pr-6">Continue</h3>
-          <p class="text-xs text-slate-400 leading-snug">Proceed to QA review</p>
-        </div>
+      <div class="mb-2">
+        <ActionCard
+          button="A"
+          title="Continue"
+          description="Proceed to QA review"
+          variant="primary"
+          selected={$selectedCardIndex === 0}
+          onclick={handleContinue}
+          animationType={animatingButton === 'A' ? animatingType : null}
+        />
       </div>
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={() => navigate('level1')}>
-        <div class="bg-surface-dark border border-red-400/30 hover:border-red-400/50 p-3 rounded relative transition-all">
-          <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-red-400/20 text-red-400 border border-red-400/30 rounded-full font-bold text-[10px]">B</div>
-          <h3 class="text-red-400 font-medium text-sm mb-1 pr-6">Back to Home</h3>
-          <p class="text-xs text-slate-400 leading-snug">Return to the main screen</p>
-        </div>
-      </div>
+      <ActionCard
+        button="B"
+        title="Back to Home"
+        description="Return to the main screen"
+        variant="secondary_pink"
+        selected={$selectedCardIndex === 1}
+        onclick={handleBackToHome}
+        animationType={animatingButton === 'B' ? animatingType : null}
+      />
     {:else}
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={handleInterrupt}>
-        <div class="bg-surface-dark border border-red-400/30 hover:border-red-400/50 p-3 rounded relative transition-all">
-          <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-red-400/20 text-red-400 border border-red-400/30 rounded-full font-bold text-[10px]">B</div>
-          <h3 class="text-red-400 font-medium text-sm mb-1 pr-6">Interrupt</h3>
-          <p class="text-xs text-slate-400 leading-snug">Stop Claude Code and revert to last checkpoint</p>
-        </div>
-      </div>
+      <ActionCard
+        button="B"
+        title="Interrupt"
+        description="Stop Claude Code and revert to last checkpoint"
+        variant="secondary_pink"
+        selected={true}
+        onclick={handleInterrupt}
+      />
     {/if}
   </div>
 
-  <div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
-    {#if taskComplete}
-      <p class="text-[10px] text-slate-500 font-mono">Press <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> to continue</p>
-    {:else}
-      <p class="text-[10px] text-slate-500 font-mono">Press <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> to interrupt</p>
-    {/if}
-  </div>
+  {#if taskComplete}
+    <HintGrid hints={[
+      { key: 'A', label: 'Continue' },
+      { key: 'B', label: 'Back to Home' },
+      { key: 'SELECT', label: 'Focus Log' },
+      { key: 'LB+RB', label: 'Voice' },
+    ]} />
+  {:else}
+    <HintGrid hints={[
+      { key: 'B', label: 'Interrupt' },
+      { key: 'START', label: 'Menu' },
+      { key: 'SELECT', label: 'Focus Log' },
+      { key: 'LB+RB', label: 'Voice' },
+    ]} />
+  {/if}
 </aside>

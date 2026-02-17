@@ -53,6 +53,15 @@ class WildCard(BaseModel):
 class PlanStep(BaseModel):
     n: int
     text: str
+    title: str | None = None
+    description: str | None = None
+    substeps: list[str] | None = None
+    files_affected: list[str] | None = None
+    risks: list[str] | None = None
+    alternatives: list[str] | None = None
+    what_could_go_wrong: str | None = None
+    estimated_lines: int | None = None
+    confidence_if_skipped: str | None = None
 
 
 class PredictResponse(BaseModel):
@@ -70,6 +79,9 @@ class PredictResponse(BaseModel):
     confidence: str | None = None
     unhinged_modifier: str | None = None
     claude_code_intent: str | None = None
+
+    # Level 3 expand fields
+    commentary: str | None = None
 
     # Metadata
     call_type: str

@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
   import ScreenRouter from './lib/components/ScreenRouter.svelte';
-  import BottomHUD from './lib/components/BottomHUD.svelte';
   import FlashOverlay from './lib/components/FlashOverlay.svelte';
   import { projectName, connected, navigate, splitRatio } from './lib/stores/app';
   import type { Screen } from './lib/stores/app';
@@ -45,6 +44,7 @@
     Tab: 'RB',
     m: 'START',
     v: 'SELECT',
+    r: 'R4',
   };
 
   let shiftHeld = false;
@@ -141,6 +141,5 @@
   <!-- Main Workspace -->
   <main class="flex-1 flex overflow-hidden relative">
     <ScreenRouter />
-    <BottomHUD />
   </main>
 </div>

@@ -168,7 +168,25 @@ def _build_response(
         response.claude_code_intent = parsed.get("claude_code_intent")
 
     if "steps" in parsed:
-        response.steps = [PlanStep(**s) for s in parsed["steps"]]
+        steps = []
+        for i, step_dict in enumerate(parsed["steps"]):
+            steps.append(PlanStep(
+                n=step_dict.get("n", i + 1),
+                text=step_dict.get("text", step_dict.get("title", step_dict.get("description", f"Step {i + 1}"))),
+                title=step_dict.get("title"),
+                description=step_dict.get("description"),
+                substeps=step_dict.get("substeps"),
+                files_affected=step_dict.get("files_affected"),
+                risks=step_dict.get("risks"),
+                alternatives=step_dict.get("alternatives"),
+                what_could_go_wrong=step_dict.get("what_could_go_wrong"),
+                estimated_lines=step_dict.get("estimated_lines"),
+                confidence_if_skipped=step_dict.get("confidence_if_skipped"),
+            ))
+        response.steps = steps
+
+    if "commentary" in parsed:
+        response.commentary = parsed["commentary"]
 
     return response
 

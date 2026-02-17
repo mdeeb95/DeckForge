@@ -185,6 +185,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
 // ── Global handlers (active on ALL screens) ─────────────────────────
 // LB + D-pad left/right adjusts split ratio (5% increments, min 20%, max 80%).
 // RT = switch to app window, LT = switch to DeckForge, R4 = restart app.
+// SELECT = toggle terminal tab (Claude Code / App Output).
 // RB = screenshot (fallback — only fires if screen doesn't handle RB).
 const globalHandlers: HandlerMap = {
   RB: () => {
@@ -221,9 +222,33 @@ const globalHandlers: HandlerMap = {
     devLog('input', 'Global LT → switch to DeckForge');
     import('../system/windowManager').then(m => m.switchToDeckForge());
   },
+  SELECT: () => {
+    import('../stores/terminal').then(({ activeTab }) => {
+      const current = get(activeTab);
+      const next = current === 'claude' ? 'app' : 'claude';
+      activeTab.set(next);
+      devLog('input', `Global SELECT → toggle terminal tab to ${next}`);
+    });
+  },
   R4: () => {
-    devLog('input', 'Global R4 → restart app');
-    import('../system/appLauncher').then(m => m.restartApp());
+    devLog('input', 'Global R4 → run/restart app');
+    Promise.all([
+      import('../system/appLauncher'),
+      import('../stores/configStores'),
+    ]).then(([launcher, configStores]) => {
+      if (launcher.isRunning()) {
+        launcher.restartApp();
+      } else {
+        const config = get(configStores.projectConfig);
+        const cmd = config?.run_config?.command;
+        const cwd = config?.run_config?.working_directory || config?.project?.path || '.';
+        if (cmd) {
+          launcher.launchApp(cmd, cwd);
+        } else {
+          devLog('input', 'R4: no run command configured');
+        }
+      }
+    });
   },
 };
 

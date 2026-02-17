@@ -9,6 +9,7 @@ import type {
   PlanResponse,
   ScopeLevel,
   ExpandedPlanResponse,
+  ExpandedStep,
 } from './types';
 import { getAccessToken, getBackendUrl, refreshAuth } from '../auth/auth';
 import { isDemoMode } from '../stores/app';
@@ -32,12 +33,14 @@ const CATEGORY_TO_CALL_TYPE: Record<Category, string> = {
 export async function predictSuggestions(
   category: Category,
   context: ContextPayload,
+  signal?: AbortSignal,
 ): Promise<PredictionResponse> {
   const token = getAccessToken();
   if (token) {
     try {
-      return await remotePredictSuggestions(category, context, token);
+      return await remotePredictSuggestions(category, context, token, signal);
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
       console.warn('Remote prediction failed, falling back to mock:', e);
     }
   }
@@ -51,12 +54,14 @@ export async function predictSuggestions(
 export async function generatePlan(
   suggestion: Suggestion,
   context: ContextPayload,
+  signal?: AbortSignal,
 ): Promise<PlanResponse> {
   const token = getAccessToken();
   if (token) {
     try {
-      return await remoteGeneratePlan(suggestion, context, token);
+      return await remoteGeneratePlan(suggestion, context, token, signal);
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
       console.warn('Remote plan generation failed, falling back to mock:', e);
     }
   }
@@ -71,12 +76,14 @@ export async function expandPlanRemote(
   plan: PlanResponse,
   context: ContextPayload,
   depth: number,
+  signal?: AbortSignal,
 ): Promise<ExpandedPlanResponse> {
   const token = getAccessToken();
   if (token) {
     try {
-      return await remoteExpandPlan(plan, context, depth, token);
+      return await remoteExpandPlan(plan, context, depth, token, signal);
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
       console.warn('Remote plan expansion failed, falling back to mock:', e);
     }
   }
@@ -89,6 +96,7 @@ async function remotePredictSuggestions(
   category: Category,
   context: ContextPayload,
   token: string,
+  signal?: AbortSignal,
 ): Promise<PredictionResponse> {
   const backendUrl = getBackendUrl();
   const callType = CATEGORY_TO_CALL_TYPE[category];
@@ -105,6 +113,7 @@ async function remotePredictSuggestions(
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   // On 401, try refreshing token and retry once
@@ -118,6 +127,7 @@ async function remotePredictSuggestions(
           'Authorization': `Bearer ${refreshed.access_token}`,
         },
         body: JSON.stringify(body),
+        signal,
       });
     }
   }
@@ -134,6 +144,7 @@ async function remoteGeneratePlan(
   suggestion: Suggestion,
   context: ContextPayload,
   token: string,
+  signal?: AbortSignal,
 ): Promise<PlanResponse> {
   const backendUrl = getBackendUrl();
 
@@ -152,6 +163,7 @@ async function remoteGeneratePlan(
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   // On 401, try refreshing token and retry once
@@ -165,6 +177,7 @@ async function remoteGeneratePlan(
           'Authorization': `Bearer ${refreshed.access_token}`,
         },
         body: JSON.stringify(body),
+        signal,
       });
     }
   }
@@ -182,6 +195,7 @@ async function remoteExpandPlan(
   context: ContextPayload,
   depth: number,
   token: string,
+  signal?: AbortSignal,
 ): Promise<ExpandedPlanResponse> {
   const backendUrl = getBackendUrl();
 
@@ -204,6 +218,7 @@ async function remoteExpandPlan(
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (res.status === 401) {
@@ -216,12 +231,15 @@ async function remoteExpandPlan(
           'Authorization': `Bearer ${refreshed.access_token}`,
         },
         body: JSON.stringify(body),
+        signal,
       });
     }
   }
 
   if (!res.ok) throw new Error(`Backend returned ${res.status}`);
-  return await res.json();
+  const data = await res.json();
+  console.log('[expand-plan] Raw backend response:', JSON.stringify(data, null, 2));
+  return mapBackendToExpandedPlanResponse(data, depth);
 }
 
 // ─── Response Mappers ────────────────────────────────────────────────────────
@@ -253,6 +271,33 @@ function mapBackendToPlanResponse(data: Record<string, unknown>): PlanResponse {
     model_used: data.model_used as string | undefined,
     latency_ms: data.latency_ms as number | undefined,
     cost_usd: data.cost_usd as number | undefined,
+  };
+}
+
+function mapBackendToExpandedPlanResponse(
+  data: Record<string, unknown>,
+  depth: number,
+): ExpandedPlanResponse {
+  const rawSteps = (data.steps as Record<string, unknown>[]) ?? [];
+
+  const steps: ExpandedStep[] = rawSteps.map((step, index) => ({
+    n: (step.n as number) ?? index + 1,
+    text: (step.text as string) ?? (step.title as string) ?? (step.description as string) ?? `Step ${index + 1}`,
+    substeps: step.substeps as string[] | undefined,
+    files_affected: step.files_affected as string[] | undefined,
+    risks: step.risks as string[] | undefined,
+    alternatives: step.alternatives as string[] | undefined,
+    what_could_go_wrong: step.what_could_go_wrong as string | undefined,
+    estimated_lines: step.estimated_lines as number | undefined,
+    confidence_if_skipped: step.confidence_if_skipped as string | undefined,
+    title: step.title as string | undefined,
+    description: step.description as string | undefined,
+  }));
+
+  return {
+    depth: (data.depth as number) ?? depth,
+    steps,
+    commentary: (data.commentary as string) ?? `Expansion depth ${depth} complete.`,
   };
 }
 

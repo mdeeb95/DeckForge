@@ -69,5 +69,6 @@ Mathew (mdeeb95@gmail.com). Building DeckForge solo. Does not write code — fee
 - Values upfront design docs over iterating in code
 - Likes concise status updates, not walls of text
 - Fine with things being easy when the spec is tight
+- You will often be given tasks in the tasks folder, if you are completing that, move it to done when done
 
 > Full glossary: memory/glossary.md | Project details: memory/projects/deckforge.md | Tech context: memory/context/tech-stack.md
