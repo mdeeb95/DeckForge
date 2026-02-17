@@ -321,13 +321,90 @@ function draw() {
     return;
   }
 
-  // Paddles
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(10, state.p1.y, 12, 80);
-  ctx.fillRect(CW - 22, state.p2.y, 12, 80);
+  // Paddles (dynamic height from server)
+  const p1H = state.p1PaddleH || 80;
+  const p2H = state.p2PaddleH || 80;
 
-  // Ball
+  // P1 paddle — glow if size boosted
+  if (state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p1) {
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#00ff88';
+  } else {
+    ctx.fillStyle = '#fff';
+  }
+  ctx.fillRect(10, state.p1.y, 12, p1H);
+  ctx.shadowBlur = 0;
+
+  // P2 paddle — glow if size boosted
+  if (state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p2) {
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#00ff88';
+  } else {
+    ctx.fillStyle = '#fff';
+  }
+  ctx.fillRect(CW - 22, state.p2.y, 12, p2H);
+  ctx.shadowBlur = 0;
+
+  // Main Ball — blue tint if frozen
+  if (state.activeEffects && state.activeEffects.freeze) {
+    ctx.shadowColor = '#44aaff';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#44aaff';
+  } else {
+    ctx.fillStyle = '#fff';
+  }
   ctx.fillRect(state.ball.x, state.ball.y, 10, 10);
+  ctx.shadowBlur = 0;
+
+  // Extra Balls (multi-ball) — rendered in magenta
+  if (state.extraBalls && state.extraBalls.length > 0) {
+    ctx.fillStyle = '#f20dcf';
+    ctx.shadowColor = '#f20dcf';
+    ctx.shadowBlur = 8;
+    for (const eb of state.extraBalls) {
+      ctx.fillRect(eb.x, eb.y, 10, 10);
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  // ─── Power-Up on Field ────────────────────────────────────────────
+  if (state.powerup) {
+    const pu = state.powerup;
+    const puSize = 20;
+    const puColors = { freeze: '#44aaff', multiball: '#f20dcf', sizeboost: '#00ff88' };
+    const puColor = puColors[pu.type] || '#fff';
+
+    // Pulsing glow effect
+    const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 200);
+    ctx.shadowColor = puColor;
+    ctx.shadowBlur = 12 * pulse;
+
+    // Background circle
+    ctx.fillStyle = puColor;
+    ctx.globalAlpha = 0.2 + 0.15 * pulse;
+    ctx.beginPath();
+    ctx.arc(pu.x + puSize / 2, pu.y + puSize / 2, puSize * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Icon
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = puColor;
+    const icons = { freeze: '\u2744', multiball: '\u2726', sizeboost: '\u2191' };
+    ctx.fillText(icons[pu.type] || '?', pu.x + puSize / 2, pu.y + puSize / 2 + 5);
+    ctx.shadowBlur = 0;
+
+    // Despawn timer bar beneath powerup
+    const elapsed = Date.now() - pu.spawnedAt;
+    const remaining = Math.max(0, 1 - elapsed / 5000);
+    ctx.fillStyle = puColor;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(pu.x, pu.y + puSize + 4, puSize * remaining, 2);
+    ctx.globalAlpha = 1;
+  }
 
   // Scores
   ctx.font = '48px monospace';
@@ -347,6 +424,69 @@ function draw() {
     ctx.fillText('AI (' + diffLabel + ')', CW - 10, CH - 10);
   } else {
     ctx.fillText('P2', CW - 10, CH - 10);
+  }
+
+  // ─── Active Effect Indicators ──────────────────────────────────────
+  if (state.activeEffects) {
+    const now = Date.now();
+    let indicators = [];
+
+    // Freeze indicator
+    if (state.activeEffects.freeze) {
+      const rem = Math.max(0, (state.activeEffects.freeze.until - now) / 1000);
+      indicators.push({ label: '\u2744 FREEZE', color: '#44aaff', time: rem.toFixed(1) + 's' });
+    }
+
+    // Size boost P1
+    if (state.activeEffects.sizeboost && state.activeEffects.sizeboost.p1) {
+      const rem = Math.max(0, (state.activeEffects.sizeboost.p1.until - now) / 1000);
+      indicators.push({ label: 'P1 \u2191 SIZE', color: '#00ff88', time: rem.toFixed(1) + 's' });
+    }
+
+    // Size boost P2
+    if (state.activeEffects.sizeboost && state.activeEffects.sizeboost.p2) {
+      const rem = Math.max(0, (state.activeEffects.sizeboost.p2.until - now) / 1000);
+      indicators.push({ label: 'P2 \u2191 SIZE', color: '#00ff88', time: rem.toFixed(1) + 's' });
+    }
+
+    // Multi-ball count
+    if (state.extraBalls && state.extraBalls.length > 0) {
+      indicators.push({ label: '\u2726 MULTI x' + state.extraBalls.length, color: '#f20dcf', time: '' });
+    }
+
+    // Draw indicators at top center
+    if (indicators.length > 0) {
+      const totalW = indicators.length * 130 + (indicators.length - 1) * 10;
+      let ix = CW / 2 - totalW / 2;
+      for (const ind of indicators) {
+        // Pill background
+        ctx.fillStyle = ind.color;
+        ctx.globalAlpha = 0.15;
+        ctx.fillRect(ix, 80, 130, 24);
+        ctx.globalAlpha = 1;
+
+        // Left accent
+        ctx.fillStyle = ind.color;
+        ctx.fillRect(ix, 80, 3, 24);
+
+        // Label text
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = ind.color;
+        ctx.fillText(ind.label, ix + 8, 96);
+
+        // Timer text
+        if (ind.time) {
+          ctx.textAlign = 'right';
+          ctx.fillStyle = ind.color;
+          ctx.globalAlpha = 0.7;
+          ctx.fillText(ind.time, ix + 124, 96);
+          ctx.globalAlpha = 1;
+        }
+
+        ix += 140;
+      }
+    }
   }
 
   // Pause indicator
