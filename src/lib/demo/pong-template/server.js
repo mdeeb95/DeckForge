@@ -22,6 +22,23 @@ const SPEED_INCREMENT = 0.3;
 const WIN_SCORE = 11;
 const PAUSE_AFTER_SCORE_MS = 2000;
 
+// ─── AI Constants ───────────────────────────────────────────────────────────
+const AI_DIFFICULTY = {
+  easy:   { reactionSpeed: 2.5, accuracy: 0.30, updateInterval: 12, jitter: 60 },
+  medium: { reactionSpeed: 4.0, accuracy: 0.70, updateInterval: 6,  jitter: 25 },
+  hard:   { reactionSpeed: 4.8, accuracy: 0.95, updateInterval: 2,  jitter: 8  },
+};
+
+// ─── Game Mode State ────────────────────────────────────────────────────────
+let gameMode = '2p';         // '1p' | '2p'
+let aiDifficulty = 'medium'; // 'easy' | 'medium' | 'hard'
+let gameStarted = false;     // false = waiting in lobby
+
+// ─── AI State ───────────────────────────────────────────────────────────────
+let aiTargetY = CANVAS_H / 2;  // Where the AI wants to move
+let aiTickCounter = 0;          // Ticks since last AI decision
+let aiIntentionalMiss = false;  // Whether AI is deliberately missing this shot
+
 // ─── Game State ──────────────────────────────────────────────────────────────
 let state = {
   ball: { x: CANVAS_W / 2, y: CANVAS_H / 2, vx: INITIAL_BALL_SPEED, vy: 0 },
@@ -29,6 +46,9 @@ let state = {
   p2: { y: CANVAS_H / 2 - PADDLE_H / 2, score: 0 },
   paused: false,
   winner: null,
+  gameMode: '2p',
+  aiDifficulty: 'medium',
+  gameStarted: false,
 };
 
 let pauseUntil = 0;
@@ -57,16 +77,104 @@ function resetGame() {
   state.winner = null;
   state.paused = false;
   pauseUntil = 0;
+  aiTargetY = CANVAS_H / 2;
+  aiTickCounter = 0;
+  aiIntentionalMiss = false;
   resetBall(1);
+}
+
+// ─── AI Opponent ────────────────────────────────────────────────────────────
+function predictBallY() {
+  // Simulate ball trajectory to find where it will reach P2's paddle x position
+  let bx = state.ball.x;
+  let by = state.ball.y;
+  let bvx = state.ball.vx;
+  let bvy = state.ball.vy;
+
+  // Only predict when ball is moving toward P2 (right)
+  if (bvx <= 0) return CANVAS_H / 2; // Return to center when ball goes away
+
+  const targetX = CANVAS_W - PADDLE_W - 10 - BALL_SIZE;
+  const maxSteps = 600; // Safety limit
+
+  for (let i = 0; i < maxSteps; i++) {
+    bx += bvx;
+    by += bvy;
+    // Wall bounces
+    if (by <= 0) { by = 0; bvy *= -1; }
+    if (by >= CANVAS_H - BALL_SIZE) { by = CANVAS_H - BALL_SIZE; bvy *= -1; }
+    if (bx >= targetX) return by + BALL_SIZE / 2;
+  }
+  return CANVAS_H / 2;
+}
+
+function updateAI() {
+  const diff = AI_DIFFICULTY[aiDifficulty];
+  aiTickCounter++;
+
+  // Only update AI decision at the configured interval
+  if (aiTickCounter >= diff.updateInterval) {
+    aiTickCounter = 0;
+
+    // Decide whether to intentionally miss this shot
+    if (state.ball.vx > 0 && state.ball.x < CANVAS_W * 0.3) {
+      aiIntentionalMiss = Math.random() > diff.accuracy;
+    }
+
+    if (aiIntentionalMiss) {
+      // Deliberately aim for wrong position (offset from prediction)
+      const wrongDir = Math.random() > 0.5 ? 1 : -1;
+      aiTargetY = predictBallY() + wrongDir * (PADDLE_H * 1.5 + Math.random() * 80);
+    } else {
+      // Aim for predicted ball position with jitter
+      const jitter = (Math.random() - 0.5) * diff.jitter * 2;
+      aiTargetY = predictBallY() + jitter;
+    }
+  }
+
+  // Move paddle toward target at constrained speed
+  const paddleCenter = state.p2.y + PADDLE_H / 2;
+  const delta = aiTargetY - paddleCenter;
+  const deadZone = 4; // Don't jitter when close enough
+
+  inputs.p2.up = false;
+  inputs.p2.down = false;
+
+  if (Math.abs(delta) > deadZone) {
+    // AI uses the same PADDLE_SPEED constraint, but limited by reactionSpeed
+    const moveSpeed = Math.min(PADDLE_SPEED, diff.reactionSpeed);
+    if (delta < 0) {
+      inputs.p2.up = true;
+      inputs.p2.down = false;
+    } else {
+      inputs.p2.up = false;
+      inputs.p2.down = true;
+    }
+    // Override to use AI-limited speed directly (respects same boundaries as player)
+    if (delta < 0) {
+      state.p2.y = Math.max(0, state.p2.y - moveSpeed);
+    } else {
+      state.p2.y = Math.min(CANVAS_H - PADDLE_H, state.p2.y + moveSpeed);
+    }
+    // Clear inputs so the normal paddle movement doesn't double-move
+    inputs.p2.up = false;
+    inputs.p2.down = false;
+  }
 }
 
 // ─── Physics ─────────────────────────────────────────────────────────────────
 function tick() {
   const now = Date.now();
 
+  if (!gameStarted) return;
   if (state.winner) return;
   if (now < pauseUntil) { state.paused = true; return; }
   state.paused = false;
+
+  // Run AI before paddle movement (AI directly moves p2, clears its own inputs)
+  if (gameMode === '1p') {
+    updateAI();
+  }
 
   // Move paddles
   if (inputs.p1.up) state.p1.y = Math.max(0, state.p1.y - PADDLE_SPEED);
@@ -129,6 +237,9 @@ function tick() {
 
 // ─── Broadcast ───────────────────────────────────────────────────────────────
 function broadcast() {
+  state.gameMode = gameMode;
+  state.aiDifficulty = aiDifficulty;
+  state.gameStarted = gameStarted;
   const msg = JSON.stringify(state);
   for (const ws of players.keys()) {
     if (ws.readyState === 1) ws.send(msg);
@@ -144,16 +255,44 @@ wss.on('connection', (ws) => {
     role = 'spectator';
   }
   players.set(ws, role);
-  ws.send(JSON.stringify({ type: 'assign', role, canvas: { w: CANVAS_W, h: CANVAS_H } }));
+  ws.send(JSON.stringify({
+    type: 'assign', role,
+    canvas: { w: CANVAS_W, h: CANVAS_H },
+    gameMode, aiDifficulty, gameStarted,
+  }));
   console.log(`Player connected as ${role === 'spectator' ? 'spectator' : 'P' + role}`);
 
   ws.on('message', (raw) => {
     try {
       const data = JSON.parse(raw);
       const r = players.get(ws);
+
+      // Mode selection (only P1 can set mode)
+      if (data.setMode && r === 1) {
+        gameMode = data.setMode === '1p' ? '1p' : '2p';
+        aiDifficulty = data.aiDifficulty || 'medium';
+        if (!AI_DIFFICULTY[aiDifficulty]) aiDifficulty = 'medium';
+        state.gameMode = gameMode;
+        state.aiDifficulty = aiDifficulty;
+      }
+
+      // Start game
+      if (data.startGame && r === 1 && !gameStarted) {
+        gameStarted = true;
+        state.gameStarted = true;
+        resetGame();
+      }
+
+      // Normal input
       if (r === 1) { inputs.p1.up = !!data.up; inputs.p1.down = !!data.down; }
-      if (r === 2) { inputs.p2.up = !!data.up; inputs.p2.down = !!data.down; }
-      if (data.restart && state.winner) resetGame();
+      if (r === 2 && gameMode === '2p') { inputs.p2.up = !!data.up; inputs.p2.down = !!data.down; }
+
+      // Restart — go back to mode select
+      if (data.restart && state.winner) {
+        gameStarted = false;
+        state.gameStarted = false;
+        resetGame();
+      }
     } catch {}
   });
 

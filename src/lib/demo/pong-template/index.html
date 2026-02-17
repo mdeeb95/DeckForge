@@ -25,6 +25,14 @@ let state = null;
 let ws = null;
 const input = { up: false, down: false };
 
+// ─── Menu State ─────────────────────────────────────────────────────
+let menuScreen = 'mode'; // 'mode' | 'difficulty' | null (in-game)
+let menuSelection = 0;   // Index of highlighted option
+const modeOptions = ['1 Player (vs AI)', '2 Players'];
+const difficultyOptions = ['Easy', 'Medium', 'Hard'];
+let selectedMode = '2p';
+let selectedDifficulty = 'medium';
+
 // ─── Resize ──────────────────────────────────────────────────────────
 function resize() {
   const scaleX = window.innerWidth / CW;
@@ -51,11 +59,28 @@ function connect() {
       CW = data.canvas.w;
       CH = data.canvas.h;
       resize();
+      // Restore mode state from server
+      if (data.gameStarted) {
+        menuScreen = null;
+      } else {
+        menuScreen = 'mode';
+        menuSelection = 0;
+      }
+      selectedMode = data.gameMode || '2p';
+      selectedDifficulty = data.aiDifficulty || 'medium';
       statusEl.textContent = role === 'spectator' ? 'Spectating' : `You are Player ${role}`;
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
       return;
     }
     state = data;
+    // Sync menu state from server broadcasts
+    if (!state.gameStarted && menuScreen === null) {
+      menuScreen = 'mode';
+      menuSelection = 0;
+    }
+    if (state.gameStarted && menuScreen !== null) {
+      menuScreen = null;
+    }
   };
 
   ws.onclose = () => {
@@ -69,9 +94,41 @@ connect();
 
 // ─── Input: Keyboard ─────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
+  // Menu navigation
+  if (menuScreen && role === 1) {
+    const opts = menuScreen === 'mode' ? modeOptions : difficultyOptions;
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      menuSelection = (menuSelection - 1 + opts.length) % opts.length;
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      menuSelection = (menuSelection + 1) % opts.length;
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      handleMenuSelect();
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'Escape' || e.key === 'Backspace') {
+      if (menuScreen === 'difficulty') {
+        menuScreen = 'mode';
+        menuSelection = 0;
+      }
+      e.preventDefault();
+      return;
+    }
+    return;
+  }
+
+  // Game input
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') input.up = true;
   if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') input.down = true;
-  if (e.key === 'r' || e.key === 'R') { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ restart: true })); }
+  if (e.key === 'r' || e.key === 'R') {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ restart: true }));
+  }
 });
 document.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') input.up = false;
@@ -81,6 +138,18 @@ document.addEventListener('keyup', (e) => {
 // ─── Input: Touch (Steam Deck browser) ──────────────────────────────
 canvas.addEventListener('touchstart', (e) => {
   e.preventDefault();
+  if (menuScreen && role === 1) {
+    for (const t of e.touches) {
+      if (t.clientY < window.innerHeight / 2) {
+        const opts = menuScreen === 'mode' ? modeOptions : difficultyOptions;
+        menuSelection = (menuSelection - 1 + opts.length) % opts.length;
+      } else {
+        const opts = menuScreen === 'mode' ? modeOptions : difficultyOptions;
+        menuSelection = (menuSelection + 1) % opts.length;
+      }
+    }
+    return;
+  }
   for (const t of e.touches) {
     if (t.clientY < window.innerHeight / 2) input.up = true;
     else input.down = true;
@@ -96,15 +165,140 @@ canvas.addEventListener('touchend', (e) => {
   }
 });
 
+// Double-tap to select in menu
+let lastTapTime = 0;
+canvas.addEventListener('touchstart', (e) => {
+  if (!menuScreen || role !== 1) return;
+  const now = Date.now();
+  if (now - lastTapTime < 400) {
+    handleMenuSelect();
+  }
+  lastTapTime = now;
+});
+
+// ─── Menu Selection Handler ─────────────────────────────────────────
+function handleMenuSelect() {
+  if (menuScreen === 'mode') {
+    if (menuSelection === 0) {
+      // 1 Player selected
+      selectedMode = '1p';
+      menuScreen = 'difficulty';
+      menuSelection = 1; // Default to Medium
+    } else {
+      // 2 Player selected — start immediately
+      selectedMode = '2p';
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ setMode: '2p' }));
+        ws.send(JSON.stringify({ startGame: true }));
+      }
+      menuScreen = null;
+    }
+  } else if (menuScreen === 'difficulty') {
+    const diffs = ['easy', 'medium', 'hard'];
+    selectedDifficulty = diffs[menuSelection];
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ setMode: '1p', aiDifficulty: selectedDifficulty }));
+      ws.send(JSON.stringify({ startGame: true }));
+    }
+    menuScreen = null;
+  }
+}
+
 // ─── Send Input ──────────────────────────────────────────────────────
 setInterval(() => {
-  if (ws && ws.readyState === 1 && role !== 'spectator') {
+  if (ws && ws.readyState === 1 && role !== 'spectator' && !menuScreen) {
     ws.send(JSON.stringify(input));
   }
 }, 1000 / 60);
 
+// ─── Draw Menu ──────────────────────────────────────────────────────
+function drawMenu() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, CW, CH);
+
+  // Title
+  ctx.fillStyle = '#0df2f2';
+  ctx.font = 'bold 48px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('PONG', CW / 2, 120);
+
+  // Subtitle
+  ctx.fillStyle = '#555';
+  ctx.font = '16px monospace';
+  if (menuScreen === 'mode') {
+    ctx.fillText('Select Game Mode', CW / 2, 170);
+  } else {
+    ctx.fillText('Select AI Difficulty', CW / 2, 170);
+  }
+
+  const opts = menuScreen === 'mode' ? modeOptions : difficultyOptions;
+  const startY = 240;
+  const lineHeight = 60;
+
+  for (let i = 0; i < opts.length; i++) {
+    const y = startY + i * lineHeight;
+    const isSelected = i === menuSelection;
+
+    if (isSelected) {
+      // Selection box
+      const textWidth = 280;
+      ctx.fillStyle = 'rgba(13, 242, 242, 0.1)';
+      ctx.fillRect(CW / 2 - textWidth / 2, y - 22, textWidth, 44);
+      // Left accent bar
+      ctx.fillStyle = '#0df2f2';
+      ctx.fillRect(CW / 2 - textWidth / 2, y - 22, 3, 44);
+      // Arrow indicator
+      ctx.fillStyle = '#0df2f2';
+      ctx.font = '24px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('>', CW / 2 - textWidth / 2 + 20, y + 8);
+    }
+
+    ctx.font = isSelected ? 'bold 24px monospace' : '24px monospace';
+    ctx.fillStyle = isSelected ? '#0df2f2' : '#666';
+    ctx.textAlign = 'center';
+    ctx.fillText(opts[i], CW / 2, y + 8);
+
+    // Difficulty descriptions
+    if (menuScreen === 'difficulty') {
+      ctx.font = '13px monospace';
+      ctx.fillStyle = isSelected ? '#0df2f2' : '#444';
+      const descs = [
+        'Slow reactions, misses often — great for beginners',
+        'Solid tracking, makes some mistakes — fair challenge',
+        'Near-perfect aim, fast reflexes — good luck'
+      ];
+      ctx.fillText(descs[i], CW / 2, y + 28);
+    }
+  }
+
+  // Controls hint
+  ctx.fillStyle = '#333';
+  ctx.font = '14px monospace';
+  ctx.textAlign = 'center';
+  const controlY = CH - 60;
+  ctx.fillText('W/S or Arrow Keys to navigate — Enter to select', CW / 2, controlY);
+  if (menuScreen === 'difficulty') {
+    ctx.fillText('Esc to go back', CW / 2, controlY + 22);
+  }
+
+  // Role info
+  if (role === 'spectator') {
+    ctx.fillStyle = '#444';
+    ctx.font = '14px monospace';
+    ctx.fillText('You are spectating — Player 1 selects the mode', CW / 2, controlY + 44);
+  }
+}
+
 // ─── Render ──────────────────────────────────────────────────────────
 function draw() {
+  // Show menu if game hasn't started
+  if (menuScreen && (!state || !state.gameStarted)) {
+    drawMenu();
+    requestAnimationFrame(draw);
+    return;
+  }
+
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, CW, CH);
 
@@ -142,10 +336,24 @@ function draw() {
   ctx.fillText(state.p1.score, CW / 2 - 60, 60);
   ctx.fillText(state.p2.score, CW / 2 + 60, 60);
 
+  // Player labels
+  ctx.font = '12px monospace';
+  ctx.fillStyle = '#333';
+  ctx.textAlign = 'left';
+  ctx.fillText('P1', 10, CH - 10);
+  ctx.textAlign = 'right';
+  if (state.gameMode === '1p') {
+    const diffLabel = (state.aiDifficulty || 'medium').toUpperCase();
+    ctx.fillText('AI (' + diffLabel + ')', CW - 10, CH - 10);
+  } else {
+    ctx.fillText('P2', CW - 10, CH - 10);
+  }
+
   // Pause indicator
   if (state.paused) {
     ctx.fillStyle = '#333';
     ctx.font = '16px monospace';
+    ctx.textAlign = 'center';
     ctx.fillText('get ready...', CW / 2, CH / 2 + 40);
   }
 
@@ -153,10 +361,17 @@ function draw() {
   if (state.winner) {
     ctx.fillStyle = '#0df2f2';
     ctx.font = 'bold 36px monospace';
-    ctx.fillText(`Player ${state.winner} wins!`, CW / 2, CH / 2 - 20);
+    ctx.textAlign = 'center';
+    let winText;
+    if (state.gameMode === '1p') {
+      winText = state.winner === 1 ? 'You win!' : 'AI wins!';
+    } else {
+      winText = `Player ${state.winner} wins!`;
+    }
+    ctx.fillText(winText, CW / 2, CH / 2 - 20);
     ctx.fillStyle = '#555';
     ctx.font = '16px monospace';
-    ctx.fillText('Press R to restart', CW / 2, CH / 2 + 20);
+    ctx.fillText('Press R to return to menu', CW / 2, CH / 2 + 20);
   }
 
   requestAnimationFrame(draw);
