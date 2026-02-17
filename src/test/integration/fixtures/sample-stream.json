@@ -3,7 +3,7 @@
     "type": "system",
     "subtype": "init",
     "cwd": "/Users/mdeeb95/Documents/DeckForge",
-    "session_id": "9a454441-0867-41ed-977d-bb500e8046a7",
+    "session_id": "9ebb625b-1348-4fa2-818c-4f16468c2b1b",
     "tools": [
       "Task",
       "TaskOutput",
@@ -41,7 +41,7 @@
       "insights"
     ],
     "apiKeySource": "none",
-    "claude_code_version": "2.1.42",
+    "claude_code_version": "2.1.44",
     "output_style": "default",
     "agents": [
       "Bash",
@@ -61,14 +61,14 @@
         "path": "/Users/mdeeb95/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0"
       }
     ],
-    "uuid": "61d8c9c2-e8c4-463d-a431-8c2e9f526fa1",
+    "uuid": "53da562e-6688-4a47-bd11-c1c7778cda68",
     "fast_mode_state": "off"
   },
   {
     "type": "assistant",
     "message": {
       "model": "claude-opus-4-6",
-      "id": "msg_01EpFRxnMadfoM1TfFGbHkxZ",
+      "id": "msg_01Nx4QmxRz9mA6DuUxuPrRKt",
       "type": "message",
       "role": "assistant",
       "content": [
@@ -81,11 +81,11 @@
       "stop_sequence": null,
       "usage": {
         "input_tokens": 3,
-        "cache_creation_input_tokens": 0,
-        "cache_read_input_tokens": 20424,
+        "cache_creation_input_tokens": 2285,
+        "cache_read_input_tokens": 17991,
         "cache_creation": {
           "ephemeral_5m_input_tokens": 0,
-          "ephemeral_1h_input_tokens": 0
+          "ephemeral_1h_input_tokens": 2285
         },
         "output_tokens": 1,
         "service_tier": "standard",
@@ -94,24 +94,24 @@
       "context_management": null
     },
     "parent_tool_use_id": null,
-    "session_id": "9a454441-0867-41ed-977d-bb500e8046a7",
-    "uuid": "97c77b2e-78dc-4bfa-8f18-d47723933497"
+    "session_id": "9ebb625b-1348-4fa2-818c-4f16468c2b1b",
+    "uuid": "cfea9be8-b399-4eb7-8a79-efb449dcdd31"
   },
   {
     "type": "result",
     "subtype": "success",
     "is_error": false,
-    "duration_ms": 2142,
-    "duration_api_ms": 2121,
+    "duration_ms": 1518,
+    "duration_api_ms": 1494,
     "num_turns": 1,
     "result": "hello world",
     "stop_reason": null,
-    "session_id": "9a454441-0867-41ed-977d-bb500e8046a7",
-    "total_cost_usd": 0.010352,
+    "session_id": "9ebb625b-1348-4fa2-818c-4f16468c2b1b",
+    "total_cost_usd": 0.02341675,
     "usage": {
       "input_tokens": 3,
-      "cache_creation_input_tokens": 0,
-      "cache_read_input_tokens": 20424,
+      "cache_creation_input_tokens": 2285,
+      "cache_read_input_tokens": 17991,
       "output_tokens": 5,
       "server_tool_use": {
         "web_search_requests": 0,
@@ -119,7 +119,7 @@
       },
       "service_tier": "standard",
       "cache_creation": {
-        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 2285,
         "ephemeral_5m_input_tokens": 0
       },
       "inference_geo": "",
@@ -130,15 +130,15 @@
       "claude-opus-4-6": {
         "inputTokens": 3,
         "outputTokens": 5,
-        "cacheReadInputTokens": 20424,
-        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 17991,
+        "cacheCreationInputTokens": 2285,
         "webSearchRequests": 0,
-        "costUSD": 0.010352,
+        "costUSD": 0.02341675,
         "contextWindow": 200000,
         "maxOutputTokens": 32000
       }
     },
     "permission_denials": [],
-    "uuid": "632b12ae-34eb-4605-b62f-e8c37343b3e5"
+    "uuid": "84446db3-0548-49d0-8a74-73ee807aa27f"
   }
 ]

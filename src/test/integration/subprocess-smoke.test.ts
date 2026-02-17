@@ -64,12 +64,12 @@ describe('buildClaudeArgs', () => {
     expect(args).not.toContain('--permission-mode');
   });
 
-  it('includes --allowedTools for each tool', () => {
+  it('includes --allowed-tools for each tool', () => {
     const args = buildClaudeArgs('Fix it', makeOptions({
       allowedTools: ['Read', 'Write', 'Bash(git *)'],
     }));
 
-    const toolFlags = args.filter(a => a === '--allowedTools');
+    const toolFlags = args.filter(a => a === '--allowed-tools');
     expect(toolFlags).toHaveLength(3);
 
     expect(args).toContain('Read');
@@ -77,12 +77,12 @@ describe('buildClaudeArgs', () => {
     expect(args).toContain('Bash(git *)');
   });
 
-  it('does not include --allowedTools when list is empty', () => {
+  it('does not include --allowed-tools when list is empty', () => {
     const args = buildClaudeArgs('Hello', makeOptions({
       allowedTools: [],
     }));
 
-    expect(args).not.toContain('--allowedTools');
+    expect(args).not.toContain('--allowed-tools');
   });
 
   it('includes --append-system-prompt when set', () => {
@@ -120,7 +120,7 @@ describe('buildClaudeArgs', () => {
     expect(args).toContain('Go beyond the plan and add some flair.');
 
     // 4 tool flags
-    const toolFlags = args.filter(a => a === '--allowedTools');
+    const toolFlags = args.filter(a => a === '--allowed-tools');
     expect(toolFlags).toHaveLength(4);
   });
 

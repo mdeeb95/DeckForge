@@ -84,15 +84,20 @@ export async function sendPrompt(
     const { Command } = await import('@tauri-apps/plugin-shell');
     emitDiag('Tauri shell plugin imported OK');
 
-    const command = Command.create('claude', args, {
+    // Spawn through shell to ensure proper stdout delivery.
+    // Direct Tauri → claude pipe can buffer/stall; sh -c mediates reliably.
+    const escapedArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
+    const command = Command.create('sh', ['-c', `claude ${escapedArgs}`], {
       cwd: options.projectPath,
     });
 
     // Accumulate stdout chunks and split on newlines.
     // Tauri shell emits arbitrary OS-buffered chunks, NOT line-by-line.
     let stdoutBuffer = '';
+    let gotAnyStdout = false;
 
     command.stdout.on('data', (chunk: string) => {
+      gotAnyStdout = true;
       stdoutBuffer += chunk;
 
       // Split on newlines — each complete line is one JSON event
@@ -182,6 +187,14 @@ export async function sendPrompt(
       kill: () => child.kill(),
       pid: child.pid,
     };
+
+    // Diagnostic: warn if no stdout after 5 seconds
+    setTimeout(() => {
+      if (!gotAnyStdout && state.active) {
+        emitDiag(`WARNING: No stdout received after 5s. Tauri may not be delivering pipe data.`);
+        emitDiag(`Process is ${childProcess ? 'still running' : 'gone'}. Buffer: ${stdoutBuffer.length} chars`);
+      }
+    }, 5000);
   } catch (error) {
     state.active = false;
     devError('claude', 'Spawn failed', error);
