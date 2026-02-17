@@ -73,7 +73,6 @@ jobs:
         with:
           name: deckforge-linux
           path: |
-            src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/appimage/*.AppImage
           retention-days: 30
 
