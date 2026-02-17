@@ -4,29 +4,39 @@
   import { selectedCardIndex, navigate, screenCards } from '../stores/app';
   import { entries, status, cost, scope } from '../stores/terminal';
   import type { TerminalEntry } from '../stores/terminal';
+  import { errorDetails, clearError } from '../stores/errorStore';
+  import { get } from 'svelte/store';
 
   onMount(() => {
     entries.clear();
-    const errorEntries: TerminalEntry[] = [
-      { type: 'timestamp', time: '10:44:22', message: 'Modifying auth.ts...' },
-      { type: 'timestamp', time: '10:44:25', message: 'Running linter...' },
-      { type: 'timestamp', time: '10:44:28', message: '<span class="text-red-400 font-bold">ERROR: TypeScript compilation failed</span>' },
-      { type: 'code', filePath: 'error output', diff: false, content: `error TS2345: Argument of type 'string' is not assignable
-  to parameter of type 'AuthConfig'.
 
-  src/middleware/auth.ts:47:12
-    47 │ validateToken(rawToken)
-       │               ~~~~~~~~` },
-      { type: 'timestamp', time: '10:44:29', message: '<span class="text-red-400">Claude Code stopped.</span>' },
-      { type: 'timestamp', time: '10:44:30', message: '1 error found. The change could not be completed safely.' },
-      { type: 'timestamp', time: '10:44:31', message: '<span class="text-amber-400">Automatically reverted: auth.ts → last known good state</span>' },
-      { type: 'cursor', message: 'Awaiting recovery action...' },
-    ];
-    status.set('error');
-    cost.set('$0.03');
-    scope.set('1 File');
-    errorEntries.forEach(e => entries.addEntry(e));
+    const error = get(errorDetails);
+    const now = new Date().toTimeString().slice(0, 8);
+
+    if (error) {
+      const termEntries: TerminalEntry[] = [
+        { type: 'timestamp', time: error.timestamp || now, message: `<span class="text-red-400 font-bold">ERROR: ${error.type}</span>` },
+      ];
+      if (error.file) {
+        termEntries.push({ type: 'timestamp', time: now, message: `File: <span class="text-slate-300">${error.file}</span>` });
+      }
+      termEntries.push({ type: 'code', filePath: 'error output', diff: false, content: error.output || error.message });
+      termEntries.push({ type: 'timestamp', time: now, message: '<span class="text-red-400">Claude Code stopped.</span>' });
+      if (error.recoverable) {
+        termEntries.push({ type: 'timestamp', time: now, message: '<span class="text-amber-400">This error may be recoverable — retry or go back.</span>' });
+      }
+      termEntries.push({ type: 'cursor', message: 'Awaiting recovery action...' });
+      termEntries.forEach(e => entries.addEntry(e));
+      status.set('error');
+      scope.set(error.file ? '1 File' : '');
+    } else {
+      entries.addEntry({ type: 'timestamp', time: now, message: '<span class="text-slate-500">No error details available.</span>' });
+      entries.addEntry({ type: 'cursor', message: 'Nothing to show. Press B to go back.' });
+      status.set('idle');
+    }
   });
+
+  const error = get(errorDetails);
 
   const cards = [
     {
@@ -35,60 +45,50 @@
       description: 'Let Claude analyze the error and attempt an automatic fix.',
       pills: [{ label: 'Auto-fix', variant: 'active' as const }],
       variant: 'primary' as const,
-      onclick: () => navigate('ai_working'),
+      onclick: () => { clearError(); navigate('ai_working'); },
     },
     {
       button: 'B',
-      title: 'Undo and Go Back',
-      description: 'Revert all changes and return to suggestions.',
-      pills: [{ label: 'Safe revert', variant: 'neutral' as const }],
+      title: 'Go Back',
+      description: 'Return to the main screen.',
+      pills: [{ label: 'Navigate', variant: 'neutral' as const }],
       variant: 'secondary_pink' as const,
-      onclick: () => navigate('level2'),
+      onclick: () => { clearError(); navigate('level1'); },
     },
     {
       button: 'X',
-      title: 'View Error Details',
-      description: 'Show the full error log and stack trace.',
+      title: 'View Full Error',
+      description: 'Expand the complete error output in the terminal.',
       pills: [{ label: 'Debug', variant: 'neutral' as const }],
       variant: 'neutral' as const,
       onclick: () => {
-        // Re-render the full error details in the terminal
-        entries.addEntry({
-          type: 'prompt',
-          label: 'EXPANDED ERROR',
-          body: 'Full error details shown below:',
-        });
-        entries.addEntry({
-          type: 'code',
-          filePath: 'error stack trace',
-          diff: false,
-          content: `error TS2345: Argument of type 'string' is not assignable
-  to parameter of type 'AuthConfig'.
-
-  src/middleware/auth.ts:47:12
-    47 │ validateToken(rawToken)
-       │               ~~~~~~~~
-
-  The function validateToken() expects an AuthConfig object
-  but received a raw string token. This was introduced when
-  the auth refactor changed the parameter type.
-
-  Suggested fix: Wrap rawToken in { token: rawToken } before
-  passing to validateToken().`,
-        });
-        entries.addEntry({
-          type: 'cursor',
-          message: 'Error details expanded. Press A to retry or B to go back.',
-        });
+        const err = get(errorDetails);
+        if (err) {
+          entries.addEntry({
+            type: 'prompt',
+            label: 'FULL OUTPUT',
+            body: 'Complete error output:',
+          });
+          entries.addEntry({
+            type: 'code',
+            filePath: err.file || 'error output',
+            diff: false,
+            content: err.output || err.message,
+          });
+          entries.addEntry({
+            type: 'cursor',
+            message: 'Press A to retry or B to go back.',
+          });
+        }
       },
     },
     {
       button: 'Y',
       title: 'Ignore and Continue',
-      description: 'Skip this error and continue with remaining tasks. Use with caution.',
+      description: 'Skip this error and move on. Use with caution.',
       pills: [{ label: 'Risky', variant: 'neutral' as const }],
       variant: 'amber' as const,
-      onclick: () => navigate('level1'),
+      onclick: () => { clearError(); navigate('level1'); },
     },
   ];
 

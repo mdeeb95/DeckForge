@@ -13,6 +13,7 @@
   import { getRandomMessage } from '../personality/messages';
   import { reportClaudeSession } from '../prediction/sessionReporter';
   import { currentPlan, lastPlanTraceId, lastTraceId } from '../stores/prediction';
+  import { setError } from '../stores/errorStore';
 
   let abortController: AbortController;
   let taskComplete = $state(false);
@@ -21,6 +22,7 @@
   let toolEvents = $state<ClaudeEvent[]>([]);
   let elapsedInterval: ReturnType<typeof setInterval> | null = null;
   let workingMessage = $state(getRandomMessage('ai_working'));
+  let workingVerb = $state(getRandomMessage('ai_working_verb'));
   let messageInterval: ReturnType<typeof setInterval> | null = null;
 
   // Animation state for post-completion cards
@@ -123,6 +125,7 @@
     messageInterval = setInterval(() => {
       if (!taskComplete && !taskFailed) {
         workingMessage = getRandomMessage('ai_working');
+        workingVerb = getRandomMessage('ai_working_verb');
       }
     }, 8000);
 
@@ -185,8 +188,33 @@
           prediction_trace_id: traceId,
         });
 
-        // Update screenCards to show continue option
-        if (!event.is_error) {
+        // Update screenCards based on outcome
+        if (event.is_error) {
+          // Populate error store with real data from Claude Code
+          setError({
+            message: event.result || 'Claude Code task failed',
+            type: 'Claude Code Error',
+            file: filesAffected.size > 0 ? [...filesAffected][0] : null,
+            output: event.result || 'No output captured',
+            recoverable: true,
+            timestamp: new Date().toTimeString().slice(0, 8),
+          });
+
+          screenCards.set([
+            {
+              button: 'A',
+              title: 'View Error',
+              description: 'See full error details and recovery options.',
+              onclick: () => navigate('error'),
+            },
+            {
+              button: 'B',
+              title: 'Back to Home',
+              description: 'Return to the main screen.',
+              onclick: handleBackToHome,
+            },
+          ]);
+        } else {
           screenCards.set([
             {
               button: 'A',
@@ -266,16 +294,7 @@
 <TerminalPanel />
 <aside class="flex-1 min-w-[280px] bg-surface-dark border-l border-surface-border flex flex-col z-20 shadow-2xl">
   <div class="p-3 border-b border-surface-border bg-surface-dark">
-    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">AI Working</h2>
-    <p class="text-[10px] text-slate-600">
-      {#if taskComplete}
-        {getRandomMessage('success')}
-      {:else if taskFailed}
-        {getRandomMessage('error')}
-      {:else}
-        {workingMessage}
-      {/if}
-    </p>
+    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">AI Working</h2>
   </div>
 
   <div class="flex-1 overflow-hidden min-h-0 p-3">
@@ -296,7 +315,7 @@
       {:else}
         <div class="flex items-center gap-2 mb-2">
           <span class="w-6 h-6 flex items-center justify-center rounded-full bg-primary/20 border-2 border-primary text-primary text-xs font-bold animate-pulse">●</span>
-          <p class="text-sm text-white font-bold">Working...</p>
+          <p class="text-sm text-white font-bold">{workingVerb}</p>
         </div>
         <p class="text-[10px] text-slate-500 italic">{workingMessage}</p>
       {/if}

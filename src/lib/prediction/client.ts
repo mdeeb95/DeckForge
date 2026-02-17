@@ -13,6 +13,7 @@ import type {
 } from './types';
 import { getAccessToken, getBackendUrl, refreshAuth } from '../auth/auth';
 import { isDemoMode } from '../stores/app';
+import { globalConfig } from '../stores/configStores';
 import { pongMockPredictSuggestions } from '../demo/pongSuggestions';
 
 // ─── Category → call_type mapping ───────────────────────────────────────────
@@ -35,6 +36,20 @@ export async function predictSuggestions(
   context: ContextPayload,
   signal?: AbortSignal,
 ): Promise<PredictionResponse> {
+  const config = get(globalConfig);
+
+  // Direct mode: call Anthropic API directly with user's key
+  if (config?.prediction_engine.backend_mode === 'direct' && config.prediction_engine.direct_api_key_ref) {
+    try {
+      return await directPredictSuggestions(category, context, config.prediction_engine.direct_api_key_ref, signal);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
+      console.warn('Direct prediction failed, falling back to mock:', e);
+    }
+    return mockPredictSuggestions(category);
+  }
+
+  // Proxied mode: existing behavior via Railway backend
   const token = getAccessToken();
   if (token) {
     try {
@@ -56,6 +71,18 @@ export async function generatePlan(
   context: ContextPayload,
   signal?: AbortSignal,
 ): Promise<PlanResponse> {
+  const config = get(globalConfig);
+
+  if (config?.prediction_engine.backend_mode === 'direct' && config.prediction_engine.direct_api_key_ref) {
+    try {
+      return await directGeneratePlan(suggestion, context, config.prediction_engine.direct_api_key_ref, signal);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
+      console.warn('Direct plan generation failed, falling back to mock:', e);
+    }
+    return getMockPlan(suggestion);
+  }
+
   const token = getAccessToken();
   if (token) {
     try {
@@ -240,6 +267,91 @@ async function remoteExpandPlan(
   const data = await res.json();
   console.log('[expand-plan] Raw backend response:', JSON.stringify(data, null, 2));
   return mapBackendToExpandedPlanResponse(data, depth);
+}
+
+// ─── Direct API Calls (user's own Anthropic key) ────────────────────────────
+
+async function directPredictSuggestions(
+  category: Category,
+  context: ContextPayload,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<PredictionResponse> {
+  const config = get(globalConfig);
+  const model = config?.prediction_engine.model_overrides?.level_2 || 'claude-sonnet-4-5-20250929';
+  const temperature = config?.prediction_engine.temperature || 0.8;
+
+  const systemPrompt = `You are a prediction engine for DeckForge, a gamepad-driven development tool. Generate 8 coding suggestions for the "${category}" category. Respond with valid JSON matching this schema:
+{"header_quip":"string","suggestions":[{"label":"string","quip":"string","scope":"quick tweak|decent chunk|strap in","rationale":"string"}],"modifier":{"lens":"string","quip":"string"},"wild_card":{"label":"string","quip":"string","scope":"quick tweak|decent chunk|strap in","rationale":"string"}}`;
+
+  const userPrompt = `Project context: ${JSON.stringify(context)}. Generate 8 ${category} suggestions.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 4096,
+      temperature,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+    signal,
+  });
+
+  if (!res.ok) throw new Error(`Anthropic API error: ${res.status} ${res.statusText}`);
+
+  const data = await res.json();
+  const text = data.content?.[0]?.text || '{}';
+  // Extract JSON from the response (handle markdown code blocks)
+  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+  const parsed = JSON.parse(jsonMatch[1]?.trim() || text);
+  return mapBackendToPredictionResponse(parsed);
+}
+
+async function directGeneratePlan(
+  suggestion: Suggestion,
+  context: ContextPayload,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<PlanResponse> {
+  const config = get(globalConfig);
+  const model = config?.prediction_engine.model_overrides?.level_3 || 'claude-sonnet-4-5-20250929';
+  const temperature = config?.prediction_engine.temperature || 0.8;
+
+  const systemPrompt = `You are a plan generator for DeckForge. Generate a detailed implementation plan. Respond with valid JSON:
+{"summary":"string","quip":"string","steps":[{"n":1,"text":"string"}],"scope":"quick tweak|decent chunk|strap in","confidence":"low|medium|high","unhinged_modifier":"string","claude_code_intent":"string"}`;
+
+  const userPrompt = `Plan for: "${suggestion.label}" — ${suggestion.rationale}. Context: ${JSON.stringify(context)}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 4096,
+      temperature,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+    signal,
+  });
+
+  if (!res.ok) throw new Error(`Anthropic API error: ${res.status} ${res.statusText}`);
+
+  const data = await res.json();
+  const text = data.content?.[0]?.text || '{}';
+  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+  const parsed = JSON.parse(jsonMatch[1]?.trim() || text);
+  return mapBackendToPlanResponse(parsed);
 }
 
 // ─── Response Mappers ────────────────────────────────────────────────────────

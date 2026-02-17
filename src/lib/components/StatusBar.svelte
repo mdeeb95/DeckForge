@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { cpuUsage, ramUsage } from '../stores/systemStats';
+
   interface Props {
     projectName?: string;
     connected?: boolean;
@@ -30,8 +32,8 @@
     {/if}
   </div>
   <div class="flex items-center gap-4 text-slate-400">
-    <span>RAM: 0%</span>
-    <span>CPU: 0%</span>
+    <span>RAM: {$ramUsage.toFixed(0)}%</span>
+    <span>CPU: {$cpuUsage.toFixed(0)}%</span>
     <span class="text-primary">{version}</span>
   </div>
 </header>

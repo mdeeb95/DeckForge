@@ -14,7 +14,12 @@ export type Screen =
   | 'exploration'
   | 'voice_pitch'
   | 'screenshot_feedback'
-  | 'error';
+  | 'error'
+  | 'settings'
+  | 'settings_prediction'
+  | 'settings_display'
+  | 'settings_telemetry'
+  | 'settings_advanced';
 
 export interface ScreenCardData {
   button: string;
@@ -50,6 +55,22 @@ export const splitRatio = writable(50);
 // Demo mode: when true, prediction client uses Pong-specific suggestions.
 export const isDemoMode = writable(false);
 
+// ─── Start Menu ──────────────────────────────────────────────────────────────
+
+export const startMenuOpen = writable(false);
+
+export function toggleStartMenu() {
+  startMenuOpen.update(v => !v);
+}
+
+// ─── Previous Screen (for settings back-navigation) ─────────────────────────
+
+export const previousScreen = writable<Screen>('empty_state');
+
+// ─── On-Screen Keyboard ─────────────────────────────────────────────────────
+
+export const keyboardOpen = writable(false);
+
 // Pending prompt to send to Claude Code when AI Working screen mounts.
 // Set by Level 3 "Ship It", consumed by AIWorkingScreen.
 export const pendingClaudePrompt = writable<string | null>(null);
@@ -79,8 +100,12 @@ export function addSessionCost(costUsd: number, warningThreshold: number): void 
 }
 
 export function navigate(screen: Screen) {
-  const previous = get(currentScreen);
-  devLog('nav', `Navigating: ${previous} → ${screen}`);
+  const current = get(currentScreen);
+  devLog('nav', `Navigating: ${current} → ${screen}`);
+  // Track previous screen for settings back-navigation (don't overwrite when navigating between settings sub-screens)
+  if (!screen.startsWith('settings') && !current.startsWith('settings')) {
+    previousScreen.set(current);
+  }
   currentScreen.set(screen);
   selectedCardIndex.set(0);
   screenCards.set([]);

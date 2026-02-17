@@ -74,6 +74,8 @@ export async function createDefaultGlobalConfig(): Promise<GlobalConfig> {
       session_budget_warning_threshold_usd: 0.50,
       show_cost_indicator: true,
     },
+
+    recent_projects: [],
   };
 }
 

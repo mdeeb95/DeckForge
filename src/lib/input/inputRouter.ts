@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { currentScreen, navigate, splitRatio, pendingClaudePrompt } from '../stores/app';
+import { currentScreen, navigate, splitRatio, pendingClaudePrompt, startMenuOpen, previousScreen, keyboardOpen } from '../stores/app';
 import type { Screen } from '../stores/app';
 import { navigateUp, navigateDown, activateByButton, cycleSelectedIndex } from './navigation';
 import { rerollSuggestions } from '../stores/prediction';
@@ -20,7 +20,12 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         B: () => activateByButton('B'),
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
-        START: () => navigate('qa_mode'),
+        START: () => {
+          // Block navigation during error recovery — user should resolve the error first
+          import('../stores/launcher').then(({ appError }) => {
+            if (!get(appError)) navigate('qa_mode');
+          });
+        },
         SELECT: () => navigate('history'),
       };
 
@@ -47,11 +52,11 @@ function getScreenHandlers(screen: Screen): HandlerMap {
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => navigate('ai_working'),
-        B: () => navigate('level2'),
+        A: () => activateByButton('A'),
+        B: () => activateByButton('B'),
         X: () => activateByButton('X'),
-        Y: () => navigate('ai_working'),
-        LB: () => navigate('level2'),
+        Y: () => activateByButton('Y'),
+        LB: () => activateByButton('B'),
       };
 
     // ── AI Working ────────────────────────────────────────────────
@@ -102,19 +107,21 @@ function getScreenHandlers(screen: Screen): HandlerMap {
       };
 
     // ── Project Select ────────────────────────────────────────────
-    // A = open project → Level 1. B = delete. X = exploration. Y = new project.
+    // A/B/X/Y = open project via screenCards onclick. RB/LB = browse for project.
     case 'project_select':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => navigate('level1'),
+        A: () => activateByButton('A'),
         B: () => activateByButton('B'),
-        X: () => navigate('exploration'),
-        Y: () => navigate('voice_pitch'),
+        X: () => activateByButton('X'),
+        Y: () => activateByButton('Y'),
+        RB: () => activateByButton('RB'),
+        LB: () => activateByButton('LB'),
       };
 
     // ── Empty State ───────────────────────────────────────────────
-    // A = open directory. X = exploration. Y = new project.
+    // A = open directory. X = exploration. Y = new project. LB = settings.
     case 'empty_state':
       return {
         DPAD_UP: navigateUp,
@@ -123,6 +130,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         B: () => activateByButton('B'),
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
+        LB: () => navigate('settings'),
       };
 
     // ── Exploration ───────────────────────────────────────────────
@@ -175,6 +183,37 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         B: () => activateByButton('B'),
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
+      };
+
+    // ── Settings Hub ───────────────────────────────────────────────
+    // A/B/X/Y = navigate to sub-screen. START/LB = close settings.
+    case 'settings':
+      return {
+        DPAD_UP: navigateUp,
+        DPAD_DOWN: navigateDown,
+        A: () => activateByButton('A'),
+        B: () => activateByButton('B'),
+        X: () => activateByButton('X'),
+        Y: () => activateByButton('Y'),
+        START: () => navigate(get(previousScreen) || 'empty_state'),
+        LB: () => navigate(get(previousScreen) || 'empty_state'),
+      };
+
+    // ── Settings Sub-Screens ───────────────────────────────────────
+    // A/B/X/Y = act on card. LB = back to hub.
+    case 'settings_prediction':
+    case 'settings_display':
+    case 'settings_telemetry':
+    case 'settings_advanced':
+      return {
+        DPAD_UP: navigateUp,
+        DPAD_DOWN: navigateDown,
+        A: () => activateByButton('A'),
+        B: () => activateByButton('B'),
+        X: () => activateByButton('X'),
+        Y: () => activateByButton('Y'),
+        LB: () => navigate('settings'),
+        START: () => navigate(get(previousScreen) || 'empty_state'),
       };
 
     default:
@@ -255,6 +294,45 @@ const globalHandlers: HandlerMap = {
 export function handleInput(button: string) {
   const screen = get(currentScreen);
   devLog('input', `Button: ${button} | Screen: ${screen}`);
+
+  // Priority 1: On-screen keyboard captures ALL input when open
+  if (get(keyboardOpen)) {
+    devLog('input', `Keyboard open — ${button} captured by keyboard`);
+    return; // Keyboard component handles its own input via keydown listener
+  }
+
+  // Priority 2: START menu captures ALL input when open
+  if (get(startMenuOpen)) {
+    devLog('input', `StartMenu open — ${button} captured by menu`);
+    if (button === 'START' || button === 'B') {
+      startMenuOpen.set(false);
+    } else if (button === 'A') {
+      // A = Settings
+      startMenuOpen.set(false);
+      navigate('settings');
+    } else if (button === 'Y') {
+      // Y = Quit
+      import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+        getCurrentWindow().close();
+      }).catch(() => {
+        devLog('input', 'StartMenu Y: not in Tauri, closing menu');
+        startMenuOpen.set(false);
+      });
+    } else if (button === 'DPAD_UP' || button === 'DPAD_DOWN') {
+      // Let StartMenu handle DPAD visually — no-op in inputRouter
+    }
+    return;
+  }
+
+  // Priority 3: START button opens the menu (except on screens that handle START themselves)
+  if (button === 'START') {
+    const screenHandlerMap = getScreenHandlers(screen);
+    if (!screenHandlerMap['START']) {
+      devLog('input', `${screen} → START → open menu`);
+      startMenuOpen.set(true);
+      return;
+    }
+  }
 
   const screenHandlerMap = getScreenHandlers(screen);
 

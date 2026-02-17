@@ -3,12 +3,14 @@
   import StatusBar from './lib/components/StatusBar.svelte';
   import ScreenRouter from './lib/components/ScreenRouter.svelte';
   import FlashOverlay from './lib/components/FlashOverlay.svelte';
+  import StartMenu from './lib/components/StartMenu.svelte';
   import { projectName, connected, navigate, splitRatio } from './lib/stores/app';
   import type { Screen } from './lib/stores/app';
   import { startGamepadPolling, stopGamepadPolling } from './lib/input/gamepad';
   import { handleInput } from './lib/input/inputRouter';
   import { scrollTerminal } from './lib/stores/terminalScroll';
   import { initApp as initAppConfig } from './lib/stores/configStores';
+  import { startSystemStatsPolling, stopSystemStatsPolling } from './lib/stores/systemStats';
 
   // Initialize app state (will be overridden by config load)
   projectName.set('');
@@ -29,6 +31,7 @@
     '-': 'voice_pitch',
     '=': 'error',
     'p': 'screenshot_feedback',
+    's': 'settings',
   };
 
   // Keyboard → gamepad button mapping (fallback for development)
@@ -60,7 +63,7 @@
       connected.set(true);
 
       // Determine start screen based on config state
-      if (!config.user.onboarding_completed) {
+      if (!config.user.onboarding_completed && !(config.recent_projects?.length > 0)) {
         navigate('empty_state');
       } else {
         navigate('project_select');
@@ -82,6 +85,7 @@
         scrollTerminal(value * 8);
       }
     });
+    startSystemStatsPolling(2000);
 
     function handleKeydown(e: KeyboardEvent) {
       // Debug screen shortcuts (number keys)
@@ -121,19 +125,28 @@
       }
     }
 
+    function handleBlur() {
+      shiftHeld = false;
+      shiftComboFired = false;
+    }
+
     window.addEventListener('keydown', handleKeydown);
     window.addEventListener('keyup', handleKeyup);
+    window.addEventListener('blur', handleBlur);
 
     return () => {
       stopGamepadPolling();
+      stopSystemStatsPolling();
       window.removeEventListener('keydown', handleKeydown);
       window.removeEventListener('keyup', handleKeyup);
+      window.removeEventListener('blur', handleBlur);
     };
   });
 </script>
 
 <div class="h-screen w-screen flex flex-col overflow-hidden">
   <FlashOverlay />
+  <StartMenu />
 
   <!-- Status Bar -->
   <StatusBar projectName={$projectName} connected={$connected} version="v0.1.0" />

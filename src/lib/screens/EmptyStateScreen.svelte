@@ -55,6 +55,7 @@
   screenCards.set([
     { button: 'A', title: 'Open Directory', description: 'Browse and select a project folder from your filesystem.', onclick: openDirectory },
     { button: 'Y', title: 'Demo Mode', description: 'Scaffold a Pong game and explore DeckForge.', onclick: launchDemo },
+    { button: 'LB', title: 'Settings', description: 'Configure DeckForge settings.', onclick: () => navigate('settings') },
   ]);
 </script>
 

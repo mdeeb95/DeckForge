@@ -1,24 +1,16 @@
 # Tasks
 
 ## Active
-- [ ] **Terminal Fidelity — Full Claude Code Output** - Show tool call headers (⏺ Read/Write/Edit/Bash), diffs, command output, real-time cost. Kill "CLAUDE" label spam.
-  - Prompt: `tasks/todo/prompt-terminal-fidelity.md`
-- [ ] **Fix Demo Mode Button** - Y button on EmptyState fails silently. Add diagnostics, fix scaffolder, fix PATH for npm.
-  - Prompt: `tasks/todo/prompt-fix-demo-mode.md`
-- [ ] **Move Bottom HUD Into Right Panel** - Remove floating bar, add compact HintGrid to each screen's right panel footer.
-  - Prompt: `tasks/todo/prompt-bottom-hud-cleanup.md`
-- [ ] **Run App Button + Keyboard Shortcut** - Add visible Run App button to L1, keyboard shortcut `r` for R4, show running status
-  - Prompt: `tasks/todo/prompt-run-app-button.md`
-- [ ] **Universal Card Animations** - Every card on every screen gets an activation animation (glitch, confirm, dismiss, pulse)
-  - Prompt: `tasks/todo/prompt-universal-card-animations.md`
-- [ ] **Fix Expand Plan — Backend Schema** - PlanStep Pydantic model strips substeps/files_affected/risks. Backend needs optional rich fields.
-  - Prompt: `tasks/todo/prompt-fix-expand-plan-backend.md`
-- [ ] **Warp Zoom Card Switch Animation** - D-pad navigation: deselecting card warp-zooms out, newly selected card warp-zooms in with spring settle. Includes terminal auto-scroll fix.
-  - Prompt: `tasks/todo/prompt-warp-zoom-card-switch.md`
-- [ ] **App Output Tab in Terminal Panel** - Two tabs (Claude Code / App Output), SELECT toggles, auto-switch on app launch
-  - Prompt: `tasks/todo/prompt-app-output-tab.md`
 - [ ] **Screen-Scoped Network Cancellation** - AbortController per screen. Navigate away = all in-flight fetches die. No orphaned promises writing to stores.
   - Prompt: `tasks/todo/prompt-screen-scoped-abort.md`
+- [ ] **Recent Projects Memory** - Persist recently-opened projects in global.json, render real data on ProjectSelectScreen instead of hardcoded demo list.
+  - Prompt: `tasks/todo/prompt-recent-projects-memory.md`
+- [ ] **Steam Deck Build** - Compile release binary, create portable bundle with launch script, deploy to Deck as non-Steam game.
+  - Prompt: `tasks/todo/prompt-steam-deck-build.md`
+- [ ] **Settings Screen** - Gamepad-navigable settings UI: API key input (direct mode), display prefs, input bindings, cost thresholds, model overrides.
+  - Prompt: `tasks/todo/prompt-settings-screen.md`
+- [ ] **Terminal Audit — Kill Placeholders** - L1 boot sequence is 100% fake, ErrorScreen is a static mockup, ExplorationScreen is a stub. Replace with real data or remove.
+  - Prompt: `tasks/todo/prompt-terminal-audit-kill-placeholders.md`
 
 ## Waiting On
 
@@ -26,6 +18,14 @@
 - [ ] **Back grip mapping** - L4/L5/R4/R5 configurable per project
 
 ## Done
+- [x] **Terminal Fidelity — Full Claude Code Output** - Tool call headers, diffs, command output, real-time cost (Feb 17)
+- [x] **Fix Demo Mode Button** - Y button on EmptyState diagnostics + scaffolder + PATH fix (Feb 17)
+- [x] **Move Bottom HUD Into Right Panel** - Removed floating bar, added compact HintGrid to right panel footer (Feb 17)
+- [x] **Run App Button + Keyboard Shortcut** - Visible Run App button on L1, R4 shortcut, running status (Feb 17)
+- [x] **Universal Card Animations** - Every card on every screen: glitch, confirm, dismiss, pulse (Feb 17)
+- [x] **Fix Expand Plan — Backend Schema** - PlanStep Pydantic model with substeps/files_affected/risks (Feb 17)
+- [x] **Warp Zoom Card Switch Animation** - D-pad warp-zoom transitions + terminal auto-scroll fix (Feb 17)
+- [x] **App Output Tab in Terminal Panel** - Two tabs, SELECT toggles, auto-switch on app launch (Feb 17)
 - [x] **Fix Streaming Pipeline — PTY + Env** - Wrap claude in `script` pseudo-TTY + unset CLAUDECODE to fix zero-stdout (Feb 17)
 - [x] **Tell Me More — Progressive Plan Refinement** - Wire X button on L3 to call backend `level_3_expand` with progressive depth. Each press digs deeper.
 - [x] **Ship It Button Animation** - Alternating Glitch Warp / Confirm Pulse animation on A and Y before navigating to ai_working (~450ms)

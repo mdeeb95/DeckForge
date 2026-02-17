@@ -8,7 +8,7 @@
     activeTab,
     type TerminalStatus,
   } from '../stores/terminal';
-  import { appOutput, appRunning, appPid } from '../stores/launcher';
+  import { appOutput, appRunning, appPid, appError } from '../stores/launcher';
   import { splitRatio } from '../stores/app';
   import { setTerminalScrollElement } from '../stores/terminalScroll';
 
@@ -31,6 +31,18 @@
           }
         });
       });
+    }
+  });
+
+  // Glitch animation when error is detected
+  let terminalGlitching = $state(false);
+  let glitchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  $effect(() => {
+    if ($appError) {
+      terminalGlitching = true;
+      clearTimeout(glitchTimer);
+      glitchTimer = setTimeout(() => { terminalGlitching = false; }, 800);
     }
   });
 
@@ -58,7 +70,7 @@
   }
 </script>
 
-<section class="flex flex-col min-w-0 border-r border-surface-border bg-background-dark relative shrink-0" style="width: {$splitRatio}%">
+<section class="flex flex-col min-w-0 border-r border-surface-border bg-background-dark relative shrink-0 {terminalGlitching ? 'terminal-error-glitch' : ''}" style="width: {$splitRatio}%">
   <!-- Terminal Header -->
   <div class="h-10 flex items-center justify-between px-4 border-b border-surface-border bg-surface-dark/50 shrink-0">
     <div class="flex items-center gap-2">
@@ -67,10 +79,14 @@
         <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border {badgeClasses[$status]}">{badgeLabels[$status]}</span>
       {:else}
         <span class="text-primary font-mono text-sm">&gt; App Output</span>
-        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border
-          {$appRunning ? 'bg-emerald-400/20 text-emerald-400 border-emerald-400/30' : 'bg-slate-800 text-slate-500 border-slate-700'}">
-          {$appRunning ? 'RUNNING' : 'STOPPED'}
-        </span>
+        {#if $appError}
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border bg-red-400/20 text-red-400 border-red-400/30">ERROR</span>
+        {:else}
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border
+            {$appRunning ? 'bg-emerald-400/20 text-emerald-400 border-emerald-400/30' : 'bg-slate-800 text-slate-500 border-slate-700'}">
+            {$appRunning ? 'RUNNING' : 'STOPPED'}
+          </span>
+        {/if}
       {/if}
     </div>
     <div class="flex gap-2">
@@ -199,6 +215,12 @@
       {/if}
     {/if}
   </div>
+
+  <!-- Error glitch overlays -->
+  {#if terminalGlitching}
+    <div class="terminal-error-flash"></div>
+    <div class="terminal-error-scanline"></div>
+  {/if}
 
   <!-- Scanline overlay (pulses when streaming) -->
   <div class="absolute inset-0 scan-overlay z-10 pointer-events-none {$status === 'streaming' ? 'scan-overlay-streaming' : 'opacity-20'}"></div>

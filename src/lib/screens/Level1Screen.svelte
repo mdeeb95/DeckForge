@@ -4,14 +4,18 @@
   import ActionPalette from '../components/ActionPalette.svelte';
   import { selectedCardIndex, projectName, navigate, screenCards } from '../stores/app';
   import { entries, status, cost } from '../stores/terminal';
+  import { activeTab } from '../stores/terminal';
   import { get } from 'svelte/store';
   import { loadPredictions } from '../stores/prediction';
   import type { Category } from '../prediction/types';
   import type { TerminalEntry } from '../stores/terminal';
   import { getRandomMessage } from '../personality/messages';
-  import { appRunning, appPid } from '../stores/launcher';
+  import { appRunning, appPid, appError, appOutput } from '../stores/launcher';
   import { projectConfig } from '../stores/configStores';
+  import { authToken } from '../stores/configStores';
   import { launchApp, restartApp, isRunning } from '../system/appLauncher';
+  import { killPort } from '../system/portKiller';
+  import { getGitStatus } from '../deploy/git';
 
   let abortController: AbortController;
 
@@ -19,26 +23,65 @@
     abortController = new AbortController();
     entries.clear();
 
-    const name = get(projectName) || 'project';
+    const config = get(projectConfig);
+    const auth = get(authToken);
+    const name = get(projectName) || config?.project.name || 'project';
     const now = new Date().toTimeString().slice(0, 8);
     const splash = getRandomMessage('splash');
     const boot = getRandomMessage('boot');
+
     const bootEntries: TerminalEntry[] = [
       { type: 'timestamp', time: now, message: boot },
-      { type: 'timestamp', time: now, message: 'Scanning project workspace...' },
-      { type: 'timestamp', time: now, message: 'Detected: <span class="text-slate-300">TypeScript + React + Vite</span>' },
-      { type: 'timestamp', time: now, message: 'Git status: on branch <span class="text-secondary">main</span> — clean' },
-      { type: 'timestamp', time: now, message: 'Claude Code SDK connected <span class="text-emerald-400">&#10003;</span>' },
-      { type: 'timestamp', time: now, message: 'Prediction engine warming up...' },
-      { type: 'prompt', label: 'SYSTEM', body: splash },
-      { type: 'thought', label: 'CONTEXT', body: `Analyzing <span class="text-slate-300 bg-slate-800 px-1 rounded">${name}</span> — 47 files, 12 open issues, last commit 2h ago. Generating suggestions across <span class="text-primary">Feature</span>, <span class="text-secondary">Bug</span>, <span class="text-slate-300">Tech Debt</span>, and <span class="text-amber-400">Yolo</span> categories.` },
-      { type: 'code', filePath: 'project summary', diff: false, content: `Last session:  3 features shipped, 1 bug fixed\nOpen issues:   12 (4 bugs, 5 features, 3 tech debt)\nTest coverage: 74% (target: 80%)\nBundle size:   248kb (under budget)\nLast deploy:   2 hours ago` },
-      { type: 'cursor', message: 'Awaiting category selection...' },
     ];
+
+    // Tech stack — from real project config
+    if (config) {
+      const techParts = [config.tech_stack.language, config.tech_stack.framework, config.tech_stack.build_tool].filter(Boolean);
+      if (techParts.length > 0) {
+        bootEntries.push({ type: 'timestamp', time: now, message: `Detected: <span class="text-slate-300">${techParts.join(' + ')}</span>` });
+      }
+    }
+
+    // Backend status — from real auth token
+    if (auth) {
+      bootEntries.push({ type: 'timestamp', time: now, message: 'Backend connected <span class="text-emerald-400">&#10003;</span>' });
+    } else {
+      bootEntries.push({ type: 'timestamp', time: now, message: 'Backend: <span class="text-slate-500">offline — mock mode</span>' });
+    }
+
+    bootEntries.push({ type: 'prompt', label: 'SYSTEM', body: splash });
+
+    // Context — only real data from project config
+    if (config) {
+      const contextParts: string[] = [];
+      const sessions = config.session_history.total_sessions;
+      const tasks = config.claude_code.total_tasks_completed;
+      const deps = config.tech_stack.dependencies.length;
+      if (sessions > 0) contextParts.push(`${sessions} session${sessions !== 1 ? 's' : ''}`);
+      if (tasks > 0) contextParts.push(`${tasks} task${tasks !== 1 ? 's' : ''} completed`);
+      if (deps > 0) contextParts.push(`${deps} dependencies`);
+
+      if (contextParts.length > 0) {
+        bootEntries.push({ type: 'thought', label: 'CONTEXT', body: `<span class="text-slate-300 bg-slate-800 px-1 rounded">${name}</span> — ${contextParts.join(', ')}` });
+      }
+    }
+
+    bootEntries.push({ type: 'cursor', message: 'Awaiting category selection...' });
 
     status.set('idle');
     cost.set('$0.00');
     bootEntries.forEach(e => entries.addEntry(e));
+
+    // Git status — async, added when ready
+    const cwd = config?.project.path || '.';
+    getGitStatus(cwd).then(git => {
+      if (abortController.signal.aborted) return;
+      const statusText = git.files_changed > 0
+        ? `${git.files_changed} file${git.files_changed !== 1 ? 's' : ''} changed`
+        : 'clean';
+      // Insert before cursor (replace the cursor, then re-add it)
+      entries.addEntry({ type: 'timestamp', time: now, message: `Git: on <span class="text-secondary">${git.branch}</span> — ${statusText}` });
+    });
   });
 
   onDestroy(() => {
@@ -105,6 +148,141 @@
     },
   ];
 
+  // ─── Error Recovery Cards ──────────────────────────────────────────────────
+
+  const BLAME_QUIPS = [
+    'Node.js started it. We all saw.',
+    'Classic Node. Refuses to share ports like a toddler.',
+    'In Node\'s defense... no, there is no defense.',
+    'Node.js: because one event loop wasn\'t enough drama.',
+  ];
+
+  const SOLAR_QUIPS = [
+    'Cosmic rays flipped a bit. Science confirms it.',
+    'The sun literally sabotaged your app. Not your fault.',
+    'Solar wind: the original force push.',
+    'Even stars have bugs. Yours just happened to crash.',
+  ];
+
+  let portInUseCards = $derived($appError?.type === 'port_in_use' ? [
+    {
+      button: 'A',
+      title: 'Kill Port & Restart',
+      description: `nuke whatever\'s on port ${$appError.port ?? '???'} and relaunch`,
+      pills: [{ label: 'auto-fix', variant: 'active' as const }],
+      variant: 'primary' as const,
+      onclick: async () => {
+        const port = $appError?.port ?? get(projectConfig)?.run_config?.port;
+        if (port) {
+          const killed = await killPort(port);
+          console.log(`[errorRecovery] killPort(${port}) → ${killed}`);
+          // Give OS time to release the port
+          await new Promise(r => setTimeout(r, 800));
+        }
+        appError.set(null);
+        await restartApp();
+      },
+    },
+    {
+      button: 'B',
+      title: 'Dismiss',
+      description: 'clear the error and carry on',
+      pills: [] as { label: string; variant: 'active' | 'neutral' }[],
+      variant: 'neutral' as const,
+      onclick: () => { appError.set(null); },
+    },
+    {
+      button: 'X',
+      title: 'File as Bug',
+      description: 'route this to bug category with context',
+      pills: [{ label: 'bug report', variant: 'neutral' as const }],
+      variant: 'secondary_pink' as const,
+      onclick: () => {
+        appError.set(null);
+        loadPredictions('bug', abortController.signal);
+        navigate('level2');
+      },
+    },
+    {
+      button: 'Y',
+      title: 'Blame Node.js',
+      description: 'it was definitely Node\'s fault',
+      pills: [{ label: 'obviously', variant: 'neutral' as const }],
+      variant: 'amber' as const,
+      onclick: () => {
+        const quip = BLAME_QUIPS[Math.floor(Math.random() * BLAME_QUIPS.length)];
+        appOutput.update(lines => [...lines, `[deckforge] ${quip}`]);
+        appError.set(null);
+      },
+    },
+  ] : null);
+
+  let genericCrashCards = $derived($appError?.type === 'generic_crash' ? [
+    {
+      button: 'A',
+      title: 'File as Bug',
+      description: 'create a bug report with crash context',
+      pills: [{ label: 'bug report', variant: 'active' as const }],
+      variant: 'primary' as const,
+      onclick: () => {
+        appError.set(null);
+        loadPredictions('bug', abortController.signal);
+        navigate('level2');
+      },
+    },
+    {
+      button: 'B',
+      title: 'Restart App',
+      description: 'try running it again',
+      pills: [{ label: 'relaunch', variant: 'neutral' as const }],
+      variant: 'secondary_pink' as const,
+      onclick: async () => {
+        appError.set(null);
+        await restartApp();
+      },
+    },
+    {
+      button: 'X',
+      title: 'Dismiss',
+      description: 'clear the error and move on',
+      pills: [] as { label: string; variant: 'active' | 'neutral' }[],
+      variant: 'neutral' as const,
+      onclick: () => { appError.set(null); },
+    },
+    {
+      button: 'Y',
+      title: 'Blame Solar Flares',
+      description: 'the cosmos did this, not your code',
+      pills: [{ label: 'obviously', variant: 'neutral' as const }],
+      variant: 'amber' as const,
+      onclick: () => {
+        const quip = SOLAR_QUIPS[Math.floor(Math.random() * SOLAR_QUIPS.length)];
+        appOutput.update(lines => [...lines, `[deckforge] ${quip}`]);
+        appError.set(null);
+      },
+    },
+  ] : null);
+
+  let activeCards = $derived(portInUseCards ?? genericCrashCards ?? cards);
+  let isErrorMode = $derived(!!$appError);
+
+  // ─── Reactive screenCards sync ─────────────────────────────────────────────
+
+  $effect(() => {
+    const current = activeCards;
+    screenCards.set(current.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  });
+
+  // Auto-switch to app tab on error
+  $effect(() => {
+    if ($appError) {
+      activeTab.set('app');
+      selectedCardIndex.set(0);
+    }
+  });
+
+  // ─── Normal UI ─────────────────────────────────────────────────────────────
+
   function runApp() {
     if (isRunning()) {
       restartApp();
@@ -118,31 +296,43 @@
     }
   }
 
-  let secondaryCards = $derived([
+  let secondaryCards = $derived(isErrorMode ? [] : [
     { button: 'START', label: 'QA Mode', icon: 'checklist' },
     { button: 'R4', label: $appRunning ? `App Running (PID ${$appPid})` : 'Run App', icon: $appRunning ? 'stop_circle' : 'play_arrow', variant: 'emerald' as const },
     { button: 'SELECT', label: 'History', icon: 'history' },
   ]);
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  // Error mode palette props
+  let errorTitle = $derived(
+    $appError?.type === 'port_in_use' ? 'Port Conflict' : 'App Crashed'
+  );
+  let errorSubtitle = $derived($appError?.summary ?? 'Something went wrong');
+
+  let hints = $derived(isErrorMode
+    ? [
+        { key: 'A/B/X/Y', label: 'Select' },
+        { key: 'D-PAD', label: 'Navigate' },
+      ]
+    : [
+        { key: 'A/B/X/Y', label: 'Select' },
+        { key: 'D-PAD', label: 'Navigate' },
+        { key: 'R4', label: 'Run App' },
+        { key: 'RB', label: 'Screenshot' },
+        { key: 'START', label: 'Menu' },
+      ]
+  );
 </script>
 
 <TerminalPanel />
 <ActionPalette
-  breadcrumb="Category Select"
-  step={1}
-  title="What Are We Doing?"
-  subtitle="Pick a category to see suggestions"
-  {cards}
+  breadcrumb={isErrorMode ? 'Error Recovery' : 'Category Select'}
+  step={isErrorMode ? 0 : 1}
+  title={isErrorMode ? errorTitle : 'What Are We Doing?'}
+  subtitle={isErrorMode ? errorSubtitle : 'Pick a category to see suggestions'}
+  cards={activeCards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
   {animatingButton}
   animationType={animatingType}
-  hints={[
-    { key: 'A/B/X/Y', label: 'Select' },
-    { key: 'D-PAD', label: 'Navigate' },
-    { key: 'R4', label: 'Run App' },
-    { key: 'RB', label: 'Screenshot' },
-    { key: 'START', label: 'Menu' },
-  ]}
+  {hints}
 />

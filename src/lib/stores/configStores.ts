@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { GlobalConfig, ProjectConfig, ProjectBehavior, AuthToken } from '../types/data';
+import type { GlobalConfig, ProjectConfig, ProjectBehavior, AuthToken, RecentProject } from '../types/data';
 import {
   loadGlobalConfig,
   saveGlobalConfig,
@@ -94,6 +94,26 @@ export async function openProject(projectPath: string): Promise<ProjectConfig> {
   }
 
   projectConfig.set(config);
+
+  // Record in recent projects
+  await updateGlobalConfig((global) => {
+    const entry: RecentProject = {
+      path: projectPath,
+      name: config.project.name,
+      last_opened: new Date().toISOString(),
+      tech_stack: [config.tech_stack.framework, config.tech_stack.language]
+        .filter(Boolean)
+        .join(' + ') || config.tech_stack.type_detected || 'Unknown',
+      framework: config.tech_stack.framework || '',
+    };
+
+    const filtered = (global.recent_projects ?? []).filter(p => p.path !== projectPath);
+    return {
+      ...global,
+      recent_projects: [entry, ...filtered].slice(0, 20),
+    };
+  });
+
   devLog('fs', `openProject: complete — ${config.project.name}`);
   return config;
 }

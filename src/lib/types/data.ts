@@ -58,6 +58,16 @@ export interface GlobalConfig {
     session_budget_warning_threshold_usd: number;
     show_cost_indicator: boolean;
   };
+
+  recent_projects: RecentProject[];
+}
+
+export interface RecentProject {
+  path: string;
+  name: string;
+  last_opened: string;
+  tech_stack: string;
+  framework: string;
 }
 
 // ─── Section 2: Global Behavior (Cross-Project) ────────────────────────────

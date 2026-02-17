@@ -1,7 +1,9 @@
 // ─── App Launcher — spawn, kill, restart the user's app process ──────────────
 
-import { appRunning, appPid, lastLaunchError, appOutput } from '../stores/launcher';
+import { appRunning, appPid, lastLaunchError, appOutput, appError } from '../stores/launcher';
 import { activeTab } from '../stores/terminal';
+import { get } from 'svelte/store';
+import { classifyAppError } from './appErrorClassifier';
 
 // ─── Module state ────────────────────────────────────────────────────────────
 
@@ -40,6 +42,7 @@ export async function launchApp(command: string, cwd: string): Promise<void> {
   currentCommand = command;
   currentCwd = cwd;
   lastLaunchError.set(null);
+  appError.set(null);
   appOutput.set([]);
 
   if (!isTauri()) {
@@ -83,6 +86,24 @@ export async function launchApp(command: string, cwd: string): Promise<void> {
       appRunning.set(false);
       appPid.set(null);
       console.log(`[appLauncher] Process exited with code ${data.code}`);
+
+      // Classify error on abnormal exit and navigate to L1 for recovery
+      if (data.code !== 0 && data.code !== null) {
+        import('../stores/configStores').then(({ projectConfig }) => {
+          const config = get(projectConfig);
+          const error = classifyAppError(data.code, get(appOutput), config?.run_config?.port);
+          if (error) {
+            appError.set(error);
+            // Navigate to L1 so the user sees recovery options, regardless of current screen
+            import('../stores/app').then(({ currentScreen, navigate }) => {
+              if (get(currentScreen) !== 'level1') {
+                navigate('level1');
+              }
+            });
+            console.log(`[appLauncher] Classified error: ${error.type} — ${error.summary}`);
+          }
+        });
+      }
     });
 
     cmd.on('error', (error: string) => {

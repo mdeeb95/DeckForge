@@ -46,16 +46,19 @@ describe('Level 2 input', () => {
 });
 
 describe('Level 3 input', () => {
-  it('A navigates to ai_working', () => {
+  it('A/B/Y route through activateByButton (card onclick)', () => {
+    const called: string[] = [];
     navigate('level3');
+    screenCards.set([
+      { button: 'A', title: 'Ship It', description: '', onclick: () => called.push('A') },
+      { button: 'B', title: 'Back', description: '', onclick: () => called.push('B') },
+      { button: 'X', title: 'Expand', description: '', onclick: () => called.push('X') },
+      { button: 'Y', title: 'Unhinged', description: '', onclick: () => called.push('Y') },
+    ]);
     handleInput('A');
-    expect(get(currentScreen)).toBe('ai_working');
-  });
-
-  it('B goes back to level2', () => {
-    navigate('level3');
     handleInput('B');
-    expect(get(currentScreen)).toBe('level2');
+    handleInput('Y');
+    expect(called).toEqual(['A', 'B', 'Y']);
   });
 });
 

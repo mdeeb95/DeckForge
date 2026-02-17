@@ -8,8 +8,10 @@ export type MessageCategory =
   | 'error'
   | 'something_else'
   | 'ai_working'
+  | 'ai_working_verb'
   | 'success'
-  | 'boot';
+  | 'boot'
+  | 'app_crash';
 
 // ─── Message pools ──────────────────────────────────────────────────────────
 
@@ -135,6 +137,24 @@ const AI_WORKING: string[] = [
   'The machines work. You supervise.',
 ];
 
+const AI_WORKING_VERB: string[] = [
+  'Hacking away...',
+  'Cooking up code...',
+  'Building things...',
+  'Wiring it up...',
+  'Crafting something...',
+  'Crunching logic...',
+  'Stitching files...',
+  'Refactoring reality...',
+  'Spinning up changes...',
+  'Laying down code...',
+  'Assembling the pieces...',
+  'Shaping the feature...',
+  'Forging ahead...',
+  'Compiling thoughts...',
+  'Deploying brainpower...',
+];
+
 const SUCCESS: string[] = [
   'Nailed it.',
   'Clean execution.',
@@ -163,6 +183,21 @@ const BOOT: string[] = [
   'All systems nominal. Let\'s build something.',
 ];
 
+const APP_CRASH: string[] = [
+  'Your app just rage-quit.',
+  'Process down. Couch status: still comfy.',
+  'The app crashed. Your dignity is intact.',
+  'Something exploded. Not the Steam Deck, thankfully.',
+  'Exit code: not zero. Vibes: slightly off.',
+  'App went down faster than a bad pull request.',
+  'Crash detected. Recovery options standing by.',
+  'Your process had one job.',
+  'The app said "no" and left.',
+  'Process terminated. We have options.',
+  'Unexpected exit. Expected sass from DeckForge.',
+  'The app yeeted itself. Let\'s fix that.',
+];
+
 // ─── Message pools map ──────────────────────────────────────────────────────
 
 const POOLS: Record<MessageCategory, string[]> = {
@@ -172,8 +207,10 @@ const POOLS: Record<MessageCategory, string[]> = {
   error: ERROR,
   something_else: SOMETHING_ELSE,
   ai_working: AI_WORKING,
+  ai_working_verb: AI_WORKING_VERB,
   success: SUCCESS,
   boot: BOOT,
+  app_crash: APP_CRASH,
 };
 
 // ─── No-repeat logic ────────────────────────────────────────────────────────

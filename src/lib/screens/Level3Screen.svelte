@@ -6,6 +6,7 @@
   import { entries, status, cost, scope } from '../stores/terminal';
   import { selectedSuggestion, currentPlan, trackPlanApproval, trackPlanRejection } from '../stores/prediction';
   import type { TerminalEntry } from '../stores/terminal';
+  import type { ExpandedPlanResponse } from '../prediction/types';
 
   let abortController: AbortController;
 
@@ -65,15 +66,46 @@
     termEntries.forEach(e => entries.addEntry(e));
   });
 
+  function buildEnrichedPrompt(base: string, unhinged: boolean): string {
+    let prompt = base;
+
+    if (expansions.length > 0) {
+      prompt += '\n\nDetailed plan breakdown:\n';
+      for (const expansion of expansions) {
+        for (const step of expansion.steps) {
+          prompt += `${step.n}. ${step.text}\n`;
+          if (step.substeps && step.substeps.length > 0) {
+            prompt += `   Substeps: ${step.substeps.map((s, i) => `${i + 1}) ${s}`).join(' ')}\n`;
+          }
+          if (step.files_affected && step.files_affected.length > 0) {
+            prompt += `   Files: ${step.files_affected.join(', ')}\n`;
+          }
+          if (step.risks && step.risks.length > 0) {
+            prompt += `   Risks: ${step.risks.join(', ')}\n`;
+          }
+        }
+      }
+
+      // Append commentary from the latest expansion
+      const latest = expansions[expansions.length - 1];
+      if (latest.commentary) {
+        prompt += `\n${latest.commentary}`;
+      }
+    }
+
+    if (unhinged && plan?.unhinged_modifier) {
+      prompt += `\n\nALSO: ${plan.unhinged_modifier}`;
+    }
+
+    return prompt;
+  }
+
   function shipIt(unhinged = false) {
     if (!plan || animatingShip) return;
 
     trackPlanApproval(unhinged);
 
-    let prompt = plan.claude_code_intent;
-    if (unhinged && plan.unhinged_modifier) {
-      prompt += `\n\nALSO: ${plan.unhinged_modifier}`;
-    }
+    const prompt = buildEnrichedPrompt(plan.claude_code_intent, unhinged);
 
     // Alternate between glitch and confirm
     animatingShip = shipAnimationCount % 2 === 0 ? 'glitch' : 'confirm';
@@ -106,6 +138,7 @@
 
   let expandDepth = $state(0);
   let isExpanding = $state(false);
+  let expansions = $state<ExpandedPlanResponse[]>([]);
 
   async function expandPlan() {
     if (!plan) {
@@ -157,6 +190,8 @@
 
       // If aborted between fetch and rendering, bail
       if (abortController.signal.aborted) return;
+
+      expansions = [...expansions, expanded];
 
       console.log('[expand-plan] Parsed response:', {
         depth: expanded.depth,
@@ -266,7 +301,7 @@
           ? [{ label: scopeLabel, variant: 'active' as const }]
           : [{ label: 'loading', variant: 'neutral' as const }],
         variant: planReady ? 'primary' as const : 'neutral' as const,
-        onclick: planReady ? () => shipIt() : undefined,
+        onclick: planReady && !isExpanding ? () => shipIt() : undefined,
       },
       {
         button: 'B',
@@ -274,7 +309,7 @@
         description: 'Return to suggestions. This plan won\'t be saved.',
         pills: [{ label: 'No cost', variant: 'neutral' as const }],
         variant: 'secondary_pink' as const,
-        onclick: goBack,
+        onclick: !isExpanding ? goBack : undefined,
       },
       {
         button: 'X',
@@ -286,7 +321,7 @@
           : 'Available after plan generates.',
         pills: [{ label: expandDepth === 0 ? 'Clarify' : `Depth ${expandDepth}`, variant: 'neutral' as const }],
         variant: 'neutral' as const,
-        onclick: planReady ? () => expandPlan() : undefined,
+        onclick: planReady && !isExpanding ? () => expandPlan() : undefined,
       },
       {
         button: 'Y',
@@ -298,7 +333,7 @@
           ? [{ label: 'Unhinged', variant: 'neutral' as const }]
           : [{ label: 'loading', variant: 'neutral' as const }],
         variant: planReady ? 'amber' as const : 'neutral' as const,
-        onclick: planReady ? () => shipIt(true) : undefined,
+        onclick: planReady && !isExpanding ? () => shipIt(true) : undefined,
       },
     ];
   });

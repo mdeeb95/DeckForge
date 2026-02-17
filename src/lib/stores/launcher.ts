@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import type { AppError } from '../system/appErrorClassifier';
 
 // ─── App Launcher Reactive State ─────────────────────────────────────────────
 
@@ -13,3 +14,6 @@ export const lastLaunchError = writable<string | null>(null);
 
 /** Captured stdout/stderr from the app process */
 export const appOutput = writable<string[]>([]);
+
+/** Classified app error when process exits abnormally */
+export const appError = writable<AppError | null>(null);

@@ -23,15 +23,144 @@ let CW = 800, CH = 600;
 let role = null;
 let state = null;
 let ws = null;
-const input = { up: false, down: false };
+
+// ─── Player Colors ──────────────────────────────────────────────────
+const PLAYER_COLORS = {
+  1: '#0df2f2', // Cyan (P1 - Left)
+  2: '#f20dcf', // Magenta (P2 - Right)
+  3: '#00ff88', // Green (P3 - Top)
+  4: '#ffaa00', // Orange (P4 - Bottom)
+};
+const TEAM_COLORS = {
+  teamA: '#0df2f2', // Cyan (P1 + P3)
+  teamB: '#f20dcf', // Magenta (P2 + P4)
+};
+
+// ─── Independent Keyboard Input Per Player ──────────────────────────
+// Each player has independent key bindings
+const playerInputs = {
+  p1: { up: false, down: false },  // W/S
+  p2: { up: false, down: false },  // Arrow Up/Down
+  p3: { left: false, right: false }, // Q/E
+  p4: { left: false, right: false }, // Left Arrow/Right Arrow (or Numpad 4/6)
+};
+
+// Key bindings: player → { positive, negative } keys
+const KEY_BINDINGS = {
+  p1_up:    ['w', 'W'],
+  p1_down:  ['s', 'S'],
+  p2_up:    ['ArrowUp'],
+  p2_down:  ['ArrowDown'],
+  p3_left:  ['q', 'Q'],
+  p3_right: ['e', 'E'],
+  p4_left:  ['ArrowLeft'],
+  p4_right: ['ArrowRight'],
+};
 
 // ─── Menu State ─────────────────────────────────────────────────────
 let menuScreen = 'mode'; // 'mode' | 'difficulty' | null (in-game)
-let menuSelection = 0;   // Index of highlighted option
-const modeOptions = ['1 Player (vs AI)', '2 Players'];
+let menuSelection = 0;
+const modeOptions = [
+  { label: '1 Player (vs AI)', mode: '1p', desc: 'Classic single-player against the computer' },
+  { label: '2 Players', mode: '2p', desc: 'Local 1v1 — two paddles, one screen' },
+  { label: '2v2 Teams', mode: '2v2', desc: '4 players, 2 teams — paddles on all sides' },
+  { label: 'Free-for-All', mode: 'ffa', desc: '4 players, every paddle for themselves' },
+];
 const difficultyOptions = ['Easy', 'Medium', 'Hard'];
 let selectedMode = '2p';
 let selectedDifficulty = 'medium';
+
+// ─── Gamepad State ──────────────────────────────────────────────────
+// Track which gamepads map to which players
+const gamepadPlayerMap = new Map(); // gamepad index → player number (1-4)
+let nextGamepadSlot = 1;
+
+function getMaxGamepadSlots() {
+  if (!state) return 2;
+  const m = state.gameMode || selectedMode;
+  return (m === '2v2' || m === 'ffa') ? 4 : 2;
+}
+
+function pollGamepads() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const maxSlots = getMaxGamepadSlots();
+
+  for (const gp of gamepads) {
+    if (!gp) continue;
+
+    // Auto-assign gamepad to a player slot
+    if (!gamepadPlayerMap.has(gp.index)) {
+      if (nextGamepadSlot <= maxSlots) {
+        gamepadPlayerMap.set(gp.index, nextGamepadSlot);
+        nextGamepadSlot++;
+      }
+    }
+
+    const playerNum = gamepadPlayerMap.get(gp.index);
+    if (!playerNum) continue;
+
+    // D-pad and left stick
+    const axisX = Math.abs(gp.axes[0]) > 0.3 ? gp.axes[0] : 0;
+    const axisY = Math.abs(gp.axes[1]) > 0.3 ? gp.axes[1] : 0;
+    const dpadUp = gp.buttons[12] && gp.buttons[12].pressed;
+    const dpadDown = gp.buttons[13] && gp.buttons[13].pressed;
+    const dpadLeft = gp.buttons[14] && gp.buttons[14].pressed;
+    const dpadRight = gp.buttons[15] && gp.buttons[15].pressed;
+    const btnA = gp.buttons[0] && gp.buttons[0].pressed;
+    const btnB = gp.buttons[1] && gp.buttons[1].pressed;
+
+    // Menu navigation (only first gamepad / P1)
+    if (menuScreen && playerNum === 1) {
+      handleGamepadMenu(gp, axisY, dpadUp, dpadDown, btnA, btnB);
+      continue;
+    }
+
+    // Game input
+    if (playerNum <= 2) {
+      // Vertical paddles — up/down
+      playerInputs['p' + playerNum].up = axisY < -0.3 || dpadUp;
+      playerInputs['p' + playerNum].down = axisY > 0.3 || dpadDown;
+    } else {
+      // Horizontal paddles — left/right
+      playerInputs['p' + playerNum].left = axisX < -0.3 || dpadLeft;
+      playerInputs['p' + playerNum].right = axisX > 0.3 || dpadRight;
+    }
+  }
+}
+
+// Gamepad menu navigation with debounce
+let gpMenuCooldown = 0;
+let gpPrevBtnA = false;
+function handleGamepadMenu(gp, axisY, dpadUp, dpadDown, btnA, btnB) {
+  const now = Date.now();
+  if (now < gpMenuCooldown) return;
+
+  const opts = menuScreen === 'mode' ? modeOptions : difficultyOptions;
+  const optLen = Array.isArray(opts) ? opts.length : opts.length;
+
+  if (axisY < -0.5 || dpadUp) {
+    menuSelection = (menuSelection - 1 + optLen) % optLen;
+    gpMenuCooldown = now + 200;
+  } else if (axisY > 0.5 || dpadDown) {
+    menuSelection = (menuSelection + 1) % optLen;
+    gpMenuCooldown = now + 200;
+  }
+
+  // A button to select (on press, not hold)
+  if (btnA && !gpPrevBtnA) {
+    handleMenuSelect();
+    gpMenuCooldown = now + 300;
+  }
+
+  // B button to go back
+  if (btnB && menuScreen === 'difficulty') {
+    menuScreen = 'mode';
+    menuSelection = 0;
+    gpMenuCooldown = now + 300;
+  }
+
+  gpPrevBtnA = btnA;
+}
 
 // ─── Resize ──────────────────────────────────────────────────────────
 function resize() {
@@ -59,7 +188,6 @@ function connect() {
       CW = data.canvas.w;
       CH = data.canvas.h;
       resize();
-      // Restore mode state from server
       if (data.gameStarted) {
         menuScreen = null;
       } else {
@@ -73,7 +201,6 @@ function connect() {
       return;
     }
     state = data;
-    // Sync menu state from server broadcasts
     if (!state.gameStarted && menuScreen === null) {
       menuScreen = 'mode';
       menuSelection = 0;
@@ -94,16 +221,17 @@ connect();
 
 // ─── Input: Keyboard ─────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  // Menu navigation
+  // Menu navigation (P1 only, any keys)
   if (menuScreen && role === 1) {
     const opts = menuScreen === 'mode' ? modeOptions : difficultyOptions;
+    const optLen = opts.length;
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-      menuSelection = (menuSelection - 1 + opts.length) % opts.length;
+      menuSelection = (menuSelection - 1 + optLen) % optLen;
       e.preventDefault();
       return;
     }
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-      menuSelection = (menuSelection + 1) % opts.length;
+      menuSelection = (menuSelection + 1) % optLen;
       e.preventDefault();
       return;
     }
@@ -123,16 +251,30 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Game input
-  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') input.up = true;
-  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') input.down = true;
+  // Game input — all players share the same keyboard
+  if (KEY_BINDINGS.p1_up.includes(e.key)) playerInputs.p1.up = true;
+  if (KEY_BINDINGS.p1_down.includes(e.key)) playerInputs.p1.down = true;
+  if (KEY_BINDINGS.p2_up.includes(e.key)) playerInputs.p2.up = true;
+  if (KEY_BINDINGS.p2_down.includes(e.key)) playerInputs.p2.down = true;
+  if (KEY_BINDINGS.p3_left.includes(e.key)) playerInputs.p3.left = true;
+  if (KEY_BINDINGS.p3_right.includes(e.key)) playerInputs.p3.right = true;
+  if (KEY_BINDINGS.p4_left.includes(e.key)) playerInputs.p4.left = true;
+  if (KEY_BINDINGS.p4_right.includes(e.key)) playerInputs.p4.right = true;
+
   if (e.key === 'r' || e.key === 'R') {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ restart: true }));
   }
 });
+
 document.addEventListener('keyup', (e) => {
-  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') input.up = false;
-  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') input.down = false;
+  if (KEY_BINDINGS.p1_up.includes(e.key)) playerInputs.p1.up = false;
+  if (KEY_BINDINGS.p1_down.includes(e.key)) playerInputs.p1.down = false;
+  if (KEY_BINDINGS.p2_up.includes(e.key)) playerInputs.p2.up = false;
+  if (KEY_BINDINGS.p2_down.includes(e.key)) playerInputs.p2.down = false;
+  if (KEY_BINDINGS.p3_left.includes(e.key)) playerInputs.p3.left = false;
+  if (KEY_BINDINGS.p3_right.includes(e.key)) playerInputs.p3.right = false;
+  if (KEY_BINDINGS.p4_left.includes(e.key)) playerInputs.p4.left = false;
+  if (KEY_BINDINGS.p4_right.includes(e.key)) playerInputs.p4.right = false;
 });
 
 // ─── Input: Touch (Steam Deck browser) ──────────────────────────────
@@ -150,18 +292,19 @@ canvas.addEventListener('touchstart', (e) => {
     }
     return;
   }
+  // Touch controls P1 (up/down)
   for (const t of e.touches) {
-    if (t.clientY < window.innerHeight / 2) input.up = true;
-    else input.down = true;
+    if (t.clientY < window.innerHeight / 2) playerInputs.p1.up = true;
+    else playerInputs.p1.down = true;
   }
 });
 canvas.addEventListener('touchend', (e) => {
   e.preventDefault();
-  input.up = false;
-  input.down = false;
+  playerInputs.p1.up = false;
+  playerInputs.p1.down = false;
   for (const t of e.touches) {
-    if (t.clientY < window.innerHeight / 2) input.up = true;
-    else input.down = true;
+    if (t.clientY < window.innerHeight / 2) playerInputs.p1.up = true;
+    else playerInputs.p1.down = true;
   }
 });
 
@@ -179,16 +322,16 @@ canvas.addEventListener('touchstart', (e) => {
 // ─── Menu Selection Handler ─────────────────────────────────────────
 function handleMenuSelect() {
   if (menuScreen === 'mode') {
-    if (menuSelection === 0) {
-      // 1 Player selected
-      selectedMode = '1p';
+    const selected = modeOptions[menuSelection];
+    selectedMode = selected.mode;
+
+    if (selectedMode === '1p') {
       menuScreen = 'difficulty';
       menuSelection = 1; // Default to Medium
     } else {
-      // 2 Player selected — start immediately
-      selectedMode = '2p';
+      // Start immediately for 2p, 2v2, ffa
       if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ setMode: '2p' }));
+        ws.send(JSON.stringify({ setMode: selectedMode }));
         ws.send(JSON.stringify({ startGame: true }));
       }
       menuScreen = null;
@@ -206,8 +349,32 @@ function handleMenuSelect() {
 
 // ─── Send Input ──────────────────────────────────────────────────────
 setInterval(() => {
-  if (ws && ws.readyState === 1 && role !== 'spectator' && !menuScreen) {
-    ws.send(JSON.stringify(input));
+  pollGamepads();
+
+  if (ws && ws.readyState === 1 && !menuScreen) {
+    // Send input for the local player's role
+    if (role === 1) {
+      ws.send(JSON.stringify({ up: playerInputs.p1.up, down: playerInputs.p1.down }));
+    } else if (role === 2) {
+      ws.send(JSON.stringify({ up: playerInputs.p2.up, down: playerInputs.p2.down }));
+    } else if (role === 3) {
+      ws.send(JSON.stringify({ left: playerInputs.p3.left, right: playerInputs.p3.right }));
+    } else if (role === 4) {
+      ws.send(JSON.stringify({ left: playerInputs.p4.left, right: playerInputs.p4.right }));
+    }
+
+    // In local multiplayer, one client sends all player inputs
+    // (single browser, multiple keyboards/gamepads)
+    if (role === 1) {
+      const gm = state ? state.gameMode : selectedMode;
+      if (gm === '2p') {
+        ws.send(JSON.stringify({ up: playerInputs.p2.up, down: playerInputs.p2.down, _asPlayer: 2 }));
+      } else if (gm === '2v2' || gm === 'ffa') {
+        ws.send(JSON.stringify({ up: playerInputs.p2.up, down: playerInputs.p2.down, _asPlayer: 2 }));
+        ws.send(JSON.stringify({ left: playerInputs.p3.left, right: playerInputs.p3.right, _asPlayer: 3 }));
+        ws.send(JSON.stringify({ left: playerInputs.p4.left, right: playerInputs.p4.right, _asPlayer: 4 }));
+      }
+    }
   }
 }, 1000 / 60);
 
@@ -220,46 +387,49 @@ function drawMenu() {
   ctx.fillStyle = '#0df2f2';
   ctx.font = 'bold 48px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('PONG', CW / 2, 120);
+  ctx.fillText('PONG', CW / 2, 100);
 
   // Subtitle
   ctx.fillStyle = '#555';
   ctx.font = '16px monospace';
   if (menuScreen === 'mode') {
-    ctx.fillText('Select Game Mode', CW / 2, 170);
+    ctx.fillText('Select Game Mode', CW / 2, 145);
   } else {
-    ctx.fillText('Select AI Difficulty', CW / 2, 170);
+    ctx.fillText('Select AI Difficulty', CW / 2, 145);
   }
 
   const opts = menuScreen === 'mode' ? modeOptions : difficultyOptions;
-  const startY = 240;
-  const lineHeight = 60;
+  const startY = 200;
+  const lineHeight = menuScreen === 'mode' ? 70 : 60;
 
   for (let i = 0; i < opts.length; i++) {
     const y = startY + i * lineHeight;
     const isSelected = i === menuSelection;
+    const label = menuScreen === 'mode' ? opts[i].label : opts[i];
 
     if (isSelected) {
-      // Selection box
-      const textWidth = 280;
+      const textWidth = 320;
       ctx.fillStyle = 'rgba(13, 242, 242, 0.1)';
       ctx.fillRect(CW / 2 - textWidth / 2, y - 22, textWidth, 44);
-      // Left accent bar
       ctx.fillStyle = '#0df2f2';
       ctx.fillRect(CW / 2 - textWidth / 2, y - 22, 3, 44);
-      // Arrow indicator
-      ctx.fillStyle = '#0df2f2';
       ctx.font = '24px monospace';
       ctx.textAlign = 'right';
       ctx.fillText('>', CW / 2 - textWidth / 2 + 20, y + 8);
     }
 
-    ctx.font = isSelected ? 'bold 24px monospace' : '24px monospace';
+    ctx.font = isSelected ? 'bold 22px monospace' : '22px monospace';
     ctx.fillStyle = isSelected ? '#0df2f2' : '#666';
     ctx.textAlign = 'center';
-    ctx.fillText(opts[i], CW / 2, y + 8);
+    ctx.fillText(label, CW / 2, y + 8);
 
-    // Difficulty descriptions
+    // Descriptions
+    if (menuScreen === 'mode' && opts[i].desc) {
+      ctx.font = '12px monospace';
+      ctx.fillStyle = isSelected ? '#0df2f2' : '#444';
+      ctx.fillText(opts[i].desc, CW / 2, y + 26);
+    }
+
     if (menuScreen === 'difficulty') {
       ctx.font = '13px monospace';
       ctx.fillStyle = isSelected ? '#0df2f2' : '#444';
@@ -272,17 +442,37 @@ function drawMenu() {
     }
   }
 
+  // Player count indicator for multiplayer modes
+  if (menuScreen === 'mode') {
+    const selected = modeOptions[menuSelection];
+    if (selected.mode === '2v2' || selected.mode === 'ffa') {
+      const infoY = startY + modeOptions.length * lineHeight + 20;
+      ctx.fillStyle = '#444';
+      ctx.font = '13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('4 players — use multiple gamepads or keyboard zones:', CW / 2, infoY);
+      ctx.fillStyle = PLAYER_COLORS[1];
+      ctx.fillText('P1: W/S (Left)', CW / 2 - 150, infoY + 20);
+      ctx.fillStyle = PLAYER_COLORS[2];
+      ctx.fillText('P2: \u2191/\u2193 (Right)', CW / 2 + 150, infoY + 20);
+      ctx.fillStyle = PLAYER_COLORS[3];
+      ctx.fillText('P3: Q/E (Top)', CW / 2 - 150, infoY + 38);
+      ctx.fillStyle = PLAYER_COLORS[4];
+      ctx.fillText('P4: \u2190/\u2192 (Bottom)', CW / 2 + 150, infoY + 38);
+    }
+  }
+
   // Controls hint
   ctx.fillStyle = '#333';
   ctx.font = '14px monospace';
   ctx.textAlign = 'center';
-  const controlY = CH - 60;
+  const controlY = CH - 50;
   ctx.fillText('W/S or Arrow Keys to navigate — Enter to select', CW / 2, controlY);
   if (menuScreen === 'difficulty') {
     ctx.fillText('Esc to go back', CW / 2, controlY + 22);
   }
 
-  // Role info
+  // Spectator info
   if (role === 'spectator') {
     ctx.fillStyle = '#444';
     ctx.font = '14px monospace';
@@ -290,9 +480,23 @@ function drawMenu() {
   }
 }
 
+// ─── Draw Helper: Rounded Rect ──────────────────────────────────────
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 // ─── Render ──────────────────────────────────────────────────────────
 function draw() {
-  // Show menu if game hasn't started
   if (menuScreen && (!state || !state.gameStarted)) {
     drawMenu();
     requestAnimationFrame(draw);
@@ -301,16 +505,6 @@ function draw() {
 
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, CW, CH);
-
-  // Center dashed line
-  ctx.setLineDash([8, 8]);
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(CW / 2, 0);
-  ctx.lineTo(CW / 2, CH);
-  ctx.stroke();
-  ctx.setLineDash([]);
 
   if (!state) {
     ctx.fillStyle = '#555';
@@ -321,33 +515,75 @@ function draw() {
     return;
   }
 
-  // Paddles (dynamic height from server)
+  const is4p = state.gameMode === '2v2' || state.gameMode === 'ffa';
+
+  // ─── Background Lines ──────────────────────────────────────────
+  if (is4p) {
+    // Draw a cross dividing the field into 4 quadrants
+    ctx.setLineDash([8, 8]);
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(CW / 2, 0);
+    ctx.lineTo(CW / 2, CH);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, CH / 2);
+    ctx.lineTo(CW, CH / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    // Classic center dashed line
+    ctx.setLineDash([8, 8]);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(CW / 2, 0);
+    ctx.lineTo(CW / 2, CH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ─── Paddles ──────────────────────────────────────────────────
   const p1H = state.p1PaddleH || 80;
   const p2H = state.p2PaddleH || 80;
+  const p3W = state.p3PaddleW || 80;
+  const p4W = state.p4PaddleW || 80;
 
-  // P1 paddle — glow if size boosted
-  if (state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p1) {
-    ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = '#00ff88';
-  } else {
-    ctx.fillStyle = '#fff';
+  // Helper to draw paddle with optional glow
+  function drawPaddle(x, y, w, h, playerNum, boosted) {
+    const color = boosted ? '#00ff88' : (is4p ? PLAYER_COLORS[playerNum] : '#fff');
+    if (boosted) {
+      ctx.shadowColor = '#00ff88';
+      ctx.shadowBlur = 12;
+    } else if (is4p) {
+      ctx.shadowColor = PLAYER_COLORS[playerNum];
+      ctx.shadowBlur = 6;
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+    ctx.shadowBlur = 0;
   }
-  ctx.fillRect(10, state.p1.y, 12, p1H);
-  ctx.shadowBlur = 0;
 
-  // P2 paddle — glow if size boosted
-  if (state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p2) {
-    ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = '#00ff88';
-  } else {
-    ctx.fillStyle = '#fff';
+  // P1 — Left
+  const p1Boost = state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p1;
+  drawPaddle(10, state.p1.y, 12, p1H, 1, p1Boost);
+
+  // P2 — Right
+  const p2Boost = state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p2;
+  drawPaddle(CW - 22, state.p2.y, 12, p2H, 2, p2Boost);
+
+  // P3 — Top (only in 4-player modes)
+  if (is4p) {
+    const p3Boost = state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p3;
+    drawPaddle(state.p3.x, 10, p3W, 12, 3, p3Boost);
+
+    // P4 — Bottom
+    const p4Boost = state.activeEffects && state.activeEffects.sizeboost && state.activeEffects.sizeboost.p4;
+    drawPaddle(state.p4.x, CH - 22, p4W, 12, 4, p4Boost);
   }
-  ctx.fillRect(CW - 22, state.p2.y, 12, p2H);
-  ctx.shadowBlur = 0;
 
-  // Main Ball — blue tint if frozen
+  // ─── Main Ball ────────────────────────────────────────────────
   if (state.activeEffects && state.activeEffects.freeze) {
     ctx.shadowColor = '#44aaff';
     ctx.shadowBlur = 10;
@@ -358,7 +594,7 @@ function draw() {
   ctx.fillRect(state.ball.x, state.ball.y, 10, 10);
   ctx.shadowBlur = 0;
 
-  // Extra Balls (multi-ball) — rendered in magenta
+  // Extra Balls
   if (state.extraBalls && state.extraBalls.length > 0) {
     ctx.fillStyle = '#f20dcf';
     ctx.shadowColor = '#f20dcf';
@@ -369,19 +605,17 @@ function draw() {
     ctx.shadowBlur = 0;
   }
 
-  // ─── Power-Up on Field ────────────────────────────────────────────
+  // ─── Power-Up on Field ────────────────────────────────────────
   if (state.powerup) {
     const pu = state.powerup;
     const puSize = 20;
     const puColors = { freeze: '#44aaff', multiball: '#f20dcf', sizeboost: '#00ff88' };
     const puColor = puColors[pu.type] || '#fff';
 
-    // Pulsing glow effect
     const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 200);
     ctx.shadowColor = puColor;
     ctx.shadowBlur = 12 * pulse;
 
-    // Background circle
     ctx.fillStyle = puColor;
     ctx.globalAlpha = 0.2 + 0.15 * pulse;
     ctx.beginPath();
@@ -389,7 +623,6 @@ function draw() {
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Icon
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = puColor;
@@ -397,7 +630,6 @@ function draw() {
     ctx.fillText(icons[pu.type] || '?', pu.x + puSize / 2, pu.y + puSize / 2 + 5);
     ctx.shadowBlur = 0;
 
-    // Despawn timer bar beneath powerup
     const elapsed = Date.now() - pu.spawnedAt;
     const remaining = Math.max(0, 1 - elapsed / 5000);
     ctx.fillStyle = puColor;
@@ -406,85 +638,102 @@ function draw() {
     ctx.globalAlpha = 1;
   }
 
-  // Scores
-  ctx.font = '48px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#444';
-  ctx.fillText(state.p1.score, CW / 2 - 60, 60);
-  ctx.fillText(state.p2.score, CW / 2 + 60, 60);
-
-  // Player labels
-  ctx.font = '12px monospace';
-  ctx.fillStyle = '#333';
-  ctx.textAlign = 'left';
-  ctx.fillText('P1', 10, CH - 10);
-  ctx.textAlign = 'right';
-  if (state.gameMode === '1p') {
-    const diffLabel = (state.aiDifficulty || 'medium').toUpperCase();
-    ctx.fillText('AI (' + diffLabel + ')', CW - 10, CH - 10);
+  // ─── Scores ───────────────────────────────────────────────────
+  if (is4p) {
+    drawMultiplayerScores();
   } else {
-    ctx.fillText('P2', CW - 10, CH - 10);
+    // Classic 2-player scores
+    ctx.font = '48px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#444';
+    ctx.fillText(state.p1.score, CW / 2 - 60, 60);
+    ctx.fillText(state.p2.score, CW / 2 + 60, 60);
   }
 
-  // ─── Active Effect Indicators ──────────────────────────────────────
+  // ─── Player Labels ────────────────────────────────────────────
+  if (is4p) {
+    ctx.font = 'bold 12px monospace';
+    // P1 — left side
+    ctx.textAlign = 'left';
+    ctx.fillStyle = PLAYER_COLORS[1];
+    ctx.fillText(state.gameMode === '2v2' ? 'P1 (Team A)' : 'P1', 4, CH / 2 + 60);
+    // P2 — right side
+    ctx.textAlign = 'right';
+    ctx.fillStyle = PLAYER_COLORS[2];
+    ctx.fillText(state.gameMode === '2v2' ? 'P2 (Team B)' : 'P2', CW - 4, CH / 2 + 60);
+    // P3 — top
+    ctx.textAlign = 'center';
+    ctx.fillStyle = PLAYER_COLORS[3];
+    ctx.fillText(state.gameMode === '2v2' ? 'P3 (Team A)' : 'P3', CW / 2, 44);
+    // P4 — bottom
+    ctx.fillStyle = PLAYER_COLORS[4];
+    ctx.fillText(state.gameMode === '2v2' ? 'P4 (Team B)' : 'P4', CW / 2, CH - 30);
+  } else {
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#333';
+    ctx.textAlign = 'left';
+    ctx.fillText('P1', 10, CH - 10);
+    ctx.textAlign = 'right';
+    if (state.gameMode === '1p') {
+      const diffLabel = (state.aiDifficulty || 'medium').toUpperCase();
+      ctx.fillText('AI (' + diffLabel + ')', CW - 10, CH - 10);
+    } else {
+      ctx.fillText('P2', CW - 10, CH - 10);
+    }
+  }
+
+  // ─── Active Effect Indicators ──────────────────────────────────
   if (state.activeEffects) {
     const now = Date.now();
     let indicators = [];
 
-    // Freeze indicator
     if (state.activeEffects.freeze) {
       const rem = Math.max(0, (state.activeEffects.freeze.until - now) / 1000);
       indicators.push({ label: '\u2744 FREEZE', color: '#44aaff', time: rem.toFixed(1) + 's' });
     }
 
-    // Size boost P1
-    if (state.activeEffects.sizeboost && state.activeEffects.sizeboost.p1) {
-      const rem = Math.max(0, (state.activeEffects.sizeboost.p1.until - now) / 1000);
-      indicators.push({ label: 'P1 \u2191 SIZE', color: '#00ff88', time: rem.toFixed(1) + 's' });
+    // Size boosts for all players
+    for (let p = 1; p <= 4; p++) {
+      const key = 'p' + p;
+      if (state.activeEffects.sizeboost && state.activeEffects.sizeboost[key]) {
+        const rem = Math.max(0, (state.activeEffects.sizeboost[key].until - now) / 1000);
+        const color = is4p ? PLAYER_COLORS[p] : '#00ff88';
+        indicators.push({ label: 'P' + p + ' \u2191 SIZE', color, time: rem.toFixed(1) + 's' });
+      }
     }
 
-    // Size boost P2
-    if (state.activeEffects.sizeboost && state.activeEffects.sizeboost.p2) {
-      const rem = Math.max(0, (state.activeEffects.sizeboost.p2.until - now) / 1000);
-      indicators.push({ label: 'P2 \u2191 SIZE', color: '#00ff88', time: rem.toFixed(1) + 's' });
-    }
-
-    // Multi-ball count
     if (state.extraBalls && state.extraBalls.length > 0) {
       indicators.push({ label: '\u2726 MULTI x' + state.extraBalls.length, color: '#f20dcf', time: '' });
     }
 
-    // Draw indicators at top center
     if (indicators.length > 0) {
-      const totalW = indicators.length * 130 + (indicators.length - 1) * 10;
+      const indW = 130;
+      const totalW = indicators.length * indW + (indicators.length - 1) * 10;
+      const baseY = is4p ? 55 : 80;
       let ix = CW / 2 - totalW / 2;
       for (const ind of indicators) {
-        // Pill background
         ctx.fillStyle = ind.color;
         ctx.globalAlpha = 0.15;
-        ctx.fillRect(ix, 80, 130, 24);
+        ctx.fillRect(ix, baseY, indW, 24);
         ctx.globalAlpha = 1;
 
-        // Left accent
         ctx.fillStyle = ind.color;
-        ctx.fillRect(ix, 80, 3, 24);
+        ctx.fillRect(ix, baseY, 3, 24);
 
-        // Label text
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'left';
         ctx.fillStyle = ind.color;
-        ctx.fillText(ind.label, ix + 8, 96);
+        ctx.fillText(ind.label, ix + 8, baseY + 16);
 
-        // Timer text
         if (ind.time) {
           ctx.textAlign = 'right';
           ctx.fillStyle = ind.color;
           ctx.globalAlpha = 0.7;
-          ctx.fillText(ind.time, ix + 124, 96);
+          ctx.fillText(ind.time, ix + indW - 6, baseY + 16);
           ctx.globalAlpha = 1;
         }
 
-        ix += 140;
+        ix += indW + 10;
       }
     }
   }
@@ -497,25 +746,146 @@ function draw() {
     ctx.fillText('get ready...', CW / 2, CH / 2 + 40);
   }
 
-  // Winner
+  // Winner / Results screen
   if (state.winner) {
-    ctx.fillStyle = '#0df2f2';
-    ctx.font = 'bold 36px monospace';
-    ctx.textAlign = 'center';
-    let winText;
-    if (state.gameMode === '1p') {
-      winText = state.winner === 1 ? 'You win!' : 'AI wins!';
-    } else {
-      winText = `Player ${state.winner} wins!`;
-    }
-    ctx.fillText(winText, CW / 2, CH / 2 - 20);
-    ctx.fillStyle = '#555';
-    ctx.font = '16px monospace';
-    ctx.fillText('Press R to return to menu', CW / 2, CH / 2 + 20);
+    drawResultsScreen();
   }
 
   requestAnimationFrame(draw);
 }
+
+// ─── Multiplayer Score Display ──────────────────────────────────────
+function drawMultiplayerScores() {
+  if (state.gameMode === '2v2') {
+    // Team scores in the center
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+
+    // Team A score (left of center)
+    ctx.fillStyle = TEAM_COLORS.teamA;
+    ctx.globalAlpha = 0.8;
+    ctx.fillText(state.teamA || 0, CW / 2 - 50, CH / 2 - 5);
+
+    // Divider
+    ctx.fillStyle = '#333';
+    ctx.font = '24px monospace';
+    ctx.fillText(':', CW / 2, CH / 2 - 5);
+
+    // Team B score (right of center)
+    ctx.fillStyle = TEAM_COLORS.teamB;
+    ctx.font = 'bold 36px monospace';
+    ctx.fillText(state.teamB || 0, CW / 2 + 50, CH / 2 - 5);
+    ctx.globalAlpha = 1;
+
+    // Team labels
+    ctx.font = 'bold 11px monospace';
+    ctx.fillStyle = TEAM_COLORS.teamA;
+    ctx.globalAlpha = 0.6;
+    ctx.fillText('TEAM A', CW / 2 - 50, CH / 2 + 15);
+    ctx.fillStyle = TEAM_COLORS.teamB;
+    ctx.fillText('TEAM B', CW / 2 + 50, CH / 2 + 15);
+    ctx.globalAlpha = 1;
+  } else {
+    // FFA: Show individual scores in corners
+    const positions = [
+      { x: 60, y: 60, align: 'left' },    // P1 top-left
+      { x: CW - 60, y: 60, align: 'right' }, // P2 top-right
+      { x: 60, y: CH - 40, align: 'left' },   // P3 bottom-left
+      { x: CW - 60, y: CH - 40, align: 'right' }, // P4 bottom-right
+    ];
+    for (let p = 1; p <= 4; p++) {
+      const pos = positions[p - 1];
+      const score = state['p' + p].score;
+      ctx.font = 'bold 32px monospace';
+      ctx.textAlign = pos.align;
+      ctx.fillStyle = PLAYER_COLORS[p];
+      ctx.globalAlpha = 0.7;
+      ctx.fillText(score, pos.x, pos.y);
+
+      // Player label below score
+      ctx.font = '10px monospace';
+      ctx.fillText('P' + p, pos.x, pos.y + 14);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// ─── Results Screen Overlay ─────────────────────────────────────────
+function drawResultsScreen() {
+  // Semi-transparent overlay
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+  ctx.fillRect(0, 0, CW, CH);
+
+  const is4p = state.gameMode === '2v2' || state.gameMode === 'ffa';
+  const winLabel = state.winnerLabel || 'Game Over';
+
+  // Winner text
+  let winColor = '#0df2f2';
+  if (state.gameMode === '2v2') {
+    winColor = TEAM_COLORS[state.winner] || '#0df2f2';
+  } else if (typeof state.winner === 'number') {
+    winColor = PLAYER_COLORS[state.winner] || '#0df2f2';
+  }
+
+  ctx.fillStyle = winColor;
+  ctx.font = 'bold 36px monospace';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = winColor;
+  ctx.shadowBlur = 20;
+  ctx.fillText(winLabel, CW / 2, CH / 2 - 60);
+  ctx.shadowBlur = 0;
+
+  // Scoreboard
+  if (state.gameMode === '2v2') {
+    // Team results
+    ctx.font = 'bold 20px monospace';
+
+    ctx.fillStyle = TEAM_COLORS.teamA;
+    ctx.fillText('Team A: ' + (state.teamA || 0), CW / 2, CH / 2 - 10);
+
+    ctx.fillStyle = TEAM_COLORS.teamB;
+    ctx.fillText('Team B: ' + (state.teamB || 0), CW / 2, CH / 2 + 20);
+
+    // Team rosters
+    ctx.font = '13px monospace';
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = TEAM_COLORS.teamA;
+    ctx.fillText('P1 (Left) + P3 (Top)', CW / 2, CH / 2 + 50);
+    ctx.fillStyle = TEAM_COLORS.teamB;
+    ctx.fillText('P2 (Right) + P4 (Bottom)', CW / 2, CH / 2 + 68);
+    ctx.globalAlpha = 1;
+  } else if (state.gameMode === 'ffa') {
+    // Ranked scoreboard
+    const scores = [
+      { p: 1, score: state.p1.score },
+      { p: 2, score: state.p2.score },
+      { p: 3, score: state.p3.score },
+      { p: 4, score: state.p4.score },
+    ].sort((a, b) => b.score - a.score);
+
+    const medals = ['\u2654', '\u2655', '\u2656', '\u2657']; // Crown, etc
+    for (let i = 0; i < scores.length; i++) {
+      const s = scores[i];
+      const y = CH / 2 - 10 + i * 28;
+      ctx.font = i === 0 ? 'bold 18px monospace' : '16px monospace';
+      ctx.fillStyle = PLAYER_COLORS[s.p];
+      ctx.globalAlpha = i === 0 ? 1 : 0.7;
+      ctx.fillText(`${medals[i]} P${s.p}: ${s.score}`, CW / 2, y);
+    }
+    ctx.globalAlpha = 1;
+  } else {
+    // Classic 2-player result
+    ctx.font = '20px monospace';
+    ctx.fillStyle = '#666';
+    ctx.fillText(state.p1.score + ' - ' + state.p2.score, CW / 2, CH / 2 - 10);
+  }
+
+  // Restart hint
+  ctx.fillStyle = '#555';
+  ctx.font = '16px monospace';
+  ctx.fillText('Press R to return to menu', CW / 2, CH / 2 + 110);
+}
+
 resize();
 requestAnimationFrame(draw);
 </script>

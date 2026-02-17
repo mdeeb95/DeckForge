@@ -23,16 +23,15 @@ const WIN_SCORE = 11;
 const PAUSE_AFTER_SCORE_MS = 2000;
 
 // ─── Power-Up Constants ────────────────────────────────────────────────────
-const POWERUP_SPAWN_MIN = 10000;   // Min ms between spawns (10s)
-const POWERUP_SPAWN_MAX = 15000;   // Max ms between spawns (15s)
-const POWERUP_DESPAWN_MS = 5000;   // Despawn after 5s if uncollected
-const POWERUP_SIZE = 20;           // Hitbox size
+const POWERUP_SPAWN_MIN = 10000;
+const POWERUP_SPAWN_MAX = 15000;
+const POWERUP_DESPAWN_MS = 5000;
+const POWERUP_SIZE = 20;
 const POWERUP_TYPES = ['freeze', 'multiball', 'sizeboost'];
-// Effect durations
-const FREEZE_DURATION = 3000;      // 3 seconds
-const FREEZE_SPEED_MULT = 0.3;     // 30% speed
-const SIZEBOOST_DURATION = 5000;   // 5 seconds
-const SIZEBOOST_MULT = 1.5;        // 50% bigger paddle
+const FREEZE_DURATION = 3000;
+const FREEZE_SPEED_MULT = 0.3;
+const SIZEBOOST_DURATION = 5000;
+const SIZEBOOST_MULT = 1.5;
 
 // ─── AI Constants ───────────────────────────────────────────────────────────
 const AI_DIFFICULTY = {
@@ -41,81 +40,132 @@ const AI_DIFFICULTY = {
   hard:   { reactionSpeed: 4.8, accuracy: 0.95, updateInterval: 2,  jitter: 8  },
 };
 
+// ─── Horizontal Paddle Constants (top/bottom in FFA/2v2) ────────────────────
+const HPADDLE_W = 80;   // Width of horizontal paddles (same as vertical paddle height)
+const HPADDLE_H = 12;   // Height of horizontal paddles (same as vertical paddle width)
+
 // ─── Game Mode State ────────────────────────────────────────────────────────
-let gameMode = '2p';         // '1p' | '2p'
-let aiDifficulty = 'medium'; // 'easy' | 'medium' | 'hard'
-let gameStarted = false;     // false = waiting in lobby
+let gameMode = '2p';         // '1p' | '2p' | '2v2' | 'ffa'
+let aiDifficulty = 'medium';
+let gameStarted = false;
 
 // ─── AI State ───────────────────────────────────────────────────────────────
-let aiTargetY = CANVAS_H / 2;  // Where the AI wants to move
-let aiTickCounter = 0;          // Ticks since last AI decision
-let aiIntentionalMiss = false;  // Whether AI is deliberately missing this shot
+let aiTargetY = CANVAS_H / 2;
+let aiTickCounter = 0;
+let aiIntentionalMiss = false;
 
 // ─── Game State ──────────────────────────────────────────────────────────────
-let state = {
-  ball: { x: CANVAS_W / 2, y: CANVAS_H / 2, vx: INITIAL_BALL_SPEED, vy: 0 },
-  p1: { y: CANVAS_H / 2 - PADDLE_H / 2, score: 0 },
-  p2: { y: CANVAS_H / 2 - PADDLE_H / 2, score: 0 },
-  paused: false,
-  winner: null,
-  gameMode: '2p',
-  aiDifficulty: 'medium',
-  gameStarted: false,
-  // Power-up state (sent to client for rendering)
-  powerup: null,               // { x, y, type, spawnedAt } or null
-  extraBalls: [],              // [{ x, y, vx, vy }] for multi-ball
-  activeEffects: {
-    freeze: null,              // { until } or null
-    sizeboost: { p1: null, p2: null }, // { until } per player, or null
-  },
-  p1PaddleH: PADDLE_H,
-  p2PaddleH: PADDLE_H,
-};
+let state = createInitialState();
+
+function createInitialState() {
+  return {
+    ball: { x: CANVAS_W / 2, y: CANVAS_H / 2, vx: INITIAL_BALL_SPEED, vy: 0 },
+    p1: { y: CANVAS_H / 2 - PADDLE_H / 2, score: 0 },   // Left paddle
+    p2: { y: CANVAS_H / 2 - PADDLE_H / 2, score: 0 },   // Right paddle
+    p3: { x: CANVAS_W / 2 - HPADDLE_W / 2, score: 0 },  // Top paddle
+    p4: { x: CANVAS_W / 2 - HPADDLE_W / 2, score: 0 },  // Bottom paddle
+    paused: false,
+    winner: null,           // Player number, team name, or null
+    winnerLabel: null,      // Display string for winner
+    gameMode: '2p',
+    aiDifficulty: 'medium',
+    gameStarted: false,
+    powerup: null,
+    extraBalls: [],
+    activeEffects: {
+      freeze: null,
+      sizeboost: { p1: null, p2: null, p3: null, p4: null },
+    },
+    p1PaddleH: PADDLE_H,    // Left: vertical paddle height
+    p2PaddleH: PADDLE_H,    // Right: vertical paddle height
+    p3PaddleW: HPADDLE_W,   // Top: horizontal paddle width
+    p4PaddleW: HPADDLE_W,   // Bottom: horizontal paddle width
+    // Team scores for 2v2 (p1+p3 = Team A, p2+p4 = Team B)
+    teamA: 0,
+    teamB: 0,
+    activePlayers: 2,       // How many player slots are active (2 or 4)
+  };
+}
 
 let pauseUntil = 0;
 let ballSpeed = INITIAL_BALL_SPEED;
-let extraBallSpeeds = [];        // Track speed per extra ball
-let lastHitBy = 1;               // Which player last hit the main ball (1 or 2)
+let extraBallSpeeds = [];
+let lastHitBy = 1;
 
 // ─── Power-Up Spawn Timer ──────────────────────────────────────────────────
-let nextPowerupSpawn = 0;        // Timestamp when next power-up should spawn
-let frozenBallSpeed = 0;         // Saved ball speed during freeze
+let nextPowerupSpawn = 0;
+let frozenBallSpeed = 0;
 
-const inputs = { p1: { up: false, down: false }, p2: { up: false, down: false } };
+const inputs = {
+  p1: { up: false, down: false },
+  p2: { up: false, down: false },
+  p3: { left: false, right: false },
+  p4: { left: false, right: false },
+};
 
 // ─── Players ─────────────────────────────────────────────────────────────────
-const players = new Map(); // ws → 1 | 2 | 'spectator'
+const players = new Map(); // ws → 1 | 2 | 3 | 4 | 'spectator'
 let nextSlot = 1;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function isMultiplayerMode() {
+  return gameMode === '2v2' || gameMode === 'ffa';
+}
+
+function maxPlayers() {
+  if (gameMode === '2v2' || gameMode === 'ffa') return 4;
+  return 2;
+}
 
 function resetBall(serveToward) {
   state.ball.x = CANVAS_W / 2;
   state.ball.y = CANVAS_H / 2;
   ballSpeed = INITIAL_BALL_SPEED;
-  const angle = (Math.random() * 0.8 - 0.4); // -0.4 to 0.4 radians
-  state.ball.vx = (serveToward === 1 ? -1 : 1) * ballSpeed * Math.cos(angle);
-  state.ball.vy = ballSpeed * Math.sin(angle);
+
+  if (isMultiplayerMode()) {
+    // Serve in a random direction for 4-player modes
+    const angle = Math.random() * Math.PI * 2;
+    state.ball.vx = ballSpeed * Math.cos(angle);
+    state.ball.vy = ballSpeed * Math.sin(angle);
+    // Make sure it's not too shallow on any axis
+    if (Math.abs(state.ball.vx) < 1) state.ball.vx = (state.ball.vx >= 0 ? 1 : -1) * 2;
+    if (Math.abs(state.ball.vy) < 1) state.ball.vy = (state.ball.vy >= 0 ? 1 : -1) * 2;
+  } else {
+    const angle = (Math.random() * 0.8 - 0.4);
+    state.ball.vx = (serveToward === 1 ? -1 : 1) * ballSpeed * Math.cos(angle);
+    state.ball.vy = ballSpeed * Math.sin(angle);
+  }
 }
 
 function resetGame() {
   state.p1.score = 0;
   state.p2.score = 0;
+  state.p3.score = 0;
+  state.p4.score = 0;
+  state.teamA = 0;
+  state.teamB = 0;
   state.p1.y = CANVAS_H / 2 - PADDLE_H / 2;
   state.p2.y = CANVAS_H / 2 - PADDLE_H / 2;
+  state.p3.x = CANVAS_W / 2 - HPADDLE_W / 2;
+  state.p4.x = CANVAS_W / 2 - HPADDLE_W / 2;
   state.winner = null;
+  state.winnerLabel = null;
   state.paused = false;
   pauseUntil = 0;
   aiTargetY = CANVAS_H / 2;
   aiTickCounter = 0;
   aiIntentionalMiss = false;
-  // Reset power-ups
   state.powerup = null;
   state.extraBalls = [];
   extraBallSpeeds = [];
-  state.activeEffects = { freeze: null, sizeboost: { p1: null, p2: null } };
+  state.activeEffects = { freeze: null, sizeboost: { p1: null, p2: null, p3: null, p4: null } };
   state.p1PaddleH = PADDLE_H;
   state.p2PaddleH = PADDLE_H;
+  state.p3PaddleW = HPADDLE_W;
+  state.p4PaddleW = HPADDLE_W;
   frozenBallSpeed = 0;
   lastHitBy = 1;
+  state.activePlayers = maxPlayers();
   nextPowerupSpawn = Date.now() + randomSpawnDelay();
   resetBall(1);
 }
@@ -126,10 +176,16 @@ function randomSpawnDelay() {
 }
 
 function spawnPowerup() {
-  // Spawn in the middle 60% of the field, avoiding paddle zones
-  const margin = CANVAS_W * 0.2;
-  const x = margin + Math.random() * (CANVAS_W - margin * 2);
-  const y = 40 + Math.random() * (CANVAS_H - 80);
+  const margin = isMultiplayerMode() ? 80 : CANVAS_W * 0.2;
+  let x, y;
+  if (isMultiplayerMode()) {
+    // Spawn in center area, avoiding paddle zones on all sides
+    x = margin + Math.random() * (CANVAS_W - margin * 2);
+    y = margin + Math.random() * (CANVAS_H - margin * 2);
+  } else {
+    x = CANVAS_W * 0.2 + Math.random() * (CANVAS_W * 0.6);
+    y = 40 + Math.random() * (CANVAS_H - 80);
+  }
   const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
   state.powerup = { x, y, type, spawnedAt: Date.now() };
 }
@@ -142,14 +198,12 @@ function clearPowerup() {
 function activatePowerup(type, player) {
   const now = Date.now();
   if (type === 'freeze') {
-    // Slow ball to 30% speed for 3s
     if (!state.activeEffects.freeze) {
       frozenBallSpeed = ballSpeed;
       const mult = FREEZE_SPEED_MULT;
       state.ball.vx *= mult;
       state.ball.vy *= mult;
       ballSpeed *= mult;
-      // Also slow extra balls
       for (let i = 0; i < state.extraBalls.length; i++) {
         state.extraBalls[i].vx *= mult;
         state.extraBalls[i].vy *= mult;
@@ -158,9 +212,8 @@ function activatePowerup(type, player) {
     }
     state.activeEffects.freeze = { until: now + FREEZE_DURATION };
   } else if (type === 'multiball') {
-    // Spawn 2 extra balls from current ball position
     for (let i = 0; i < 2; i++) {
-      const angle = (Math.random() * 1.2 - 0.6); // -0.6 to 0.6
+      const angle = (Math.random() * 1.2 - 0.6);
       const dir = Math.random() > 0.5 ? 1 : -1;
       const spd = INITIAL_BALL_SPEED + 1;
       state.extraBalls.push({
@@ -172,66 +225,63 @@ function activatePowerup(type, player) {
       extraBallSpeeds.push(spd);
     }
   } else if (type === 'sizeboost') {
-    // Increase collecting player's paddle by 50% for 5s
-    const key = player === 1 ? 'p1' : 'p2';
+    const key = 'p' + player;
     state.activeEffects.sizeboost[key] = { until: now + SIZEBOOST_DURATION };
-    if (key === 'p1') state.p1PaddleH = Math.round(PADDLE_H * SIZEBOOST_MULT);
-    else state.p2PaddleH = Math.round(PADDLE_H * SIZEBOOST_MULT);
+    if (player <= 2) {
+      // Vertical paddles (left/right)
+      state[key + 'PaddleH'] = Math.round(PADDLE_H * SIZEBOOST_MULT);
+    } else {
+      // Horizontal paddles (top/bottom)
+      state[key + 'PaddleW'] = Math.round(HPADDLE_W * SIZEBOOST_MULT);
+    }
   }
+}
+
+function checkBallPowerupCollision(bx, by) {
+  if (!state.powerup) return false;
+  const pu = state.powerup;
+  if (
+    bx + BALL_SIZE >= pu.x &&
+    bx <= pu.x + POWERUP_SIZE &&
+    by + BALL_SIZE >= pu.y &&
+    by <= pu.y + POWERUP_SIZE
+  ) {
+    activatePowerup(pu.type, lastHitBy);
+    clearPowerup();
+    return true;
+  }
+  return false;
 }
 
 function tickPowerups() {
   const now = Date.now();
 
-  // Spawn logic: only if no powerup on field and timer elapsed
   if (!state.powerup && now >= nextPowerupSpawn) {
     spawnPowerup();
   }
 
-  // Despawn uncollected powerup after 5s
   if (state.powerup && now - state.powerup.spawnedAt >= POWERUP_DESPAWN_MS) {
     clearPowerup();
   }
 
-  // Check ball collision with powerup (any ball can collect)
+  // Check main ball collision
   if (state.powerup) {
-    const pu = state.powerup;
-    // Main ball collision
-    if (
-      state.ball.x + BALL_SIZE >= pu.x &&
-      state.ball.x <= pu.x + POWERUP_SIZE &&
-      state.ball.y + BALL_SIZE >= pu.y &&
-      state.ball.y <= pu.y + POWERUP_SIZE
-    ) {
-      activatePowerup(pu.type, lastHitBy);
-      clearPowerup();
-    }
-    // Extra ball collision
-    if (state.powerup) {
-      for (const eb of state.extraBalls) {
-        if (
-          eb.x + BALL_SIZE >= pu.x &&
-          eb.x <= pu.x + POWERUP_SIZE &&
-          eb.y + BALL_SIZE >= pu.y &&
-          eb.y <= pu.y + POWERUP_SIZE
-        ) {
-          activatePowerup(pu.type, lastHitBy);
-          clearPowerup();
-          break;
-        }
-      }
+    checkBallPowerupCollision(state.ball.x, state.ball.y);
+  }
+  // Check extra ball collisions
+  if (state.powerup) {
+    for (const eb of state.extraBalls) {
+      if (checkBallPowerupCollision(eb.x, eb.y)) break;
     }
   }
 
-  // Expire freeze effect
+  // Expire freeze
   if (state.activeEffects.freeze && now >= state.activeEffects.freeze.until) {
-    // Restore ball speed
     if (frozenBallSpeed > 0) {
       const restoreMult = frozenBallSpeed / ballSpeed;
       state.ball.vx *= restoreMult;
       state.ball.vy *= restoreMult;
       ballSpeed = frozenBallSpeed;
-      // Restore extra balls
       for (let i = 0; i < state.extraBalls.length; i++) {
         const eb = state.extraBalls[i];
         const ebRestore = extraBallSpeeds[i] / (extraBallSpeeds[i] * FREEZE_SPEED_MULT);
@@ -243,38 +293,37 @@ function tickPowerups() {
     state.activeEffects.freeze = null;
   }
 
-  // Expire sizeboost effects
-  if (state.activeEffects.sizeboost.p1 && now >= state.activeEffects.sizeboost.p1.until) {
-    state.activeEffects.sizeboost.p1 = null;
-    state.p1PaddleH = PADDLE_H;
-    // Clamp paddle position
-    state.p1.y = Math.min(state.p1.y, CANVAS_H - PADDLE_H);
-  }
-  if (state.activeEffects.sizeboost.p2 && now >= state.activeEffects.sizeboost.p2.until) {
-    state.activeEffects.sizeboost.p2 = null;
-    state.p2PaddleH = PADDLE_H;
-    state.p2.y = Math.min(state.p2.y, CANVAS_H - PADDLE_H);
+  // Expire sizeboost for all players
+  for (let p = 1; p <= 4; p++) {
+    const key = 'p' + p;
+    if (state.activeEffects.sizeboost[key] && now >= state.activeEffects.sizeboost[key].until) {
+      state.activeEffects.sizeboost[key] = null;
+      if (p <= 2) {
+        state[key + 'PaddleH'] = PADDLE_H;
+        state['p' + p].y = Math.min(state['p' + p].y, CANVAS_H - PADDLE_H);
+      } else {
+        state[key + 'PaddleW'] = HPADDLE_W;
+        state['p' + p].x = Math.min(state['p' + p].x, CANVAS_W - HPADDLE_W);
+      }
+    }
   }
 }
 
 // ─── AI Opponent ────────────────────────────────────────────────────────────
 function predictBallY() {
-  // Simulate ball trajectory to find where it will reach P2's paddle x position
   let bx = state.ball.x;
   let by = state.ball.y;
   let bvx = state.ball.vx;
   let bvy = state.ball.vy;
 
-  // Only predict when ball is moving toward P2 (right)
-  if (bvx <= 0) return CANVAS_H / 2; // Return to center when ball goes away
+  if (bvx <= 0) return CANVAS_H / 2;
 
   const targetX = CANVAS_W - PADDLE_W - 10 - BALL_SIZE;
-  const maxSteps = 600; // Safety limit
+  const maxSteps = 600;
 
   for (let i = 0; i < maxSteps; i++) {
     bx += bvx;
     by += bvy;
-    // Wall bounces
     if (by <= 0) { by = 0; bvy *= -1; }
     if (by >= CANVAS_H - BALL_SIZE) { by = CANVAS_H - BALL_SIZE; bvy *= -1; }
     if (bx >= targetX) return by + BALL_SIZE / 2;
@@ -286,31 +335,26 @@ function updateAI() {
   const diff = AI_DIFFICULTY[aiDifficulty];
   aiTickCounter++;
 
-  // Only update AI decision at the configured interval
   if (aiTickCounter >= diff.updateInterval) {
     aiTickCounter = 0;
 
-    // Decide whether to intentionally miss this shot
     if (state.ball.vx > 0 && state.ball.x < CANVAS_W * 0.3) {
       aiIntentionalMiss = Math.random() > diff.accuracy;
     }
 
     if (aiIntentionalMiss) {
-      // Deliberately aim for wrong position (offset from prediction)
       const wrongDir = Math.random() > 0.5 ? 1 : -1;
       aiTargetY = predictBallY() + wrongDir * (PADDLE_H * 1.5 + Math.random() * 80);
     } else {
-      // Aim for predicted ball position with jitter
       const jitter = (Math.random() - 0.5) * diff.jitter * 2;
       aiTargetY = predictBallY() + jitter;
     }
   }
 
-  // Move paddle toward target at constrained speed (use dynamic paddle height)
   const aiPH = state.p2PaddleH;
   const paddleCenter = state.p2.y + aiPH / 2;
   const delta = aiTargetY - paddleCenter;
-  const deadZone = 4; // Don't jitter when close enough
+  const deadZone = 4;
 
   inputs.p2.up = false;
   inputs.p2.down = false;
@@ -318,20 +362,262 @@ function updateAI() {
   if (Math.abs(delta) > deadZone) {
     const moveSpeed = Math.min(PADDLE_SPEED, diff.reactionSpeed);
     if (delta < 0) {
-      inputs.p2.up = true;
-      inputs.p2.down = false;
-    } else {
-      inputs.p2.up = false;
-      inputs.p2.down = true;
-    }
-    if (delta < 0) {
       state.p2.y = Math.max(0, state.p2.y - moveSpeed);
     } else {
       state.p2.y = Math.min(CANVAS_H - aiPH, state.p2.y + moveSpeed);
     }
-    inputs.p2.up = false;
-    inputs.p2.down = false;
   }
+}
+
+// ─── Scoring Logic ──────────────────────────────────────────────────────────
+function handleScore(scoringTeamOrPlayers, isMainBall) {
+  if (gameMode === '2v2') {
+    // scoringTeamOrPlayers is 'teamA' or 'teamB'
+    const team = scoringTeamOrPlayers;
+    if (team === 'teamA') {
+      state.teamA++;
+    } else {
+      state.teamB++;
+    }
+    if (state.teamA >= WIN_SCORE) {
+      state.winner = 'teamA';
+      state.winnerLabel = 'Team A Wins!';
+      return true;
+    }
+    if (state.teamB >= WIN_SCORE) {
+      state.winner = 'teamB';
+      state.winnerLabel = 'Team B Wins!';
+      return true;
+    }
+  } else if (gameMode === 'ffa') {
+    // scoringTeamOrPlayers is an array of player numbers
+    for (const p of scoringTeamOrPlayers) {
+      state['p' + p].score++;
+      if (state['p' + p].score >= WIN_SCORE) {
+        state.winner = p;
+        state.winnerLabel = `Player ${p} Wins!`;
+        return true;
+      }
+    }
+  } else {
+    // Classic 1p/2p — scoringTeamOrPlayers is array of one player
+    for (const p of scoringTeamOrPlayers) {
+      state['p' + p].score++;
+      if (state['p' + p].score >= WIN_SCORE) {
+        state.winner = p;
+        if (gameMode === '1p') {
+          state.winnerLabel = p === 1 ? 'You win!' : 'AI wins!';
+        } else {
+          state.winnerLabel = `Player ${p} wins!`;
+        }
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ─── 4-Player Paddle Collision Helpers ──────────────────────────────────────
+// P1: left wall, P2: right wall, P3: top wall, P4: bottom wall
+const WALL_OFFSET = 10; // Gap from edge to paddle
+
+function checkP1Collision(bx, by, bvx, bvy, speed) {
+  const p1H = state.p1PaddleH;
+  if (
+    bx <= PADDLE_W + WALL_OFFSET &&
+    bx >= WALL_OFFSET &&
+    by + BALL_SIZE >= state.p1.y &&
+    by <= state.p1.y + p1H
+  ) {
+    speed += SPEED_INCREMENT;
+    const hitPos = ((by + BALL_SIZE / 2) - state.p1.y) / p1H;
+    const angle = (hitPos - 0.5) * 1.2;
+    return {
+      hit: true, speed,
+      vx: speed * Math.cos(angle),
+      vy: speed * Math.sin(angle),
+      nx: PADDLE_W + WALL_OFFSET + 1,
+      lastHit: 1,
+    };
+  }
+  return { hit: false };
+}
+
+function checkP2Collision(bx, by, bvx, bvy, speed) {
+  const p2H = state.p2PaddleH;
+  if (
+    bx + BALL_SIZE >= CANVAS_W - PADDLE_W - WALL_OFFSET &&
+    bx + BALL_SIZE <= CANVAS_W - WALL_OFFSET &&
+    by + BALL_SIZE >= state.p2.y &&
+    by <= state.p2.y + p2H
+  ) {
+    speed += SPEED_INCREMENT;
+    const hitPos = ((by + BALL_SIZE / 2) - state.p2.y) / p2H;
+    const angle = (hitPos - 0.5) * 1.2;
+    return {
+      hit: true, speed,
+      vx: -speed * Math.cos(angle),
+      vy: speed * Math.sin(angle),
+      nx: CANVAS_W - PADDLE_W - WALL_OFFSET - BALL_SIZE - 1,
+      lastHit: 2,
+    };
+  }
+  return { hit: false };
+}
+
+function checkP3Collision(bx, by, bvx, bvy, speed) {
+  const p3W = state.p3PaddleW;
+  if (
+    by <= HPADDLE_H + WALL_OFFSET &&
+    by >= WALL_OFFSET &&
+    bx + BALL_SIZE >= state.p3.x &&
+    bx <= state.p3.x + p3W
+  ) {
+    speed += SPEED_INCREMENT;
+    const hitPos = ((bx + BALL_SIZE / 2) - state.p3.x) / p3W;
+    const angle = (hitPos - 0.5) * 1.2;
+    return {
+      hit: true, speed,
+      vx: speed * Math.sin(angle),
+      vy: speed * Math.cos(angle),
+      ny: HPADDLE_H + WALL_OFFSET + 1,
+      lastHit: 3,
+    };
+  }
+  return { hit: false };
+}
+
+function checkP4Collision(bx, by, bvx, bvy, speed) {
+  const p4W = state.p4PaddleW;
+  if (
+    by + BALL_SIZE >= CANVAS_H - HPADDLE_H - WALL_OFFSET &&
+    by + BALL_SIZE <= CANVAS_H - WALL_OFFSET &&
+    bx + BALL_SIZE >= state.p4.x &&
+    bx <= state.p4.x + p4W
+  ) {
+    speed += SPEED_INCREMENT;
+    const hitPos = ((bx + BALL_SIZE / 2) - state.p4.x) / p4W;
+    const angle = (hitPos - 0.5) * 1.2;
+    return {
+      hit: true, speed,
+      vx: speed * Math.sin(angle),
+      vy: -speed * Math.cos(angle),
+      ny: CANVAS_H - HPADDLE_H - WALL_OFFSET - BALL_SIZE - 1,
+      lastHit: 4,
+    };
+  }
+  return { hit: false };
+}
+
+// ─── Ball Processing (shared for main + extra balls) ────────────────────────
+function processBallPhysics(ball, speed, isMainBall) {
+  // Move ball
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  let newSpeed = speed;
+  let scored = false;
+  let gameOver = false;
+
+  if (isMultiplayerMode()) {
+    // 4-player mode: paddles on all 4 walls
+    // Check paddle collisions
+    let res;
+
+    res = checkP1Collision(ball.x, ball.y, ball.vx, ball.vy, newSpeed);
+    if (res.hit) {
+      newSpeed = res.speed; ball.vx = res.vx; ball.vy = res.vy; ball.x = res.nx; lastHitBy = res.lastHit;
+    }
+
+    res = checkP2Collision(ball.x, ball.y, ball.vx, ball.vy, newSpeed);
+    if (res.hit) {
+      newSpeed = res.speed; ball.vx = res.vx; ball.vy = res.vy; ball.x = res.nx; lastHitBy = res.lastHit;
+    }
+
+    res = checkP3Collision(ball.x, ball.y, ball.vx, ball.vy, newSpeed);
+    if (res.hit) {
+      newSpeed = res.speed; ball.vx = res.vx; ball.vy = res.vy; ball.y = res.ny; lastHitBy = res.lastHit;
+    }
+
+    res = checkP4Collision(ball.x, ball.y, ball.vx, ball.vy, newSpeed);
+    if (res.hit) {
+      newSpeed = res.speed; ball.vx = res.vx; ball.vy = res.vy; ball.y = res.ny; lastHitBy = res.lastHit;
+    }
+
+    // Scoring: ball exits any edge = point for opponents
+    // Left exit (P1's goal) — Team A loses, Team B scores
+    if (ball.x < 0) {
+      scored = true;
+      if (gameMode === '2v2') {
+        gameOver = handleScore('teamB', isMainBall);
+      } else {
+        // FFA: everyone except P1 scores
+        gameOver = handleScore([2, 3, 4], isMainBall);
+      }
+    }
+    // Right exit (P2's goal) — Team B loses, Team A scores
+    if (!scored && ball.x > CANVAS_W) {
+      scored = true;
+      if (gameMode === '2v2') {
+        gameOver = handleScore('teamA', isMainBall);
+      } else {
+        gameOver = handleScore([1, 3, 4], isMainBall);
+      }
+    }
+    // Top exit (P3's goal) — Team A loses, Team B scores
+    if (!scored && ball.y < 0) {
+      scored = true;
+      if (gameMode === '2v2') {
+        gameOver = handleScore('teamB', isMainBall);
+      } else {
+        gameOver = handleScore([1, 2, 4], isMainBall);
+      }
+    }
+    // Bottom exit (P4's goal) — Team B loses, Team A scores
+    if (!scored && ball.y > CANVAS_H) {
+      scored = true;
+      if (gameMode === '2v2') {
+        gameOver = handleScore('teamA', isMainBall);
+      } else {
+        gameOver = handleScore([1, 2, 3], isMainBall);
+      }
+    }
+  } else {
+    // Classic 2-player mode: walls top/bottom, paddles left/right
+    // Top/bottom wall bounce
+    if (ball.y <= 0) { ball.y = 0; ball.vy *= -1; }
+    if (ball.y >= CANVAS_H - BALL_SIZE) { ball.y = CANVAS_H - BALL_SIZE; ball.vy *= -1; }
+
+    // P1 collision
+    const res1 = checkP1Collision(ball.x, ball.y, ball.vx, ball.vy, newSpeed);
+    if (res1.hit) {
+      newSpeed = res1.speed; ball.vx = res1.vx; ball.vy = res1.vy; ball.x = res1.nx; lastHitBy = 1;
+    }
+
+    // P2 collision
+    const res2 = checkP2Collision(ball.x, ball.y, ball.vx, ball.vy, newSpeed);
+    if (res2.hit) {
+      newSpeed = res2.speed; ball.vx = res2.vx; ball.vy = res2.vy; ball.x = res2.nx; lastHitBy = 2;
+    }
+
+    // Score
+    if (ball.x < 0) {
+      scored = true;
+      gameOver = handleScore([2], isMainBall);
+    }
+    if (!scored && ball.x > CANVAS_W) {
+      scored = true;
+      gameOver = handleScore([1], isMainBall);
+    }
+  }
+
+  if (scored && isMainBall && !gameOver) {
+    pauseUntil = Date.now() + PAUSE_AFTER_SCORE_MS;
+    resetBall(lastHitBy);
+    newSpeed = ballSpeed; // resetBall resets ballSpeed
+  }
+
+  return { speed: newSpeed, scored, gameOver };
 }
 
 // ─── Physics ─────────────────────────────────────────────────────────────────
@@ -343,134 +629,46 @@ function tick() {
   if (now < pauseUntil) { state.paused = true; return; }
   state.paused = false;
 
-  // Run AI before paddle movement (AI directly moves p2, clears its own inputs)
+  // Run AI (only in 1p mode)
   if (gameMode === '1p') {
     updateAI();
   }
 
-  // Move paddles (use dynamic paddle height for clamping)
+  // Move P1 paddle (left — vertical)
   if (inputs.p1.up) state.p1.y = Math.max(0, state.p1.y - PADDLE_SPEED);
   if (inputs.p1.down) state.p1.y = Math.min(CANVAS_H - state.p1PaddleH, state.p1.y + PADDLE_SPEED);
+
+  // Move P2 paddle (right — vertical)
   if (inputs.p2.up) state.p2.y = Math.max(0, state.p2.y - PADDLE_SPEED);
   if (inputs.p2.down) state.p2.y = Math.min(CANVAS_H - state.p2PaddleH, state.p2.y + PADDLE_SPEED);
 
-  // Move ball
-  state.ball.x += state.ball.vx;
-  state.ball.y += state.ball.vy;
+  // Move P3 paddle (top — horizontal, only in 4-player modes)
+  if (isMultiplayerMode()) {
+    if (inputs.p3.left) state.p3.x = Math.max(0, state.p3.x - PADDLE_SPEED);
+    if (inputs.p3.right) state.p3.x = Math.min(CANVAS_W - state.p3PaddleW, state.p3.x + PADDLE_SPEED);
 
-  // Top/bottom wall bounce
-  if (state.ball.y <= 0) { state.ball.y = 0; state.ball.vy *= -1; }
-  if (state.ball.y >= CANVAS_H - BALL_SIZE) { state.ball.y = CANVAS_H - BALL_SIZE; state.ball.vy *= -1; }
-
-  // Paddle 1 collision (left) — uses dynamic paddle height
-  const p1H = state.p1PaddleH;
-  if (
-    state.ball.x <= PADDLE_W + 10 &&
-    state.ball.x >= 10 &&
-    state.ball.y + BALL_SIZE >= state.p1.y &&
-    state.ball.y <= state.p1.y + p1H
-  ) {
-    ballSpeed += SPEED_INCREMENT;
-    const hitPos = ((state.ball.y + BALL_SIZE / 2) - state.p1.y) / p1H;
-    const angle = (hitPos - 0.5) * 1.2;
-    state.ball.vx = ballSpeed * Math.cos(angle);
-    state.ball.vy = ballSpeed * Math.sin(angle);
-    state.ball.x = PADDLE_W + 11;
-    lastHitBy = 1;
+    // Move P4 paddle (bottom — horizontal)
+    if (inputs.p4.left) state.p4.x = Math.max(0, state.p4.x - PADDLE_SPEED);
+    if (inputs.p4.right) state.p4.x = Math.min(CANVAS_W - state.p4PaddleW, state.p4.x + PADDLE_SPEED);
   }
 
-  // Paddle 2 collision (right) — uses dynamic paddle height
-  const p2H = state.p2PaddleH;
-  if (
-    state.ball.x + BALL_SIZE >= CANVAS_W - PADDLE_W - 10 &&
-    state.ball.x + BALL_SIZE <= CANVAS_W - 10 &&
-    state.ball.y + BALL_SIZE >= state.p2.y &&
-    state.ball.y <= state.p2.y + p2H
-  ) {
-    ballSpeed += SPEED_INCREMENT;
-    const hitPos = ((state.ball.y + BALL_SIZE / 2) - state.p2.y) / p2H;
-    const angle = (hitPos - 0.5) * 1.2;
-    state.ball.vx = -ballSpeed * Math.cos(angle);
-    state.ball.vy = ballSpeed * Math.sin(angle);
-    state.ball.x = CANVAS_W - PADDLE_W - 10 - BALL_SIZE - 1;
-    lastHitBy = 2;
-  }
+  // Main ball physics
+  const mainResult = processBallPhysics(state.ball, ballSpeed, true);
+  ballSpeed = mainResult.speed;
+  if (mainResult.gameOver) return;
 
-  // Score — main ball
-  if (state.ball.x < 0) {
-    state.p2.score++;
-    if (state.p2.score >= WIN_SCORE) { state.winner = 2; return; }
-    pauseUntil = now + PAUSE_AFTER_SCORE_MS;
-    resetBall(2);
-  }
-  if (state.ball.x > CANVAS_W) {
-    state.p1.score++;
-    if (state.p1.score >= WIN_SCORE) { state.winner = 1; return; }
-    pauseUntil = now + PAUSE_AFTER_SCORE_MS;
-    resetBall(1);
-  }
-
-  // ─── Extra Balls Physics (Multi-Ball) ───────────────────────────────
+  // Extra balls physics
   for (let i = state.extraBalls.length - 1; i >= 0; i--) {
     const eb = state.extraBalls[i];
-    let ebSpeed = extraBallSpeeds[i];
-
-    // Move
-    eb.x += eb.vx;
-    eb.y += eb.vy;
-
-    // Wall bounce
-    if (eb.y <= 0) { eb.y = 0; eb.vy *= -1; }
-    if (eb.y >= CANVAS_H - BALL_SIZE) { eb.y = CANVAS_H - BALL_SIZE; eb.vy *= -1; }
-
-    // P1 paddle collision
-    if (
-      eb.x <= PADDLE_W + 10 && eb.x >= 10 &&
-      eb.y + BALL_SIZE >= state.p1.y && eb.y <= state.p1.y + p1H
-    ) {
-      ebSpeed += SPEED_INCREMENT;
-      extraBallSpeeds[i] = ebSpeed;
-      const hitPos = ((eb.y + BALL_SIZE / 2) - state.p1.y) / p1H;
-      const angle = (hitPos - 0.5) * 1.2;
-      eb.vx = ebSpeed * Math.cos(angle);
-      eb.vy = ebSpeed * Math.sin(angle);
-      eb.x = PADDLE_W + 11;
-    }
-
-    // P2 paddle collision
-    if (
-      eb.x + BALL_SIZE >= CANVAS_W - PADDLE_W - 10 &&
-      eb.x + BALL_SIZE <= CANVAS_W - 10 &&
-      eb.y + BALL_SIZE >= state.p2.y && eb.y <= state.p2.y + p2H
-    ) {
-      ebSpeed += SPEED_INCREMENT;
-      extraBallSpeeds[i] = ebSpeed;
-      const hitPos = ((eb.y + BALL_SIZE / 2) - state.p2.y) / p2H;
-      const angle = (hitPos - 0.5) * 1.2;
-      eb.vx = -ebSpeed * Math.cos(angle);
-      eb.vy = ebSpeed * Math.sin(angle);
-      eb.x = CANVAS_W - PADDLE_W - 10 - BALL_SIZE - 1;
-    }
-
-    // Score — extra balls score and then get removed
-    let removeThis = false;
-    if (eb.x < 0) {
-      state.p2.score++;
-      if (state.p2.score >= WIN_SCORE) { state.winner = 2; return; }
-      removeThis = true;
-    }
-    if (eb.x > CANVAS_W) {
-      state.p1.score++;
-      if (state.p1.score >= WIN_SCORE) { state.winner = 1; return; }
-      removeThis = true;
-    }
-    if (removeThis) {
+    const ebResult = processBallPhysics(eb, extraBallSpeeds[i], false);
+    extraBallSpeeds[i] = ebResult.speed;
+    if (ebResult.gameOver) return;
+    if (ebResult.scored) {
       state.extraBalls.splice(i, 1);
       extraBallSpeeds.splice(i, 1);
     }
   }
 
-  // ─── Power-Up Tick ──────────────────────────────────────────────────
   tickPowerups();
 }
 
@@ -487,9 +685,15 @@ function broadcast() {
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 wss.on('connection', (ws) => {
+  const maxSlots = maxPlayers();
   let role;
-  if (nextSlot <= 2) {
-    role = nextSlot++;
+  if (nextSlot <= maxSlots) {
+    role = nextSlot;
+    nextSlot++;
+    // Skip to next available slot
+    while (nextSlot <= maxSlots && Array.from(players.values()).includes(nextSlot)) {
+      nextSlot++;
+    }
   } else {
     role = 'spectator';
   }
@@ -508,11 +712,28 @@ wss.on('connection', (ws) => {
 
       // Mode selection (only P1 can set mode)
       if (data.setMode && r === 1) {
-        gameMode = data.setMode === '1p' ? '1p' : '2p';
+        gameMode = data.setMode;
+        if (!['1p', '2p', '2v2', 'ffa'].includes(gameMode)) gameMode = '2p';
         aiDifficulty = data.aiDifficulty || 'medium';
         if (!AI_DIFFICULTY[aiDifficulty]) aiDifficulty = 'medium';
         state.gameMode = gameMode;
         state.aiDifficulty = aiDifficulty;
+
+        // Reassign slots based on new mode
+        const newMax = maxPlayers();
+        // Upgrade spectators to players if slots opened
+        for (const [client, clientRole] of players.entries()) {
+          if (clientRole === 'spectator' && nextSlot <= newMax) {
+            players.set(client, nextSlot);
+            client.send(JSON.stringify({
+              type: 'assign', role: nextSlot,
+              canvas: { w: CANVAS_W, h: CANVAS_H },
+              gameMode, aiDifficulty, gameStarted,
+            }));
+            console.log(`Spectator promoted to P${nextSlot}`);
+            nextSlot++;
+          }
+        }
       }
 
       // Start game
@@ -522,9 +743,26 @@ wss.on('connection', (ws) => {
         resetGame();
       }
 
-      // Normal input
-      if (r === 1) { inputs.p1.up = !!data.up; inputs.p1.down = !!data.down; }
-      if (r === 2 && gameMode === '2p') { inputs.p2.up = !!data.up; inputs.p2.down = !!data.down; }
+      // Normal input — P1 and P2 use up/down, P3 and P4 use left/right
+      // _asPlayer allows P1 client to proxy inputs for local multiplayer
+      const inputTarget = (r === 1 && data._asPlayer) ? data._asPlayer : r;
+
+      if (inputTarget === 1) {
+        inputs.p1.up = !!data.up;
+        inputs.p1.down = !!data.down;
+      }
+      if (inputTarget === 2 && gameMode !== '1p') {
+        inputs.p2.up = !!data.up;
+        inputs.p2.down = !!data.down;
+      }
+      if (inputTarget === 3 && isMultiplayerMode()) {
+        inputs.p3.left = !!data.left;
+        inputs.p3.right = !!data.right;
+      }
+      if (inputTarget === 4 && isMultiplayerMode()) {
+        inputs.p4.left = !!data.left;
+        inputs.p4.right = !!data.right;
+      }
 
       // Restart — go back to mode select
       if (data.restart && state.winner) {
@@ -538,7 +776,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const r = players.get(ws);
     players.delete(ws);
-    if (r === 1 || r === 2) {
+    if (typeof r === 'number') {
       nextSlot = Math.min(nextSlot, r);
       console.log(`P${r} disconnected — slot reopened`);
     }
