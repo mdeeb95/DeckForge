@@ -36,8 +36,8 @@
       "icons/icon.ico"
     ],
     "linux": {
-      "deb": {
-        "desktopTemplate": "com.deckforge.app.desktop"
+      "appimage": {
+        "bundleMediaFramework": false
       }
     }
   }
