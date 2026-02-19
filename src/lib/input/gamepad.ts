@@ -1,10 +1,13 @@
 import { writable } from 'svelte/store';
 import { devLog } from '../utils/devLog';
+import { inputMode } from './inputMode.svelte';
 
 export const gamepadConnected = writable(false);
 export const lastButton = writable('');
 
 // Standard gamepad button indices → semantic names
+// Note: Steam Deck back grips (L4/R4/L5/R5) are NOT exposed via the Gamepad API.
+// They must be mapped to keyboard keys in Steam Input — see keyToButton in App.svelte.
 const BUTTON_MAP: Record<number, string> = {
   0: 'A',
   1: 'B',
@@ -22,10 +25,7 @@ const BUTTON_MAP: Record<number, string> = {
   13: 'DPAD_DOWN',
   14: 'DPAD_LEFT',
   15: 'DPAD_RIGHT',
-  16: 'L4',
-  17: 'R4',
-  18: 'L5',
-  19: 'R5',
+  16: 'GUIDE',
 };
 
 const LB_INDEX = 4;
@@ -68,6 +68,7 @@ function pollGamepad() {
 
       if (pressed && !wasPressed) {
         // Edge detected: button just pressed
+        inputMode.set('gamepad');
         if (lbHeld) {
           // Emit combo
           const comboName = `LB_${name}`;
@@ -87,6 +88,7 @@ function pollGamepad() {
     if (!lbPressed && lbWasPressed) {
       if (!lbComboFired) {
         // Standalone LB press
+        inputMode.set('gamepad');
         devLog('input', `Gamepad button ${LB_INDEX} pressed (LB standalone)`);
         lastButton.set('LB');
         handler?.('LB');

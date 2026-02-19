@@ -5,7 +5,7 @@
   }
 
   interface Props {
-    button: string;
+    button?: string;
     title: string;
     description: string;
     pills?: Pill[];
@@ -17,7 +17,7 @@
   }
 
   let {
-    button,
+    button = '',
     title,
     description,
     pills = [],
@@ -28,12 +28,6 @@
     switchAnimation = null,
   }: Props = $props();
 
-  const unselectedBadgeClasses: Record<string, string> = {
-    secondary_pink: 'bg-secondary/20 text-secondary border border-secondary/30',
-    neutral: 'bg-slate-700 text-slate-300 border border-slate-600',
-    amber: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-    primary: 'bg-primary/20 text-primary border border-primary/30',
-  };
 </script>
 
 {#if selected}
@@ -58,9 +52,8 @@
         <div class="ship-pulse-ring"></div>
       {/if}
 
-      <div class="absolute top-0 right-0 p-1.5 {onclick ? 'bg-primary text-black' : 'bg-slate-700 text-slate-400'} rounded-bl font-bold text-xs shadow-sm">{button}</div>
       <div class="flex items-center gap-1.5">
-        <h3 class="{onclick ? 'text-primary' : 'text-slate-500'} font-bold text-sm mb-1 pr-6">{title}</h3>
+        <h3 class="{onclick ? 'text-primary' : 'text-slate-500'} font-bold text-sm mb-1">{title}</h3>
         <!-- Confirm Pulse: checkmark SVG -->
         {#if animationType === 'confirm'}
           <svg class="ship-checkmark" width="16" height="16" viewBox="0 0 16 16">
@@ -97,8 +90,7 @@
         <div class="ship-pulse-ring"></div>
       {/if}
 
-      <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center {unselectedBadgeClasses[variant]} rounded-full font-bold text-[10px]">{button}</div>
-      <h3 class="text-white font-medium text-sm mb-1 pr-6">{title}</h3>
+      <h3 class="text-white font-medium text-sm mb-1">{title}</h3>
       <p class="text-xs text-slate-400 leading-snug mb-2 italic">{description}</p>
       {#if pills.length > 0}
         <div class="flex items-center gap-2 text-[10px]">

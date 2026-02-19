@@ -1,5 +1,7 @@
 import type { ClaudeEvent, SessionOptions, SessionState } from './types';
 import { devLog, devError } from '../utils/devLog';
+import { get } from 'svelte/store';
+import { claudePath } from '../system/claudeResolver';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -90,11 +92,15 @@ export async function sendPrompt(
     const escapedArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
     const isMac = navigator.platform === 'MacIntel' || navigator.platform.startsWith('Mac');
 
+    // Use the resolved absolute path if available, otherwise fall back to bare 'claude'
+    const resolvedPath = get(claudePath);
+    const claudeBin = resolvedPath ? `'${resolvedPath}'` : 'claude';
+
     let shellCmd: string;
     if (isMac) {
-      shellCmd = `unset CLAUDECODE CLAUDE_CODE; exec script -q /dev/null claude ${escapedArgs}`;
+      shellCmd = `unset CLAUDECODE CLAUDE_CODE; exec script -q /dev/null ${claudeBin} ${escapedArgs}`;
     } else {
-      shellCmd = `unset CLAUDECODE CLAUDE_CODE; exec script -qfc "claude ${escapedArgs}" /dev/null`;
+      shellCmd = `unset CLAUDECODE CLAUDE_CODE; exec script -qfc "${claudeBin} ${escapedArgs}" /dev/null`;
     }
 
     emitDiag(`Shell command: ${shellCmd.slice(0, 120)}...`);

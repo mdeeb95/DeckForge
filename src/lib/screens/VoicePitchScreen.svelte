@@ -18,52 +18,47 @@
   // Determine phase: 'idle' | 'recording' | 'done'
   $: phase = recording ? 'recording' : hasTranscript ? 'done' : 'idle';
 
+  // Phase-specific action handlers
+  function handlePrimary() {
+    if (phase === 'idle') startListening();
+    else if (phase === 'recording') stopListening();
+    else {
+      pendingClaudePrompt.set(transcript);
+      resetVoice();
+      navigate('ai_working');
+    }
+  }
+
+  function handleCancel() {
+    if (phase === 'idle') navigate('project_select');
+    else resetVoice();
+  }
+
   // Build dynamic cards based on phase
   $: {
-    let cards: Array<{ button: string; title: string; description: string }>;
+    let cards: Array<{ button?: string; title: string; description: string; action: () => void }>;
     if (phase === 'idle') {
       cards = [
-        { button: 'A', title: 'Start Recording', description: 'Press to begin voice input. Speak your request clearly.' },
-        { button: 'B', title: 'Back', description: 'Return to the previous screen.' },
+        { title: 'Start Recording', description: 'Press to begin voice input. Speak your request clearly.', action: handlePrimary },
+        { button: 'B', title: 'Back', description: 'Return to the previous screen.', action: handleCancel },
       ];
     } else if (phase === 'recording') {
       cards = [
-        { button: 'A', title: 'Stop Recording', description: 'Finish recording and process the transcription.' },
-        { button: 'B', title: 'Cancel', description: 'Cancel this recording and discard audio.' },
+        { title: 'Stop Recording', description: 'Finish recording and process the transcription.', action: handlePrimary },
+        { button: 'B', title: 'Cancel', description: 'Cancel this recording and discard audio.', action: handleCancel },
       ];
     } else {
       cards = [
-        { button: 'A', title: 'Send as Prompt', description: 'Submit this transcription as your request to Claude Code.' },
-        { button: 'B', title: 'Clear & Re-record', description: 'Discard this transcription and start a new recording.' },
-        { button: 'Y', title: 'Re-record', description: 'Start over with a fresh recording.' },
+        { title: 'Send as Prompt', description: 'Submit this transcription as your request to Claude Code.', action: handlePrimary },
+        { button: 'B', title: 'Clear & Re-record', description: 'Discard this transcription and start a new recording.', action: handleCancel },
       ];
     }
     screenCards.set(cards.map(c => ({
-      button: c.button,
+      ...(c.button ? { button: c.button } : {}),
       title: c.title,
       description: c.description,
-      onclick: () => handleAction(c.button),
+      onclick: c.action,
     })));
-  }
-
-  function handleAction(button: string) {
-    if (phase === 'idle') {
-      if (button === 'A') startListening();
-      if (button === 'B') navigate('project_select');
-    } else if (phase === 'recording') {
-      if (button === 'A') stopListening();
-      if (button === 'B') { resetVoice(); }
-    } else {
-      // done
-      if (button === 'A') {
-        pendingClaudePrompt.set(transcript);
-        resetVoice();
-        navigate('ai_working');
-      }
-      if (button === 'B' || button === 'Y') {
-        resetVoice();
-      }
-    }
   }
 
   const webSpeechOk = isWebSpeechAvailable();
@@ -184,8 +179,7 @@
         <div class="relative group cursor-pointer" onclick={card.onclick}>
           <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
           <div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
-            <div class="absolute top-0 right-0 p-1.5 bg-primary text-black rounded-bl font-bold text-xs shadow-sm">{card.button}</div>
-            <h3 class="text-primary font-bold text-sm mb-1 pr-6 truncate">{card.title}</h3>
+            <h3 class="text-primary font-bold text-sm mb-1 truncate">{card.title}</h3>
             <p class="text-xs text-slate-300 leading-snug mb-2">{card.description}</p>
           </div>
         </div>
@@ -195,8 +189,7 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={card.onclick}>
           <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative">
-            <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">{card.button}</div>
-            <h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">{card.title}</h3>
+            <h3 class="text-white font-medium text-sm mb-1 truncate">{card.title}</h3>
             <p class="text-xs text-slate-400 leading-snug mb-2">{card.description}</p>
           </div>
         </div>

@@ -17,7 +17,7 @@
 
   // Animation state
   let animatingType = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
-  let animatingButton = $state<string | null>(null);
+  let animatingIndex = $state<number | null>(null);
 
   function getCwd(): string {
     return get(projectConfig)?.project.path ?? '.';
@@ -136,10 +136,10 @@
   function handleApproveAndCommit() {
     if (animatingType) return;
     animatingType = 'confirm';
-    animatingButton = 'A';
+    animatingIndex = 0;
     setTimeout(() => {
       animatingType = null;
-      animatingButton = null;
+      animatingIndex = null;
     }, 350);
 
     const cwd = getCwd();
@@ -179,8 +179,8 @@
           });
           // Update cards to offer deploy
           screenCards.set([
-            { button: 'A', title: 'Go to Deploy', description: 'Deploy the committed changes', onclick: () => navigate('deploy_mode') },
-            { button: 'B', title: 'Back to Home', description: 'Return to main screen', onclick: () => navigate('level1') },
+            { title: 'Go to Deploy', description: 'Deploy the committed changes', onclick: () => navigate('deploy_mode') },
+            { title: 'Back to Home', description: 'Return to main screen', onclick: () => navigate('level1') },
           ]);
         } else {
           entries.addEntry({ type: 'cursor', message: 'Commit created. Press START to return home.' });
@@ -200,10 +200,10 @@
   function handleRejectChanges() {
     if (animatingType) return;
     animatingType = 'dismiss';
-    animatingButton = 'B';
+    animatingIndex = 1;
     setTimeout(() => {
       animatingType = null;
-      animatingButton = null;
+      animatingIndex = null;
     }, 300);
 
     const cwd = getCwd();
@@ -240,10 +240,10 @@
   function handleRunTestsAgain() {
     if (animatingType) return;
     animatingType = 'pulse';
-    animatingButton = 'X';
+    animatingIndex = 2;
     setTimeout(() => {
       animatingType = null;
-      animatingButton = null;
+      animatingIndex = null;
     }, 350);
     loadQA();
   }
@@ -251,10 +251,10 @@
   function handleViewDiff() {
     if (animatingType) return;
     animatingType = 'confirm';
-    animatingButton = 'Y';
+    animatingIndex = 3;
     setTimeout(() => {
       animatingType = null;
-      animatingButton = null;
+      animatingIndex = null;
     }, 350);
     const cwd = getCwd();
 
@@ -273,7 +273,6 @@
 
   const cards = $derived([
     {
-      button: 'A',
       title: 'Approve and Commit',
       description: 'Accept all changes and create a git commit.',
       pills: [{ label: `${fileCount} files`, variant: 'active' as const }],
@@ -281,7 +280,6 @@
       onclick: handleApproveAndCommit,
     },
     {
-      button: 'B',
       title: 'Reject Changes',
       description: 'Revert all modifications. Nothing will be saved.',
       pills: [{ label: 'Undo all', variant: 'neutral' as const }],
@@ -306,10 +304,7 @@
     },
   ]);
 
-  const secondaryCards = [
-    { button: 'RB', label: 'Request Changes', icon: 'edit_note' },
-    { button: 'LB', label: 'Explain Changes', icon: 'question_answer' },
-  ];
+  const secondaryCards: { button: string; label: string; icon: string }[] = [];
 
   onMount(() => {
     loadQA();
@@ -318,7 +313,7 @@
   // Register screen cards with onclick handlers
   $effect(() => {
     screenCards.set(
-      cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })),
+      cards.map(c => ({ ...(c.button ? { button: c.button } : {}), title: c.title, description: c.description, onclick: c.onclick })),
     );
   });
 </script>
@@ -331,12 +326,12 @@
   cards={cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
-  {animatingButton}
+  {animatingIndex}
   animationType={animatingType}
   hints={[
-    { key: 'A', label: 'Approve' },
-    { key: 'B', label: 'Reject' },
-    { key: 'X', label: 'Re-test' },
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'X', label: 'Run Tests' },
     { key: 'Y', label: 'View Diff' },
   ]}
 />

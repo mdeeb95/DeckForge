@@ -104,7 +104,6 @@
 
   const cards = [
     {
-      button: 'A',
       title: 'Backend Mode',
       description: config?.prediction_engine.backend_mode === 'proxied' ? 'proxied via Railway' : 'direct Anthropic API',
       pills: [{ label: config?.prediction_engine.backend_mode ?? 'proxied', variant: 'active' as const }],
@@ -112,7 +111,6 @@
       onclick: toggleBackendMode,
     },
     {
-      button: 'B',
       title: 'API Key',
       description: config?.prediction_engine.direct_api_key_ref ? 'configured' : 'not set — required for direct mode',
       pills: [{ label: config?.prediction_engine.direct_api_key_ref ? 'configured' : 'not set', variant: (config?.prediction_engine.direct_api_key_ref ? 'active' : 'neutral') as 'active' | 'neutral' }],
@@ -120,7 +118,6 @@
       onclick: openKeyEntry,
     },
     {
-      button: 'X',
       title: 'Model Override',
       description: 'DPAD L/R to cycle models',
       pills: [{ label: currentModel === 'default' ? 'default' : currentModel.split('-').slice(0, 2).join('-'), variant: 'neutral' as const }],
@@ -128,7 +125,6 @@
       onclick: () => cycleModel('right'),
     },
     {
-      button: 'Y',
       title: 'Temperature',
       description: 'DPAD L/R to adjust (0.0 – 2.0)',
       pills: [{ label: `${config?.prediction_engine.temperature ?? 0.8}`, variant: 'neutral' as const }],
@@ -141,7 +137,7 @@
     { button: 'LB', label: 'Back to Settings', icon: 'arrow_back' },
   ];
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 {#if keyboardOpen}
@@ -165,9 +161,8 @@
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
   hints={[
-    { key: 'A', label: 'Toggle Mode' },
-    { key: 'B', label: 'API Key' },
-    { key: 'D-PAD L/R', label: 'Adjust' },
-    { key: 'LB', label: 'Back' },
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'D-PAD', label: 'Navigate' },
   ]}
 />

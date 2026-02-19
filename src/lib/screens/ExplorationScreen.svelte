@@ -16,7 +16,6 @@
 
   const cards = [
     {
-      button: 'A',
       title: 'Ask a Question',
       description: 'Coming soon — read-only codebase Q&A.',
       pills: [{ label: 'Coming soon', variant: 'neutral' as const }],
@@ -24,7 +23,6 @@
       onclick: () => {},
     },
     {
-      button: 'B',
       title: 'Go Back',
       description: 'Return to the previous screen.',
       pills: [{ label: 'Navigate', variant: 'neutral' as const }],
@@ -32,7 +30,6 @@
       onclick: () => navigate('project_select'),
     },
     {
-      button: 'X',
       title: 'New Topic',
       description: 'Coming soon — fresh conversation threads.',
       pills: [{ label: 'Coming soon', variant: 'neutral' as const }],
@@ -40,7 +37,6 @@
       onclick: () => {},
     },
     {
-      button: 'Y',
       title: 'Surprise Me',
       description: 'Coming soon — find the most cursed code in your project.',
       pills: [{ label: 'Coming soon', variant: 'neutral' as const }],
@@ -49,12 +45,9 @@
     },
   ];
 
-  const secondaryCards = [
-    { button: 'RB', label: 'Save to Notes', icon: 'note_add' },
-    { button: 'LB', label: 'Back', icon: 'arrow_back' },
-  ];
+  const secondaryCards: { button: string; label: string; icon: string }[] = [];
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />
@@ -65,4 +58,9 @@
   {cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
+  hints={[
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'D-PAD', label: 'Navigate' },
+  ]}
 />

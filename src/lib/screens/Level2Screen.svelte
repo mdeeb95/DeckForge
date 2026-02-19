@@ -20,12 +20,9 @@
 
   let abortController: AbortController;
 
-  // Modifier toggle state
-  let modifierActive = $state(false);
-
   // Animation state
   let animatingType = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
-  let animatingButton = $state<string | null>(null);
+  let animatingIndex = $state<number | null>(null);
 
   // Reactive state from stores
   let prediction = $derived($currentPrediction);
@@ -41,24 +38,29 @@
       const loadMsg = getRandomMessage('loading');
       return [
         {
-          button: 'A',
           title: 'Loading...',
           description: loadMsg,
           pills: [{ label: 'Wait', variant: 'neutral' as const }],
           variant: 'neutral' as const,
         },
         {
-          button: 'B',
           title: '',
           description: '',
           pills: [],
           variant: 'neutral' as const,
         },
-      ];
+      ] as {
+        button?: string;
+        title: string;
+        description: string;
+        pills: { label: string; variant: 'active' | 'neutral' }[];
+        variant: 'primary' | 'secondary_pink' | 'neutral' | 'amber';
+        onclick?: () => void;
+      }[];
     }
 
     const result: {
-      button: string;
+      button?: string;
       title: string;
       description: string;
       pills: { label: string; variant: 'active' | 'neutral' }[];
@@ -66,10 +68,10 @@
       onclick?: () => void;
     }[] = [];
 
-    // A button: first suggestion in pair
+    // First suggestion in pair
     if (pairA) {
+      const idx = result.length;
       result.push({
-        button: 'A',
         title: pairA.label,
         description: pairA.quip,
         pills: [{ label: pairA.scope, variant: 'active' as const }],
@@ -77,22 +79,22 @@
         onclick: () => {
           if (animatingType) return;
           animatingType = 'confirm';
-          animatingButton = 'A';
+          animatingIndex = idx;
           screenCards.set([]);
           selectAndPlan(pairA!);
           setTimeout(() => {
             animatingType = null;
-            animatingButton = null;
+            animatingIndex = null;
             navigate('level3');
           }, 350);
         },
       });
     }
 
-    // B button: second suggestion in pair
+    // Second suggestion in pair
     if (pairB) {
+      const idx = result.length;
       result.push({
-        button: 'B',
         title: pairB.label,
         description: pairB.quip,
         pills: [{ label: pairB.scope, variant: 'neutral' as const }],
@@ -100,65 +102,54 @@
         onclick: () => {
           if (animatingType) return;
           animatingType = 'confirm';
-          animatingButton = 'B';
+          animatingIndex = idx;
           screenCards.set([]);
           selectAndPlan(pairB!);
           setTimeout(() => {
             animatingType = null;
-            animatingButton = null;
+            animatingIndex = null;
             navigate('level3');
           }, 350);
         },
       });
     }
 
-    // X button: modifier
-    if (prediction.modifier) {
-      result.push({
-        button: 'X',
-        title: prediction.modifier.lens,
-        description: prediction.modifier.quip,
-        pills: [{ label: modifierActive ? 'Active' : 'Modifier', variant: modifierActive ? 'active' as const : 'neutral' as const }],
-        variant: modifierActive ? 'primary' as const : 'neutral' as const,
-        onclick: () => {
-          modifierActive = !modifierActive;
-          if (modifierActive) {
-            entries.addEntry({
-              type: 'thought',
-              label: 'MODIFIER',
-              body: `Lens active: <span class="text-primary">${prediction!.modifier.lens}</span> — ${prediction!.modifier.quip}`,
-            });
-          } else {
-            entries.addEntry({
-              type: 'timestamp',
-              time: new Date().toTimeString().slice(0, 8),
-              message: 'Modifier deactivated',
-            });
-          }
-        },
-      });
-    }
-
-    // Y button: wild card (always italic/chaotic)
+    // Wild card suggestion
     if (prediction.wild_card) {
+      const idx = result.length;
       result.push({
-        button: 'Y',
         title: prediction.wild_card.label,
         description: prediction.wild_card.quip,
         pills: [{ label: prediction.wild_card.scope, variant: 'neutral' as const }],
         variant: 'amber' as const,
         onclick: () => {
+          if (animatingType) return;
+          animatingType = 'confirm';
+          animatingIndex = idx;
+          screenCards.set([]);
           selectAndPlan(prediction!.wild_card);
-          navigate('level3');
+          setTimeout(() => {
+            animatingType = null;
+            animatingIndex = null;
+            navigate('level3');
+          }, 350);
         },
       });
     }
+
+    // Reroll card
+    result.push({
+      title: 'Reroll Suggestions',
+      description: 'Shuffle to the next pair of suggestions.',
+      pills: [{ label: `${prediction.suggestions.length} available`, variant: 'neutral' as const }],
+      variant: 'neutral' as const,
+      onclick: () => rerollSuggestions(),
+    });
 
     return result;
   });
 
   let secondaryCards = $derived([
-    { button: 'RB', label: 'Reroll Suggestions', icon: 'refresh' },
     { button: 'LB', label: 'Back to Categories', icon: 'arrow_back' },
   ]);
 
@@ -170,14 +161,18 @@
     category === 'yolo' ? 'Yolo' : 'Suggestions'
   );
 
-  // Update screenCards whenever cards change
+  // Update screenCards whenever cards change (include LB so activateByButton works)
   $effect(() => {
-    screenCards.set(cards.map(c => ({
+    const mainCards = cards.map(c => ({
       button: c.button,
       title: c.title,
       description: c.description,
       onclick: c.onclick,
-    })));
+    }));
+    screenCards.set([
+      ...mainCards,
+      { button: 'LB', title: 'Back to Categories', description: '', onclick: () => navigate('level1') },
+    ]);
   });
 
   // Show thinking state while loading
@@ -231,7 +226,7 @@
 
     termEntries.push({
       type: 'cursor',
-      message: 'Select A or B, or press RB to reroll...',
+      message: 'Select a suggestion, or reroll for more...',
     });
 
     status.set('idle');
@@ -239,11 +234,6 @@
     scope.set(`${prediction.suggestions.length} options`);
     termEntries.forEach(e => entries.addEntry(e));
   });
-
-  // Handle RB reroll
-  function handleReroll() {
-    rerollSuggestions();
-  }
 
   // Expose reroll for the input router
   onMount(() => {
@@ -268,12 +258,12 @@
   {cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
-  {animatingButton}
+  {animatingIndex}
   animationType={animatingType}
   hints={[
     { key: 'A', label: 'Select' },
     { key: 'B', label: 'Back' },
-    { key: 'RB', label: 'Reroll' },
+    { key: 'Y', label: 'Reroll' },
     { key: 'START', label: 'Menu' },
   ]}
 />

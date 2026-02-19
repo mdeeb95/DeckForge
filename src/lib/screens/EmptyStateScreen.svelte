@@ -53,7 +53,7 @@
   );
 
   screenCards.set([
-    { button: 'A', title: 'Open Directory', description: 'Browse and select a project folder from your filesystem.', onclick: openDirectory },
+    { title: 'Open Directory', description: 'Browse and select a project folder from your filesystem.', onclick: openDirectory },
     { button: 'Y', title: 'Demo Mode', description: 'Scaffold a Pong game and explore DeckForge.', onclick: launchDemo },
     { button: 'LB', title: 'Settings', description: 'Configure DeckForge settings.', onclick: () => navigate('settings') },
   ]);
@@ -82,8 +82,7 @@
           <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
         {/if}
         <div class="{$selectedCardIndex === 0 ? 'bg-[#1c242e] border-2 border-primary/50 shadow-lg' : 'bg-surface-dark border border-surface-border hover:border-slate-600'} p-3 rounded relative overflow-hidden transition-all">
-          <div class="{$selectedCardIndex === 0 ? 'bg-primary text-black rounded-bl font-bold text-xs shadow-sm p-1.5' : 'w-5 h-5 flex items-center justify-center bg-primary/20 text-primary border border-primary/30 rounded-full font-bold text-[10px]'} absolute top-0 right-0 {$selectedCardIndex !== 0 ? 'top-2 right-2' : ''}">A</div>
-          <h3 class="{$selectedCardIndex === 0 ? 'text-primary font-bold' : 'text-white font-medium'} text-sm mb-1 pr-6 truncate text-left">Open Directory</h3>
+          <h3 class="{$selectedCardIndex === 0 ? 'text-primary font-bold' : 'text-white font-medium'} text-sm mb-1 truncate text-left">Open Directory</h3>
           <p class="{$selectedCardIndex === 0 ? 'text-slate-300' : 'text-slate-400'} text-xs leading-snug mb-2 text-left">Browse and select a project folder from your filesystem.</p>
           <div class="flex items-center gap-2 text-[10px]">
             <span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">Recommended</span>
@@ -95,15 +94,13 @@
       <div class="grid grid-cols-2 gap-2 opacity-40 cursor-not-allowed">
         <!-- B: Paste Path -->
         <div class="bg-surface-dark border border-surface-border p-2.5 rounded relative">
-          <div class="absolute top-1.5 right-1.5 w-4 h-4 flex items-center justify-center bg-slate-700/40 text-slate-500 border border-slate-600/40 rounded-full font-bold text-[9px]">B</div>
-          <h3 class="text-slate-500 font-medium text-xs mb-0.5 pr-5 truncate text-left">Paste a Path</h3>
+          <h3 class="text-slate-500 font-medium text-xs mb-0.5 truncate text-left">Paste a Path</h3>
           <p class="text-slate-600 text-[10px] leading-snug mb-1.5 text-left">Enter a full path.</p>
           <span class="bg-slate-800/50 text-slate-500 px-1.5 py-0.5 rounded border border-surface-border/50 text-[9px]">Coming Soon</span>
         </div>
         <!-- X: Clone from Git -->
         <div class="bg-surface-dark border border-surface-border p-2.5 rounded relative">
-          <div class="absolute top-1.5 right-1.5 w-4 h-4 flex items-center justify-center bg-slate-700/40 text-slate-500 border border-slate-600/40 rounded-full font-bold text-[9px]">X</div>
-          <h3 class="text-slate-500 font-medium text-xs mb-0.5 pr-5 truncate text-left">Clone from Git</h3>
+          <h3 class="text-slate-500 font-medium text-xs mb-0.5 truncate text-left">Clone from Git</h3>
           <p class="text-slate-600 text-[10px] leading-snug mb-1.5 text-left">Clone a repository.</p>
           <span class="bg-slate-800/50 text-slate-500 px-1.5 py-0.5 rounded border border-surface-border/50 text-[9px]">Coming Soon</span>
         </div>
@@ -116,8 +113,7 @@
           <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
         {/if}
         <div class="{$selectedCardIndex === 1 ? 'bg-[#1e1a13] border-2 border-primary/50 shadow-lg' : 'bg-[#1e1a13] border border-amber-500/40 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(245,158,11,0.15)]'} p-3 rounded relative transition-all">
-          <div class="{$selectedCardIndex === 1 ? 'bg-primary text-black rounded-bl font-bold text-xs shadow-sm p-1.5 absolute top-0 right-0' : 'absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full font-bold text-[10px]'}">Y</div>
-          <h3 class="{$selectedCardIndex === 1 ? 'text-primary font-bold' : 'text-amber-400 font-medium'} text-sm mb-1 pr-6 truncate text-left {demoStatus === 'loading' ? 'animate-pulse' : ''}">Demo Mode</h3>
+          <h3 class="{$selectedCardIndex === 1 ? 'text-primary font-bold' : 'text-amber-400 font-medium'} text-sm mb-1 truncate text-left {demoStatus === 'loading' ? 'animate-pulse' : ''}">Demo Mode</h3>
           <p class="{$selectedCardIndex === 1 ? 'text-slate-300' : 'text-amber-200/60'} text-xs leading-snug mb-2 text-left {demoStatus === 'error' ? 'text-red-400' : ''}">{demoDesc}</p>
           <div class="flex items-center gap-2 text-[10px]">
             {#if demoStatus === 'loading'}
@@ -140,15 +136,6 @@
             <span class="text-xs text-slate-300 font-medium">Settings</span>
           </div>
           <span class="material-icons text-slate-500 text-sm">settings</span>
-        </div>
-      </div>
-      <div class="relative group">
-        <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
-          <div class="flex items-center gap-3">
-            <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">RB</div>
-            <span class="text-xs text-slate-300 font-medium">Help</span>
-          </div>
-          <span class="material-icons text-slate-500 text-sm">help_outline</span>
         </div>
       </div>
     </div>

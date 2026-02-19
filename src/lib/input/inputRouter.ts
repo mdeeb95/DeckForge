@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { currentScreen, navigate, splitRatio, pendingClaudePrompt, startMenuOpen, previousScreen, keyboardOpen } from '../stores/app';
 import type { Screen } from '../stores/app';
-import { navigateUp, navigateDown, activateByButton, cycleSelectedIndex } from './navigation';
+import { navigateUp, navigateDown, activateSelected, activateByButton, cycleSelectedIndex } from './navigation';
 import { rerollSuggestions } from '../stores/prediction';
 import { screenshotFlash, lastScreenshotPath, lastScreenshotMeta } from '../stores/screenshot';
 import { devLog, devError } from '../utils/devLog';
@@ -11,15 +11,13 @@ type HandlerMap = Record<string, () => void>;
 function getScreenHandlers(screen: Screen): HandlerMap {
   switch (screen) {
     // ── Level 1: Category Select ──────────────────────────────────
-    // A/B/X/Y = select category → Level 2. Menu = QA Mode. View = History.
+    // A = select highlighted card. B = no action (home screen).
+    // D-pad navigates. START = QA Mode. SELECT = History.
     case 'level1':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
-        X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
+        A: activateSelected,
         START: () => {
           // Block navigation during error recovery — user should resolve the error first
           import('../stores/launcher').then(({ appError }) => {
@@ -30,29 +28,24 @@ function getScreenHandlers(screen: Screen): HandlerMap {
       };
 
     // ── Level 2: Suggestions ──────────────────────────────────────
-    // A = select suggestion A → Level 3. B = select suggestion B → Level 3.
-    // RB = reroll (cycle through cached suggestion pairs). LB = back.
-    // X = modifier. Y = wild card → Level 3.
+    // A = select highlighted suggestion → Level 3. B = back to Level 1.
+    // X = toggle modifier. Y = reroll suggestions.
     case 'level2':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
-        X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
-        RB: () => rerollSuggestions(),
-        LB: () => navigate('level1'),
+        A: activateSelected,
+        B: () => navigate('level1'),
+        Y: () => rerollSuggestions(),
       };
 
     // ── Level 3: Plan Confirmation ────────────────────────────────
-    // A = "Ship it" → AI Working. B = reject → Level 2.
-    // X = expand plan. Y = ship unhinged → AI Working.
+    // A = select highlighted (Ship It). B = go back card. X = tell me more. Y = ship unhinged.
     case 'level3':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
+        A: activateSelected,
         B: () => activateByButton('B'),
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
@@ -60,147 +53,143 @@ function getScreenHandlers(screen: Screen): HandlerMap {
       };
 
     // ── AI Working ────────────────────────────────────────────────
-    // B = interrupt (with confirmation). All others disabled.
+    // A = select highlighted card. B = interrupt/back (state-dependent).
     case 'ai_working':
       return {
-        B: () => navigate('level1'),
+        A: activateSelected,
+        B: () => activateByButton('B'),
       };
 
     // ── QA Mode ───────────────────────────────────────────────────
-    // A = approve → Deploy. B = back to Level 1. X = run tests. Y = view diff.
-    // D-pad navigates.
+    // A = select highlighted card. B = back to Level 1 (safe — no revert).
+    // X = run tests. Y = view diff.
     case 'qa_mode':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => navigate('deploy_mode'),
+        A: activateSelected,
         B: () => navigate('level1'),
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
       };
 
     // ── Deploy Mode ───────────────────────────────────────────────
-    // A = push and deploy. B = preview. X = push only. Y = review changes.
-    // Menu = back to Level 1.
+    // A = select highlighted card. B = back to Level 1.
+    // RB/LB = secondary actions. START = back to Level 1.
     case 'deploy_mode':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
-        X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
+        A: activateSelected,
+        B: () => navigate('level1'),
         RB: () => activateByButton('RB'),
         LB: () => activateByButton('LB'),
         START: () => navigate('level1'),
       };
 
     // ── History ───────────────────────────────────────────────────
-    // A = preview. B = back to Level 1. Y = rollback.
+    // A = select highlighted card. B = back to Level 1. Y = rollback.
     case 'history':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
+        A: activateSelected,
         B: () => navigate('level1'),
         Y: () => activateByButton('Y'),
       };
 
     // ── Project Select ────────────────────────────────────────────
-    // A/B/X/Y = open project via screenCards onclick. RB/LB = browse for project.
+    // A = select highlighted project. B = no action (root screen).
+    // RB/LB = browse for project.
     case 'project_select':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
-        X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
+        A: activateSelected,
         RB: () => activateByButton('RB'),
         LB: () => activateByButton('LB'),
       };
 
     // ── Empty State ───────────────────────────────────────────────
-    // A = open directory. X = exploration. Y = new project. LB = settings.
+    // A = select highlighted card. Y = demo mode shortcut. LB = settings.
     case 'empty_state':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
-        X: () => activateByButton('X'),
+        A: activateSelected,
         Y: () => activateByButton('Y'),
         LB: () => navigate('settings'),
       };
 
     // ── Exploration ───────────────────────────────────────────────
-    // A = build. B = back. X = more. Y = shuffle.
-    // D-pad left/right = categories, up/down = within category.
+    // A = select highlighted card. B = back to project select.
+    // D-pad left/right also navigate.
     case 'exploration':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         DPAD_LEFT: navigateUp,
         DPAD_RIGHT: navigateDown,
-        A: () => activateByButton('A'),
+        A: activateSelected,
         B: () => navigate('project_select'),
-        X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
       };
 
     // ── Voice Pitch ───────────────────────────────────────────────
-    // A = confirm/start. B = cancel/back. Y = re-record.
+    // A = select highlighted card. B = cancel/back (phase-dependent).
     case 'voice_pitch':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
+        A: activateSelected,
         B: () => activateByButton('B'),
-        Y: () => activateByButton('Y'),
       };
 
     // ── Screenshot Feedback ─────────────────────────────────────
-    // A = send to Claude. B = discard. X = voice annotate. Y = send + new task.
-    // LB = back.
+    // A = select highlighted card. B = back to Level 1.
+    // X = voice annotate. Y = send + new task.
     case 'screenshot_feedback':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
+        A: activateSelected,
+        B: () => navigate('level1'),
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
-        LB: () => navigate('level1'),
       };
 
     // ── Error ─────────────────────────────────────────────────────
-    // A = retry. B = undo. X = view details. Y = ignore.
+    // A = select highlighted card. B = clear error + back to Level 1.
+    // X = view full error.
     case 'error':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
+        A: activateSelected,
+        B: () => {
+          import('../stores/errorStore').then(({ clearError }) => {
+            clearError();
+            navigate('level1');
+          });
+        },
         X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
       };
 
     // ── Settings Hub ───────────────────────────────────────────────
-    // A/B/X/Y = navigate to sub-screen. START/LB = close settings.
+    // A = select highlighted sub-screen. B = back to previous screen.
+    // START/LB = close settings.
     case 'settings':
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
-        X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
+        A: activateSelected,
+        B: () => navigate(get(previousScreen) || 'empty_state'),
         START: () => navigate(get(previousScreen) || 'empty_state'),
         LB: () => navigate(get(previousScreen) || 'empty_state'),
       };
 
     // ── Settings Sub-Screens ───────────────────────────────────────
-    // A/B/X/Y = act on card. LB = back to hub.
+    // A = select highlighted card (toggle/adjust). B = back to settings hub.
+    // LB = back to hub. START = close settings entirely.
     case 'settings_prediction':
     case 'settings_display':
     case 'settings_telemetry':
@@ -208,10 +197,8 @@ function getScreenHandlers(screen: Screen): HandlerMap {
       return {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
-        A: () => activateByButton('A'),
-        B: () => activateByButton('B'),
-        X: () => activateByButton('X'),
-        Y: () => activateByButton('Y'),
+        A: activateSelected,
+        B: () => navigate('settings'),
         LB: () => navigate('settings'),
         START: () => navigate(get(previousScreen) || 'empty_state'),
       };

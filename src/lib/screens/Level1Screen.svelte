@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import TerminalPanel from '../components/TerminalPanel.svelte';
   import ActionPalette from '../components/ActionPalette.svelte';
-  import { selectedCardIndex, projectName, navigate, screenCards } from '../stores/app';
+  import { selectedCardIndex, projectName, navigate, screenCards, pendingClaudePrompt } from '../stores/app';
   import { entries, status, cost } from '../stores/terminal';
   import { activeTab } from '../stores/terminal';
   import { get } from 'svelte/store';
@@ -13,9 +13,11 @@
   import { appRunning, appPid, appError, appOutput } from '../stores/launcher';
   import { projectConfig } from '../stores/configStores';
   import { authToken } from '../stores/configStores';
-  import { launchApp, restartApp, isRunning } from '../system/appLauncher';
+  import { launchApp, restartApp, isRunning, getCurrentCommand, getCurrentCwd } from '../system/appLauncher';
+  import { startAutoFix, buildAutoFixPrompt } from '../system/autoFix';
   import { killPort } from '../system/portKiller';
   import { getGitStatus } from '../deploy/git';
+  import { claudeStatus } from '../system/claudeResolver';
 
   let abortController: AbortController;
 
@@ -47,6 +49,14 @@
       bootEntries.push({ type: 'timestamp', time: now, message: 'Backend connected <span class="text-emerald-400">&#10003;</span>' });
     } else {
       bootEntries.push({ type: 'timestamp', time: now, message: 'Backend: <span class="text-slate-500">offline — mock mode</span>' });
+    }
+
+    // Claude CLI status
+    const cliStatus = get(claudeStatus);
+    if (cliStatus === 'not_found') {
+      bootEntries.push({ type: 'timestamp', time: now, message: 'Claude CLI: <span class="text-red-400">not found</span> — install with <span class="text-slate-300">npm install -g @anthropic-ai/claude-code</span>' });
+    } else if (cliStatus === 'found') {
+      bootEntries.push({ type: 'timestamp', time: now, message: 'Claude CLI <span class="text-emerald-400">&#10003;</span>' });
     }
 
     bootEntries.push({ type: 'prompt', label: 'SYSTEM', body: splash });
@@ -89,17 +99,18 @@
   });
 
   let animatingType = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
-  let animatingButton = $state<string | null>(null);
+  let animatingIndex = $state<number | null>(null);
 
-  function selectCategory(category: Category, button: string) {
+  function selectCategory(category: Category) {
     if (animatingType) return;
 
-    // Y (YOLO) always gets glitch — design rule: Y is always ridiculous
-    const anim = button === 'Y' ? 'glitch' : 'confirm';
-    const duration = button === 'Y' ? 450 : 350;
+    // YOLO always gets glitch — design rule: Y is always ridiculous
+    const isYolo = category === 'yolo';
+    const anim = isYolo ? 'glitch' : 'confirm';
+    const duration = isYolo ? 450 : 350;
 
     animatingType = anim;
-    animatingButton = button;
+    animatingIndex = get(selectedCardIndex);
     screenCards.set([]); // lock gamepad during animation
 
     // Start loading predictions before navigating (fires async, doesn't block)
@@ -107,7 +118,7 @@
 
     setTimeout(() => {
       animatingType = null;
-      animatingButton = null;
+      animatingIndex = null;
       navigate('level2');
     }, duration);
   }
@@ -115,36 +126,32 @@
   // Level 1 category cards — all 4 get branded colors per style guide section 13
   const cards = [
     {
-      button: 'A',
       title: 'Feature',
       description: 'build something new',
       pills: [{ label: '8 suggestions', variant: 'active' as const }],
       variant: 'primary' as const,
-      onclick: () => selectCategory('feature', 'A'),
+      onclick: () => selectCategory('feature'),
     },
     {
-      button: 'B',
       title: 'Bug',
       description: 'fix something broken',
       pills: [{ label: '8 suggestions', variant: 'neutral' as const }],
       variant: 'secondary_pink' as const,
-      onclick: () => selectCategory('bug', 'B'),
+      onclick: () => selectCategory('bug'),
     },
     {
-      button: 'X',
       title: 'Tech Debt',
       description: 'pay down the mess',
       pills: [{ label: '8 suggestions', variant: 'neutral' as const }],
       variant: 'neutral' as const,
-      onclick: () => selectCategory('tech_debt', 'X'),
+      onclick: () => selectCategory('tech_debt'),
     },
     {
-      button: 'Y',
       title: 'Yolo',
       description: 'surprise me, I\'m feeling lucky',
       pills: [{ label: '8 suggestions', variant: 'neutral' as const }],
       variant: 'amber' as const,
-      onclick: () => selectCategory('yolo', 'Y'),
+      onclick: () => selectCategory('yolo'),
     },
   ];
 
@@ -166,7 +173,6 @@
 
   let portInUseCards = $derived($appError?.type === 'port_in_use' ? [
     {
-      button: 'A',
       title: 'Kill Port & Restart',
       description: `nuke whatever\'s on port ${$appError.port ?? '???'} and relaunch`,
       pills: [{ label: 'auto-fix', variant: 'active' as const }],
@@ -184,7 +190,6 @@
       },
     },
     {
-      button: 'B',
       title: 'Dismiss',
       description: 'clear the error and carry on',
       pills: [] as { label: string; variant: 'active' | 'neutral' }[],
@@ -192,7 +197,6 @@
       onclick: () => { appError.set(null); },
     },
     {
-      button: 'X',
       title: 'File as Bug',
       description: 'route this to bug category with context',
       pills: [{ label: 'bug report', variant: 'neutral' as const }],
@@ -204,7 +208,6 @@
       },
     },
     {
-      button: 'Y',
       title: 'Blame Node.js',
       description: 'it was definitely Node\'s fault',
       pills: [{ label: 'obviously', variant: 'neutral' as const }],
@@ -219,19 +222,20 @@
 
   let genericCrashCards = $derived($appError?.type === 'generic_crash' ? [
     {
-      button: 'A',
-      title: 'File as Bug',
-      description: 'create a bug report with crash context',
-      pills: [{ label: 'bug report', variant: 'active' as const }],
+      title: 'Auto Fix',
+      description: 'let Claude diagnose and fix the crash',
+      pills: [{ label: 'auto-fix', variant: 'active' as const }],
       variant: 'primary' as const,
       onclick: () => {
+        const error = $appError!;
+        startAutoFix(error);
+        const prompt = buildAutoFixPrompt(error, getCurrentCommand(), getCurrentCwd(), 1, [error]);
+        pendingClaudePrompt.set(prompt);
         appError.set(null);
-        loadPredictions('bug', abortController.signal);
-        navigate('level2');
+        navigate('ai_working');
       },
     },
     {
-      button: 'B',
       title: 'Restart App',
       description: 'try running it again',
       pills: [{ label: 'relaunch', variant: 'neutral' as const }],
@@ -242,15 +246,17 @@
       },
     },
     {
-      button: 'X',
-      title: 'Dismiss',
-      description: 'clear the error and move on',
-      pills: [] as { label: string; variant: 'active' | 'neutral' }[],
+      title: 'File as Bug',
+      description: 'create a bug report with crash context',
+      pills: [{ label: 'bug report', variant: 'neutral' as const }],
       variant: 'neutral' as const,
-      onclick: () => { appError.set(null); },
+      onclick: () => {
+        appError.set(null);
+        loadPredictions('bug', abortController.signal);
+        navigate('level2');
+      },
     },
     {
-      button: 'Y',
       title: 'Blame Solar Flares',
       description: 'the cosmos did this, not your code',
       pills: [{ label: 'obviously', variant: 'neutral' as const }],
@@ -270,7 +276,7 @@
 
   $effect(() => {
     const current = activeCards;
-    screenCards.set(current.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+    screenCards.set(current.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
   });
 
   // Auto-switch to app tab on error
@@ -310,11 +316,11 @@
 
   let hints = $derived(isErrorMode
     ? [
-        { key: 'A/B/X/Y', label: 'Select' },
+        { key: 'A', label: 'Select' },
         { key: 'D-PAD', label: 'Navigate' },
       ]
     : [
-        { key: 'A/B/X/Y', label: 'Select' },
+        { key: 'A', label: 'Select' },
         { key: 'D-PAD', label: 'Navigate' },
         { key: 'R4', label: 'Run App' },
         { key: 'RB', label: 'Screenshot' },
@@ -332,7 +338,7 @@
   cards={activeCards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
-  {animatingButton}
+  {animatingIndex}
   animationType={animatingType}
   {hints}
 />

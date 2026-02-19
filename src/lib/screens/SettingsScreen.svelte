@@ -29,7 +29,6 @@
 
   const cards = [
     {
-      button: 'A',
       title: 'Prediction Engine',
       description: 'backend mode, API key, models',
       pills: [{ label: config?.prediction_engine.backend_mode ?? 'proxied', variant: 'active' as const }],
@@ -37,7 +36,6 @@
       onclick: () => navigate('settings_prediction'),
     },
     {
-      button: 'B',
       title: 'Display & Input',
       description: 'split ratio, scanlines, scroll speed',
       pills: [{ label: `${config?.display.default_split_ratio ?? 55}%`, variant: 'neutral' as const }],
@@ -45,7 +43,6 @@
       onclick: () => navigate('settings_display'),
     },
     {
-      button: 'X',
       title: 'Telemetry & Cost',
       description: 'usage data, cost alerts',
       pills: [{ label: config?.telemetry.enabled ? 'enabled' : 'disabled', variant: 'neutral' as const }],
@@ -53,7 +50,6 @@
       onclick: () => navigate('settings_telemetry'),
     },
     {
-      button: 'Y',
       title: 'Advanced',
       description: 'reset, debug, system info',
       pills: [{ label: 'v0.1.0', variant: 'neutral' as const }],
@@ -67,7 +63,7 @@
     { button: 'LB', label: 'Back', icon: 'arrow_back' },
   ];
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />
@@ -80,8 +76,8 @@
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
   hints={[
-    { key: 'A/B/X/Y', label: 'Select' },
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
     { key: 'D-PAD', label: 'Navigate' },
-    { key: 'START', label: 'Close' },
   ]}
 />

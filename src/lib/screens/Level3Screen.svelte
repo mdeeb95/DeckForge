@@ -14,7 +14,7 @@
   let plan = $derived($currentPlan);
 
   let animatingShip = $state<'glitch' | 'confirm' | 'dismiss' | 'pulse' | null>(null);
-  let animatingButton = $state<'A' | 'B' | 'X' | 'Y' | null>(null);
+  let animatingIndex = $state<number | null>(null);
   let shipAnimationCount = 0; // persists across L3 visits within session
 
   // Populate terminal with plan details when plan loads
@@ -109,14 +109,14 @@
 
     // Alternate between glitch and confirm
     animatingShip = shipAnimationCount % 2 === 0 ? 'glitch' : 'confirm';
-    animatingButton = unhinged ? 'Y' : 'A';
+    animatingIndex = unhinged ? 3 : 0; // Y=index 3, Ship It=index 0
     shipAnimationCount++;
     screenCards.set([]); // lock gamepad during animation
     pendingClaudePrompt.set(prompt);
 
     setTimeout(() => {
       animatingShip = null;
-      animatingButton = null;
+      animatingIndex = null;
       navigate('ai_working');
     }, 450);
   }
@@ -126,12 +126,12 @@
     trackPlanRejection();
 
     animatingShip = 'dismiss';
-    animatingButton = 'B';
+    animatingIndex = 1; // Go Back is index 1
     screenCards.set([]); // lock gamepad
 
     setTimeout(() => {
       animatingShip = null;
-      animatingButton = null;
+      animatingIndex = null;
       navigate('level2');
     }, 300);
   }
@@ -149,10 +149,10 @@
 
     // Flash the pulse animation (cosmetic, doesn't block the action)
     animatingShip = 'pulse';
-    animatingButton = 'X';
+    animatingIndex = 2; // Tell Me More is index 2
     setTimeout(() => {
       animatingShip = null;
-      animatingButton = null;
+      animatingIndex = null;
     }, 350);
 
     isExpanding = true;
@@ -292,7 +292,6 @@
 
     return [
       {
-        button: 'A',
         title: planReady ? 'Ship It' : 'Generating Plan...',
         description: planReady
           ? `Execute the plan as-is. Claude Code will implement all ${stepCount} steps.`
@@ -339,14 +338,13 @@
   });
 
   const secondaryCards = [
-    { button: 'RB', label: 'Modify Plan', icon: 'edit_note' },
     { button: 'LB', label: 'Back to Categories', icon: 'arrow_back' },
   ];
 
   // Update screenCards reactively
   $effect(() => {
     screenCards.set(cards.map(c => ({
-      button: c.button,
+      ...(c.button ? { button: c.button } : {}),
       title: c.title,
       description: c.description,
       onclick: c.onclick,
@@ -380,7 +378,7 @@
   {cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
-  {animatingButton}
+  {animatingIndex}
   animationType={animatingShip}
   hints={[
     { key: 'A', label: 'Ship It' },

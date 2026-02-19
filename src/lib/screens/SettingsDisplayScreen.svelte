@@ -57,7 +57,6 @@
 
   const cards = [
     {
-      button: 'A',
       title: 'Split Ratio',
       description: 'DPAD L/R to adjust terminal width (live preview)',
       pills: [{ label: `${config?.display.default_split_ratio ?? 55}%`, variant: 'active' as const }],
@@ -65,7 +64,6 @@
       onclick: () => adjustSplitRatio('right'),
     },
     {
-      button: 'B',
       title: 'Scanline Overlay',
       description: 'CRT-style scanlines on the terminal',
       pills: [{ label: config?.display.scanline_overlay ? 'on' : 'off', variant: 'neutral' as const }],
@@ -73,7 +71,6 @@
       onclick: toggleScanlines,
     },
     {
-      button: 'X',
       title: 'Theme',
       description: 'more themes coming soon',
       pills: [{ label: config?.display.theme ?? 'default', variant: 'neutral' as const }],
@@ -81,7 +78,6 @@
       onclick: () => { entries.addEntry({ type: 'thought', label: 'THEME', body: 'Only "default" available for now' }); },
     },
     {
-      button: 'Y',
       title: 'Stick Scroll Speed',
       description: 'DPAD L/R to adjust (0.25x – 4.0x)',
       pills: [{ label: `${config?.input.stick_scroll_speed ?? 1.0}x`, variant: 'neutral' as const }],
@@ -94,7 +90,7 @@
     { button: 'LB', label: 'Back to Settings', icon: 'arrow_back' },
   ];
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />
@@ -107,8 +103,8 @@
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
   hints={[
-    { key: 'A/B/X/Y', label: 'Toggle' },
-    { key: 'D-PAD L/R', label: 'Adjust' },
-    { key: 'LB', label: 'Back' },
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'D-PAD', label: 'Navigate' },
   ]}
 />

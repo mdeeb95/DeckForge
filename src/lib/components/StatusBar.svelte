@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cpuUsage, ramUsage } from '../stores/systemStats';
+  import { claudeStatus } from '../system/claudeResolver';
 
   interface Props {
     projectName?: string;
@@ -29,6 +30,14 @@
         <span class="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
         Disconnected
       </span>
+    {/if}
+    <span class="text-slate-500">|</span>
+    {#if $claudeStatus === 'searching'}
+      <span class="text-slate-500">CLI...</span>
+    {:else if $claudeStatus === 'found'}
+      <span class="text-emerald-400">CLI</span>
+    {:else}
+      <span class="text-red-400" title="Claude CLI not found">CLI</span>
     {/if}
   </div>
   <div class="flex items-center gap-4 text-slate-400">

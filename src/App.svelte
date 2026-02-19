@@ -8,9 +8,11 @@
   import type { Screen } from './lib/stores/app';
   import { startGamepadPolling, stopGamepadPolling } from './lib/input/gamepad';
   import { handleInput } from './lib/input/inputRouter';
+  import { inputMode } from './lib/input/inputMode.svelte';
   import { scrollTerminal } from './lib/stores/terminalScroll';
   import { initApp as initAppConfig } from './lib/stores/configStores';
   import { startSystemStatsPolling, stopSystemStatsPolling } from './lib/stores/systemStats';
+  import { discoverClaude } from './lib/system/claudeResolver';
 
   // Initialize app state (will be overridden by config load)
   projectName.set('');
@@ -35,6 +37,7 @@
   };
 
   // Keyboard → gamepad button mapping (fallback for development)
+  // Back grips (L4/R4/L5/R5) use F1-F4 — map these in Steam Input on the Deck.
   const keyToButton: Record<string, string> = {
     ArrowUp: 'DPAD_UP',
     ArrowDown: 'DPAD_DOWN',
@@ -47,7 +50,11 @@
     Tab: 'RB',
     m: 'START',
     v: 'SELECT',
-    r: 'R4',
+    r: 'R4',       // dev keyboard shortcut
+    F1: 'L4',      // Steam Input: map L4 grip → F1
+    F2: 'R4',      // Steam Input: map R4 grip → F2
+    F3: 'L5',      // Steam Input: map L5 grip → F3
+    F4: 'R5',      // Steam Input: map R5 grip → F4
   };
 
   let shiftHeld = false;
@@ -55,6 +62,9 @@
 
   // Load global config + auth asynchronously on startup
   async function initApp() {
+    // Non-blocking: discover claude CLI in parallel with config load
+    discoverClaude();
+
     try {
       const config = await initAppConfig();
 
@@ -78,6 +88,11 @@
   onMount(() => {
     // Kick off async config load
     initApp();
+
+    // Detect initial input mode from connected gamepads
+    const gamepads = navigator.getGamepads();
+    const hasGamepad = gamepads && Array.from(gamepads).some(gp => gp !== null);
+    inputMode.set(hasGamepad ? 'gamepad' : 'keyboard');
 
     // Start gamepad polling with analog handler for R-stick terminal scroll
     startGamepadPolling(handleInput, (axis, value) => {
@@ -106,6 +121,7 @@
       const button = keyToButton[e.key];
       if (button) {
         e.preventDefault();
+        inputMode.set('keyboard');
         if (shiftHeld) {
           handleInput(`LB_${button}`);
           shiftComboFired = true;
@@ -118,6 +134,7 @@
     function handleKeyup(e: KeyboardEvent) {
       if (e.key === 'Shift') {
         if (!shiftComboFired) {
+          inputMode.set('keyboard');
           handleInput('LB');
         }
         shiftHeld = false;

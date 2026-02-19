@@ -3,7 +3,7 @@
     "type": "system",
     "subtype": "init",
     "cwd": "/Users/mdeeb95/Documents/DeckForge",
-    "session_id": "dd90253f-8a4b-4b45-90c1-babdd4608447",
+    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b",
     "tools": [
       "Task",
       "TaskOutput",
@@ -42,8 +42,8 @@
       "insights"
     ],
     "apiKeySource": "none",
-    "claude_code_version": "2.1.45",
-    "output_style": "default",
+    "claude_code_version": "2.1.47",
+    "output_style": "Explanatory",
     "agents": [
       "Bash",
       "general-purpose",
@@ -63,27 +63,27 @@
         "path": "/Users/mdeeb95/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0"
       }
     ],
-    "uuid": "9c04b793-2924-4cae-b8d7-2a517f6a2170",
+    "uuid": "2b82250d-0356-41ee-ac07-0073568c7b91",
     "fast_mode_state": "off"
   },
   {
     "type": "rate_limit_event",
     "rate_limit_info": {
       "status": "allowed",
-      "resetsAt": 1771369200,
+      "resetsAt": 1771531200,
       "rateLimitType": "five_hour",
       "overageStatus": "rejected",
       "overageDisabledReason": "org_level_disabled_until",
       "isUsingOverage": false
     },
-    "uuid": "9c643a71-3207-48ea-ad5d-b0183e433f7a",
-    "session_id": "dd90253f-8a4b-4b45-90c1-babdd4608447"
+    "uuid": "991fbec9-0b91-413c-8a81-2c6f15baab4b",
+    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b"
   },
   {
     "type": "assistant",
     "message": {
       "model": "claude-opus-4-6",
-      "id": "msg_019KwtGK6MJ6PxftUB8heqDt",
+      "id": "msg_01RzadMDUvi16Jj31oi11dRL",
       "type": "message",
       "role": "assistant",
       "content": [
@@ -96,11 +96,11 @@
       "stop_sequence": null,
       "usage": {
         "input_tokens": 3,
-        "cache_creation_input_tokens": 2861,
-        "cache_read_input_tokens": 18310,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 21453,
         "cache_creation": {
           "ephemeral_5m_input_tokens": 0,
-          "ephemeral_1h_input_tokens": 2861
+          "ephemeral_1h_input_tokens": 0
         },
         "output_tokens": 1,
         "service_tier": "standard",
@@ -109,24 +109,24 @@
       "context_management": null
     },
     "parent_tool_use_id": null,
-    "session_id": "dd90253f-8a4b-4b45-90c1-babdd4608447",
-    "uuid": "5a5ec285-c727-48ba-8f63-e1f186489867"
+    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b",
+    "uuid": "332e2bd2-f050-4a40-9105-6a98171953df"
   },
   {
     "type": "result",
     "subtype": "success",
     "is_error": false,
-    "duration_ms": 2739,
-    "duration_api_ms": 2722,
+    "duration_ms": 1299,
+    "duration_api_ms": 1280,
     "num_turns": 1,
     "result": "hello world",
     "stop_reason": null,
-    "session_id": "dd90253f-8a4b-4b45-90c1-babdd4608447",
-    "total_cost_usd": 0.02717625,
+    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b",
+    "total_cost_usd": 0.0108665,
     "usage": {
       "input_tokens": 3,
-      "cache_creation_input_tokens": 2861,
-      "cache_read_input_tokens": 18310,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 21453,
       "output_tokens": 5,
       "server_tool_use": {
         "web_search_requests": 0,
@@ -134,7 +134,7 @@
       },
       "service_tier": "standard",
       "cache_creation": {
-        "ephemeral_1h_input_tokens": 2861,
+        "ephemeral_1h_input_tokens": 0,
         "ephemeral_5m_input_tokens": 0
       },
       "inference_geo": "",
@@ -145,15 +145,15 @@
       "claude-opus-4-6": {
         "inputTokens": 3,
         "outputTokens": 5,
-        "cacheReadInputTokens": 18310,
-        "cacheCreationInputTokens": 2861,
+        "cacheReadInputTokens": 21453,
+        "cacheCreationInputTokens": 0,
         "webSearchRequests": 0,
-        "costUSD": 0.02717625,
+        "costUSD": 0.0108665,
         "contextWindow": 200000,
         "maxOutputTokens": 32000
       }
     },
     "permission_denials": [],
-    "uuid": "5b6dd8e9-1a98-4c4a-851f-2e3db74f3d14"
+    "uuid": "6d1b6a62-0686-4ca2-911e-f6e0d1338f92"
   }
 ]

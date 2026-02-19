@@ -50,7 +50,6 @@
 
   const cards = [
     {
-      button: 'A',
       title: 'Telemetry',
       description: 'anonymous usage data',
       pills: [{ label: config?.telemetry.enabled ? 'enabled' : 'disabled', variant: 'active' as const }],
@@ -58,7 +57,6 @@
       onclick: toggleTelemetry,
     },
     {
-      button: 'B',
       title: 'Cost Indicator',
       description: 'show session cost in terminal header',
       pills: [{ label: config?.cost_tracking.show_cost_indicator ? 'shown' : 'hidden', variant: 'neutral' as const }],
@@ -66,7 +64,6 @@
       onclick: toggleCostIndicator,
     },
     {
-      button: 'X',
       title: 'Budget Alert',
       description: 'DPAD L/R to adjust threshold',
       pills: [{ label: `$${config?.cost_tracking.session_budget_warning_threshold_usd.toFixed(2) ?? '0.50'}`, variant: 'neutral' as const }],
@@ -79,7 +76,7 @@
     { button: 'LB', label: 'Back to Settings', icon: 'arrow_back' },
   ];
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />
@@ -92,8 +89,8 @@
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
   hints={[
-    { key: 'A/B', label: 'Toggle' },
-    { key: 'D-PAD L/R', label: 'Adjust' },
-    { key: 'LB', label: 'Back' },
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'D-PAD', label: 'Navigate' },
   ]}
 />

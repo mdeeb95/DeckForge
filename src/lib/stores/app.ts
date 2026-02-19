@@ -22,7 +22,7 @@ export type Screen =
   | 'settings_advanced';
 
 export interface ScreenCardData {
-  button: string;
+  button?: string;    // only set for X/Y shortcut cards and secondary buttons
   title: string;
   description: string;
   onclick?: () => void;
@@ -39,8 +39,8 @@ function createScreenCardsStore() {
   return {
     subscribe,
     set(cards: ScreenCardData[]) {
-      devLog('store', `screenCards updated: ${cards.length} cards [${cards.map(c => c.button).join(', ')}]`,
-        cards.map(c => ({ button: c.button, title: c.title, hasOnclick: !!c.onclick })));
+      devLog('store', `screenCards updated: ${cards.length} cards [${cards.map(c => c.button ?? '—').join(', ')}]`,
+        cards.map(c => ({ button: c.button ?? '—', title: c.title, hasOnclick: !!c.onclick })));
       rawSet(cards);
     },
     update,

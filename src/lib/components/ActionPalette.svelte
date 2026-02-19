@@ -4,7 +4,7 @@
   import HintGrid from './HintGrid.svelte';
 
   interface CardData {
-    button: string;
+    button?: string;
     title: string;
     description: string;
     pills: { label: string; variant: 'active' | 'neutral' }[];
@@ -17,6 +17,7 @@
     label: string;
     icon: string;
     variant?: 'default' | 'emerald';
+    onclick?: () => void;
   }
 
   interface Props {
@@ -27,7 +28,7 @@
     cards?: CardData[];
     secondaryCards?: SecondaryCardData[];
     selectedIndex?: number;
-    animatingButton?: string | null;
+    animatingIndex?: number | null;
     animationType?: 'glitch' | 'confirm' | 'dismiss' | 'pulse' | null;
     hints?: { key: string; label: string }[];
   }
@@ -40,7 +41,7 @@
     cards = [],
     secondaryCards = [],
     selectedIndex = 0,
-    animatingButton = null,
+    animatingIndex = null,
     animationType = null,
     hints = [],
   }: Props = $props();
@@ -52,7 +53,7 @@
 
   $effect(() => {
     // Don't trigger switch animation during action animations
-    if (animatingButton) return;
+    if (animatingIndex != null) return;
 
     if (selectedIndex !== prevIndex && prevIndex >= 0) {
       exitingIndex = prevIndex;
@@ -100,7 +101,7 @@
         selected={i === selectedIndex}
         variant={card.variant}
         onclick={card.onclick}
-        animationType={card.button === animatingButton ? animationType : null}
+        animationType={i === animatingIndex ? animationType : null}
         switchAnimation={i === enteringIndex ? 'zoom-in' : i === exitingIndex ? 'zoom-out' : null}
       />
     {/each}
@@ -115,6 +116,7 @@
           label={card.label}
           icon={card.icon}
           variant={card.variant}
+          onclick={card.onclick}
         />
       {/each}
     {/if}

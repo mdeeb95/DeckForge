@@ -63,11 +63,9 @@
   });
 
   function updateScreenCards() {
-    const btns = ['A', 'B', 'X', 'Y'];
     const visibleProjects = projects.slice(0, 4);
 
-    const cards = visibleProjects.map((p, i) => ({
-      button: btns[i],
+    const cards: { button?: string; title: string; description: string; onclick: () => void }[] = visibleProjects.map((p) => ({
       title: p.name,
       description: p.tech_stack,
       onclick: () => selectProject(p),
@@ -114,7 +112,6 @@
   let visibleProjects = $derived(projects.slice(0, 4));
   let hasProjects = $derived(projects.length > 0);
   let totalCount = $derived(projects.length);
-  const buttons = ['A', 'B', 'X', 'Y'];
 </script>
 
 <div class="flex-1 overflow-hidden bg-background-dark">
@@ -148,8 +145,7 @@
             <div class="relative group cursor-pointer" onclick={() => selectProject(project)}>
               <div class="absolute -left-2 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(13,242,242,0.6)] rounded-r"></div>
               <div class="bg-[#1c242e] border-2 border-primary/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
-                <div class="absolute top-0 right-0 p-1.5 bg-primary text-black rounded-bl font-bold text-xs shadow-sm">{buttons[i]}</div>
-                <h3 class="text-primary font-bold text-sm mb-1 pr-6 truncate">{project.name}</h3>
+                <h3 class="text-primary font-bold text-sm mb-1 truncate">{project.name}</h3>
                 <p class="text-xs text-slate-300 leading-snug mb-2">{project.tech_stack}</p>
                 <div class="flex items-center gap-2 text-[10px]">
                   <span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">{frameworkPill(project.framework)}</span>
@@ -162,8 +158,7 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div class="relative group opacity-80 hover:opacity-100 transition-opacity cursor-pointer" onclick={() => selectProject(project)}>
               <div class="bg-surface-dark border border-surface-border hover:border-slate-600 p-3 rounded relative transition-colors">
-                <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-slate-700 text-slate-300 border border-slate-600 rounded-full font-bold text-[10px]">{buttons[i]}</div>
-                <h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">{project.name}</h3>
+                <h3 class="text-white font-medium text-sm mb-1 truncate">{project.name}</h3>
                 <p class="text-xs text-slate-400 leading-snug mb-2">{project.tech_stack}</p>
                 <div class="flex items-center gap-2 text-[10px]">
                   <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-surface-border">{frameworkPill(project.framework)}</span>

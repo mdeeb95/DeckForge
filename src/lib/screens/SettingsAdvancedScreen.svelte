@@ -78,7 +78,6 @@
 
   const cards = [
     {
-      button: 'A',
       title: 'Permission Mode',
       description: 'DPAD L/R to cycle Claude Code permissions',
       pills: [{ label: config?.claude_code.permission_mode ?? 'acceptEdits', variant: 'active' as const }],
@@ -86,7 +85,6 @@
       onclick: () => cyclePermissionMode('right'),
     },
     {
-      button: 'B',
       title: 'View Config',
       description: 'dump current global config to terminal',
       pills: [{ label: 'global.json', variant: 'neutral' as const }],
@@ -94,7 +92,6 @@
       onclick: showConfig,
     },
     {
-      button: 'X',
       title: 'System Info',
       description: 'version, platform, Tauri status',
       pills: [{ label: 'v0.1.0', variant: 'neutral' as const }],
@@ -102,9 +99,8 @@
       onclick: showSystemInfo,
     },
     {
-      button: 'Y',
       title: 'Reset to Defaults',
-      description: 'double-press Y to confirm — this is destructive',
+      description: 'double-press to confirm — this is destructive',
       pills: [{ label: 'DESTRUCTIVE', variant: 'neutral' as const }],
       variant: 'amber' as const,
       onclick: handleReset,
@@ -115,7 +111,7 @@
     { button: 'LB', label: 'Back to Settings', icon: 'arrow_back' },
   ];
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />
@@ -128,8 +124,8 @@
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
   hints={[
-    { key: 'A/B/X/Y', label: 'Select' },
-    { key: 'D-PAD L/R', label: 'Adjust' },
-    { key: 'LB', label: 'Back' },
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'D-PAD', label: 'Navigate' },
   ]}
 />

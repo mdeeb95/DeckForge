@@ -40,7 +40,6 @@
 
   const cards = [
     {
-      button: 'A',
       title: 'Retry with Fix',
       description: 'Let Claude analyze the error and attempt an automatic fix.',
       pills: [{ label: 'Auto-fix', variant: 'active' as const }],
@@ -48,7 +47,6 @@
       onclick: () => { clearError(); navigate('ai_working'); },
     },
     {
-      button: 'B',
       title: 'Go Back',
       description: 'Return to the main screen.',
       pills: [{ label: 'Navigate', variant: 'neutral' as const }],
@@ -83,7 +81,6 @@
       },
     },
     {
-      button: 'Y',
       title: 'Ignore and Continue',
       description: 'Skip this error and move on. Use with caution.',
       pills: [{ label: 'Risky', variant: 'neutral' as const }],
@@ -92,12 +89,9 @@
     },
   ];
 
-  const secondaryCards = [
-    { button: 'RB', label: 'Report Bug', icon: 'bug_report' },
-    { button: 'LB', label: 'Copy Error Log', icon: 'content_copy' },
-  ];
+  const secondaryCards: { button: string; label: string; icon: string }[] = [];
 
-  screenCards.set(cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })));
+  screenCards.set(cards.map(c => ({ ...(c.button ? { button: c.button } : {}), title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />
@@ -118,8 +112,7 @@
         <div class="relative group cursor-pointer" onclick={card.onclick}>
           <div class="absolute -left-2 top-0 bottom-0 w-1 bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.6)] rounded-r"></div>
           <div class="bg-[#1c242e] border-2 border-red-400/50 p-3 rounded shadow-lg relative overflow-hidden transition-all">
-            <div class="absolute top-0 right-0 p-1.5 bg-red-400 text-black rounded-bl font-bold text-xs shadow-sm">{card.button}</div>
-            <h3 class="text-red-400 font-bold text-sm mb-1 pr-6 truncate">{card.title}</h3>
+            <h3 class="text-red-400 font-bold text-sm mb-1 truncate">{card.title}</h3>
             <p class="text-xs text-slate-300 leading-snug mb-2">{card.description}</p>
             <div class="flex items-center gap-2 text-[10px]">
               {#each card.pills as pill}
@@ -134,12 +127,7 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={card.onclick}>
           <div class="bg-surface-dark border border-red-400/20 hover:border-slate-600 p-3 rounded relative transition-all">
-            <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center {
-              card.variant === 'secondary_pink' ? 'bg-secondary/20 text-secondary border border-secondary/30' :
-              card.variant === 'amber' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-              'bg-slate-700 text-slate-300 border border-slate-600'
-            } rounded-full font-bold text-[10px]">{card.button}</div>
-            <h3 class="text-white font-medium text-sm mb-1 pr-6 truncate">{card.title}</h3>
+            <h3 class="text-white font-medium text-sm mb-1 truncate">{card.title}</h3>
             <p class="text-xs text-slate-400 leading-snug mb-2">{card.description}</p>
             <div class="flex items-center gap-2 text-[10px]">
               {#each card.pills as pill}
@@ -174,6 +162,11 @@
 
   <!-- Bottom hint -->
   <div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
-    <p class="text-[10px] text-slate-500 font-mono">Use <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> to navigate cards</p>
+    <p class="text-[10px] text-slate-500 font-mono">
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> Select
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> Back
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">X</span> View Error
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> Navigate
+    </p>
   </div>
 </aside>

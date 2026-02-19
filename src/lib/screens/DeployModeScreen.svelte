@@ -263,7 +263,6 @@ Duration:  ${lastDeploy.duration_seconds}s`,
 
   const cards = $derived([
     {
-      button: 'A',
       title: 'Push and Deploy',
       description: 'Merge to main, push to origin, and trigger production deploy.',
       pills: [{ label: 'Production', variant: 'active' as const }],
@@ -271,7 +270,6 @@ Duration:  ${lastDeploy.duration_seconds}s`,
       onclick: handlePushAndDeploy,
     },
     {
-      button: 'B',
       title: 'Preview Deploy',
       description: 'Push branch and deploy to a temporary preview URL. No merge.',
       pills: [{ label: 'Staging', variant: 'neutral' as const }],
@@ -279,7 +277,6 @@ Duration:  ${lastDeploy.duration_seconds}s`,
       onclick: handlePreviewDeploy,
     },
     {
-      button: 'X',
       title: 'Push Only',
       description: 'Push branch to origin without merging or deploying. Opens a PR.',
       pills: [{ label: 'Git only', variant: 'neutral' as const }],
@@ -287,7 +284,6 @@ Duration:  ${lastDeploy.duration_seconds}s`,
       onclick: handlePushOnly,
     },
     {
-      button: 'Y',
       title: 'Review Changes',
       description: 'View the full diff of all commits before deciding.',
       pills: [{ label: diffPill, variant: 'neutral' as const }],
@@ -308,7 +304,7 @@ Duration:  ${lastDeploy.duration_seconds}s`,
   // Register screen cards with onclick handlers (including secondary buttons)
   $effect(() => {
     screenCards.set([
-      ...cards.map(c => ({ button: c.button, title: c.title, description: c.description, onclick: c.onclick })),
+      ...cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })),
       { button: 'RB', title: 'Change Deploy Target', description: '', onclick: handleChangeTarget },
       { button: 'LB', title: 'Deploy History', description: '', onclick: handleDeployHistory },
     ]);
@@ -323,4 +319,9 @@ Duration:  ${lastDeploy.duration_seconds}s`,
   cards={cards}
   {secondaryCards}
   selectedIndex={$selectedCardIndex}
+  hints={[
+    { key: 'A', label: 'Select' },
+    { key: 'B', label: 'Back' },
+    { key: 'D-PAD', label: 'Navigate' },
+  ]}
 />

@@ -79,15 +79,15 @@
 
     screenCards.set([
       ...timelineCards,
-      { button: 'A', title: 'Preview', description: '', onclick: handlePreview },
+      { title: 'Preview', description: '', onclick: handlePreview },
       { button: 'Y', title: 'Rollback', description: '', onclick: handleRollback },
     ]);
   }
 
   function registerRollbackConfirmCards() {
     screenCards.set([
-      { button: 'A', title: 'Confirm Rollback', description: '', onclick: handleConfirmRollback },
-      { button: 'B', title: 'Cancel', description: '', onclick: handleCancelRollback },
+      { title: 'Confirm Rollback', description: '', onclick: handleConfirmRollback },
+      { title: 'Cancel', description: '', onclick: handleCancelRollback },
     ]);
   }
 
@@ -240,8 +240,7 @@ Safety: Uses revert commits (rollback itself is undoable)`,
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={handleConfirmRollback}>
         <div class="bg-surface-dark border border-primary/30 hover:border-primary/50 p-3 rounded relative transition-all border-l-primary border-l-2 shadow-[inset_0_0_15px_rgba(13,242,242,0.1)]">
-          <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-primary/20 text-primary border border-primary/30 rounded-full font-bold text-[10px]">A</div>
-          <h3 class="text-primary font-medium text-sm mb-1 pr-6">Confirm Rollback</h3>
+          <h3 class="text-primary font-medium text-sm mb-1">Confirm Rollback</h3>
           <p class="text-xs text-slate-400 leading-snug">Revert commits using safe revert (undoable)</p>
         </div>
       </div>
@@ -249,8 +248,7 @@ Safety: Uses revert commits (rollback itself is undoable)`,
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={handleCancelRollback}>
         <div class="bg-surface-dark border border-red-400/30 hover:border-red-400/50 p-3 rounded relative transition-all">
-          <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-red-400/20 text-red-400 border border-red-400/30 rounded-full font-bold text-[10px]">B</div>
-          <h3 class="text-red-400 font-medium text-sm mb-1 pr-6">Cancel</h3>
+          <h3 class="text-red-400 font-medium text-sm mb-1">Cancel</h3>
           <p class="text-xs text-slate-400 leading-snug">Return to timeline</p>
         </div>
       </div>
@@ -260,8 +258,7 @@ Safety: Uses revert commits (rollback itself is undoable)`,
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={handlePreview}>
         <div class="bg-surface-dark border border-primary/30 hover:border-primary/50 p-3 rounded relative transition-all">
-          <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-primary/20 text-primary border border-primary/30 rounded-full font-bold text-[10px]">A</div>
-          <h3 class="text-primary font-medium text-sm mb-1 pr-6">Preview Commit</h3>
+          <h3 class="text-primary font-medium text-sm mb-1">Preview Commit</h3>
           <p class="text-xs text-slate-400 leading-snug">Show the diff for the selected commit</p>
           {#if timeline[selectedIdx]}
             <span class="inline-block mt-1 text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-sm">
@@ -275,8 +272,7 @@ Safety: Uses revert commits (rollback itself is undoable)`,
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="relative group opacity-80 hover:opacity-100 transition-opacity" onclick={handleRollback}>
         <div class="bg-surface-dark border border-amber-400/30 hover:border-amber-400/50 p-3 rounded relative transition-all">
-          <div class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-amber-400/20 text-amber-400 border border-amber-400/30 rounded-full font-bold text-[10px]">Y</div>
-          <h3 class="text-amber-400 font-medium text-sm mb-1 pr-6">Rollback to Here</h3>
+          <h3 class="text-amber-400 font-medium text-sm mb-1">Rollback to Here</h3>
           <p class="text-xs text-slate-400 leading-snug">Undo all commits after the selected one</p>
           {#if timeline[selectedIdx] && !timeline[selectedIdx].is_current}
             <span class="inline-block mt-1 text-[10px] bg-amber-400/10 text-amber-400 border border-amber-400/20 px-1.5 py-0.5 rounded-sm">
@@ -302,14 +298,15 @@ Safety: Uses revert commits (rollback itself is undoable)`,
   <div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
     {#if confirmingRollback}
       <p class="text-[10px] text-slate-500 font-mono">
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> confirm &middot;
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> cancel
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> Select &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> Back
       </p>
     {:else}
       <p class="text-[10px] text-slate-500 font-mono">
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> select &middot;
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> preview &middot;
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">Y</span> rollback
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> Select &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> Back &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">Y</span> Rollback &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> Navigate
       </p>
     {/if}
   </div>

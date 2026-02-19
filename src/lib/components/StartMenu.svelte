@@ -1,5 +1,6 @@
 <script lang="ts">
   import { startMenuOpen, navigate } from '../stores/app';
+  import { glyph } from '../input/inputMode.svelte';
 
   let selectedIndex = $state(0);
 
@@ -77,7 +78,7 @@
       <div class="p-2 space-y-1">
         {#each items as item, i}
           <div class="flex items-center gap-3 px-3 py-2 rounded transition-colors {i === selectedIndex ? 'bg-primary/10 border border-primary/30' : 'border border-transparent'}">
-            <div class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold {i === selectedIndex ? 'bg-primary text-black' : 'bg-slate-700 text-slate-300'}">{item.button}</div>
+            <div class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold {i === selectedIndex ? 'bg-primary text-black' : 'bg-slate-700 text-slate-300'}">{glyph(item.button)}</div>
             <span class="material-icons text-sm {i === selectedIndex ? 'text-primary' : 'text-slate-400'}">{item.icon}</span>
             <span class="text-sm {i === selectedIndex ? 'text-primary font-medium' : 'text-slate-300'}">{item.label}</span>
           </div>
@@ -97,7 +98,7 @@
 
       <!-- Footer hint -->
       <div class="px-4 py-2 border-t border-surface-border">
-        <span class="text-[10px] text-slate-500 font-mono">START  Close</span>
+        <span class="text-[10px] text-slate-500 font-mono">{glyph('START')}  Close</span>
       </div>
     </div>
   </div>

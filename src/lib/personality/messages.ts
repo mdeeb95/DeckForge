@@ -11,7 +11,8 @@ export type MessageCategory =
   | 'ai_working_verb'
   | 'success'
   | 'boot'
-  | 'app_crash';
+  | 'app_crash'
+  | 'auto_fix';
 
 // ─── Message pools ──────────────────────────────────────────────────────────
 
@@ -117,6 +118,7 @@ const SOMETHING_ELSE: string[] = [
   'You know what you want. We respect that.',
   'Breaking free from suggestions. Nice.',
   'Custom request incoming...',
+  'Maithili would be proud.',
 ];
 
 const AI_WORKING: string[] = [
@@ -198,6 +200,24 @@ const APP_CRASH: string[] = [
   'The app yeeted itself. Let\'s fix that.',
 ];
 
+const AUTO_FIX: string[] = [
+  'npm install hope...',
+  'Crash forensics in progress...',
+  'Reading the error like tea leaves...',
+  'Diagnosing the crash site...',
+  'Applying digital first aid...',
+  'The AI is playing doctor...',
+  'Searching for the missing semicolon of destiny...',
+  'Checking if it\'s a dependency or an existential crisis...',
+  'Running crash scene investigation...',
+  'Prescribing npm install and bed rest...',
+  'The fix is in. Probably. Let\'s see...',
+  'Patching the wound. No anesthesia needed.',
+  'Consulting Stack Overflow through Claude...',
+  'Trying the thing that works 60% of the time, every time...',
+  'Your app called. It wants its imports back.',
+];
+
 // ─── Message pools map ──────────────────────────────────────────────────────
 
 const POOLS: Record<MessageCategory, string[]> = {
@@ -211,6 +231,7 @@ const POOLS: Record<MessageCategory, string[]> = {
   success: SUCCESS,
   boot: BOOT,
   app_crash: APP_CRASH,
+  auto_fix: AUTO_FIX,
 };
 
 // ─── No-repeat logic ────────────────────────────────────────────────────────

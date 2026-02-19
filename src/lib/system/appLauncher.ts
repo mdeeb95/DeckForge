@@ -4,6 +4,7 @@ import { appRunning, appPid, lastLaunchError, appOutput, appError } from '../sto
 import { activeTab } from '../stores/terminal';
 import { get } from 'svelte/store';
 import { classifyAppError } from './appErrorClassifier';
+import { isAutoFixActive } from './autoFix';
 
 // ─── Module state ────────────────────────────────────────────────────────────
 
@@ -94,12 +95,14 @@ export async function launchApp(command: string, cwd: string): Promise<void> {
           const error = classifyAppError(data.code, get(appOutput), config?.run_config?.port);
           if (error) {
             appError.set(error);
-            // Navigate to L1 so the user sees recovery options, regardless of current screen
-            import('../stores/app').then(({ currentScreen, navigate }) => {
-              if (get(currentScreen) !== 'level1') {
-                navigate('level1');
-              }
-            });
+            // Skip navigation when auto-fix loop is active — AIWorkingScreen reads appError directly
+            if (!isAutoFixActive()) {
+              import('../stores/app').then(({ currentScreen, navigate }) => {
+                if (get(currentScreen) !== 'level1') {
+                  navigate('level1');
+                }
+              });
+            }
             console.log(`[appLauncher] Classified error: ${error.type} — ${error.summary}`);
           }
         });
@@ -198,4 +201,11 @@ export function isRunning(): boolean {
  */
 export function getCurrentCommand(): string {
   return currentCommand;
+}
+
+/**
+ * Get the current working directory of the app process.
+ */
+export function getCurrentCwd(): string {
+  return currentCwd;
 }
