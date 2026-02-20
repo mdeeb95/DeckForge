@@ -2,6 +2,7 @@
   import { selectedCardIndex, navigate, screenCards, pendingClaudePrompt } from '../stores/app';
   import { lastScreenshotPath, lastScreenshotMeta } from '../stores/screenshot';
   import { startListening } from '../system/voice';
+  import { glyph } from '../input/inputMode.svelte';
 
   const cards = [
     { action: 'send', title: 'Send to Claude', description: 'Send this screenshot path to Claude Code as context for the current task.', pill: 'Context' },
@@ -107,7 +108,7 @@
     <div class="relative group">
       <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
-          <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">LB</div>
+          <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">{glyph('LB')}</div>
           <span class="text-xs text-slate-300 font-medium">Back</span>
         </div>
         <span class="material-icons text-slate-500 text-sm">arrow_back</span>

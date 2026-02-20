@@ -1,7 +1,7 @@
 // Input mode store — tracks whether last input was gamepad or keyboard
 // Components call glyph() in templates for automatic reactive resolution
 
-let mode = $state<'gamepad' | 'keyboard'>('gamepad');
+let mode = $state<'gamepad' | 'keyboard'>('keyboard');
 
 // Glyph map: semantic button name → display label per mode
 // Keyboard labels must match keyToButton in App.svelte

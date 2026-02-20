@@ -3,7 +3,7 @@
     "type": "system",
     "subtype": "init",
     "cwd": "/Users/mdeeb95/Documents/DeckForge",
-    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b",
+    "session_id": "7add3c0b-2a0b-4290-a827-dfd08898e30d",
     "tools": [
       "Task",
       "TaskOutput",
@@ -22,9 +22,46 @@
       "AskUserQuestion",
       "Skill",
       "EnterPlanMode",
-      "ToolSearch"
+      "ToolSearch",
+      "mcp__ElevenLabs__text_to_speech",
+      "mcp__ElevenLabs__speech_to_text",
+      "mcp__ElevenLabs__text_to_sound_effects",
+      "mcp__ElevenLabs__search_voices",
+      "mcp__ElevenLabs__list_models",
+      "mcp__ElevenLabs__get_voice",
+      "mcp__ElevenLabs__voice_clone",
+      "mcp__ElevenLabs__isolate_audio",
+      "mcp__ElevenLabs__check_subscription",
+      "mcp__ElevenLabs__create_agent",
+      "mcp__ElevenLabs__add_knowledge_base_to_agent",
+      "mcp__ElevenLabs__list_agents",
+      "mcp__ElevenLabs__get_agent",
+      "mcp__ElevenLabs__get_conversation",
+      "mcp__ElevenLabs__list_conversations",
+      "mcp__ElevenLabs__speech_to_speech",
+      "mcp__ElevenLabs__text_to_voice",
+      "mcp__ElevenLabs__create_voice_from_preview",
+      "mcp__ElevenLabs__make_outbound_call",
+      "mcp__ElevenLabs__search_voice_library",
+      "mcp__ElevenLabs__list_phone_numbers",
+      "mcp__ElevenLabs__play_audio",
+      "mcp__ElevenLabs__compose_music",
+      "mcp__ElevenLabs__create_composition_plan",
+      "ListMcpResourcesTool",
+      "ReadMcpResourceTool",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs"
     ],
-    "mcp_servers": [],
+    "mcp_servers": [
+      {
+        "name": "ElevenLabs",
+        "status": "connected"
+      },
+      {
+        "name": "context7",
+        "status": "connected"
+      }
+    ],
     "model": "claude-opus-4-6",
     "permissionMode": "default",
     "slash_commands": [
@@ -42,7 +79,7 @@
       "insights"
     ],
     "apiKeySource": "none",
-    "claude_code_version": "2.1.47",
+    "claude_code_version": "2.1.49",
     "output_style": "Explanatory",
     "agents": [
       "Bash",
@@ -63,27 +100,14 @@
         "path": "/Users/mdeeb95/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0"
       }
     ],
-    "uuid": "2b82250d-0356-41ee-ac07-0073568c7b91",
+    "uuid": "3f4e5a61-bda1-45fa-8722-e01901771db3",
     "fast_mode_state": "off"
-  },
-  {
-    "type": "rate_limit_event",
-    "rate_limit_info": {
-      "status": "allowed",
-      "resetsAt": 1771531200,
-      "rateLimitType": "five_hour",
-      "overageStatus": "rejected",
-      "overageDisabledReason": "org_level_disabled_until",
-      "isUsingOverage": false
-    },
-    "uuid": "991fbec9-0b91-413c-8a81-2c6f15baab4b",
-    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b"
   },
   {
     "type": "assistant",
     "message": {
       "model": "claude-opus-4-6",
-      "id": "msg_01RzadMDUvi16Jj31oi11dRL",
+      "id": "msg_01NE1RcAeX5JJnp6KTQaQVmX",
       "type": "message",
       "role": "assistant",
       "content": [
@@ -97,7 +121,7 @@
       "usage": {
         "input_tokens": 3,
         "cache_creation_input_tokens": 0,
-        "cache_read_input_tokens": 21453,
+        "cache_read_input_tokens": 31221,
         "cache_creation": {
           "ephemeral_5m_input_tokens": 0,
           "ephemeral_1h_input_tokens": 0
@@ -109,24 +133,37 @@
       "context_management": null
     },
     "parent_tool_use_id": null,
-    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b",
-    "uuid": "332e2bd2-f050-4a40-9105-6a98171953df"
+    "session_id": "7add3c0b-2a0b-4290-a827-dfd08898e30d",
+    "uuid": "844e8053-83fc-4916-b483-007ece9f13f4"
+  },
+  {
+    "type": "rate_limit_event",
+    "rate_limit_info": {
+      "status": "allowed",
+      "resetsAt": 1771567200,
+      "rateLimitType": "five_hour",
+      "overageStatus": "rejected",
+      "overageDisabledReason": "org_level_disabled_until",
+      "isUsingOverage": false
+    },
+    "uuid": "f04e3a74-e6a6-488e-95bf-137a951ab6a9",
+    "session_id": "7add3c0b-2a0b-4290-a827-dfd08898e30d"
   },
   {
     "type": "result",
     "subtype": "success",
     "is_error": false,
-    "duration_ms": 1299,
-    "duration_api_ms": 1280,
+    "duration_ms": 2555,
+    "duration_api_ms": 2298,
     "num_turns": 1,
     "result": "hello world",
     "stop_reason": null,
-    "session_id": "99a297ab-b8d9-4c04-9411-72a3287c284b",
-    "total_cost_usd": 0.0108665,
+    "session_id": "7add3c0b-2a0b-4290-a827-dfd08898e30d",
+    "total_cost_usd": 0.0157505,
     "usage": {
       "input_tokens": 3,
       "cache_creation_input_tokens": 0,
-      "cache_read_input_tokens": 21453,
+      "cache_read_input_tokens": 31221,
       "output_tokens": 5,
       "server_tool_use": {
         "web_search_requests": 0,
@@ -145,15 +182,15 @@
       "claude-opus-4-6": {
         "inputTokens": 3,
         "outputTokens": 5,
-        "cacheReadInputTokens": 21453,
+        "cacheReadInputTokens": 31221,
         "cacheCreationInputTokens": 0,
         "webSearchRequests": 0,
-        "costUSD": 0.0108665,
+        "costUSD": 0.0157505,
         "contextWindow": 200000,
         "maxOutputTokens": 32000
       }
     },
     "permission_denials": [],
-    "uuid": "6d1b6a62-0686-4ca2-911e-f6e0d1338f92"
+    "uuid": "04bd99bc-fff2-499c-907d-12fd06db21de"
   }
 ]

@@ -53,9 +53,9 @@ describe('Level 1 input', () => {
     expect(get(selectedCardIndex)).toBe(1);
   });
 
-  it('B does nothing on Level 1 (home screen)', () => {
+  it('B navigates to project_select from Level 1', () => {
     handleInput('B');
-    expect(get(currentScreen)).toBe('level1');
+    expect(get(currentScreen)).toBe('project_select');
   });
 });
 

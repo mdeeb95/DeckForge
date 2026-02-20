@@ -5,6 +5,7 @@ import { navigateUp, navigateDown, activateSelected, activateByButton, cycleSele
 import { rerollSuggestions } from '../stores/prediction';
 import { screenshotFlash, lastScreenshotPath, lastScreenshotMeta } from '../stores/screenshot';
 import { devLog, devError } from '../utils/devLog';
+import { playBack, playCapture, playToggle, playMenuOpen, playMenuClose, playReroll, playClick, playNav } from '../audio/sfx';
 
 type HandlerMap = Record<string, () => void>;
 
@@ -18,13 +19,13 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        START: () => {
+        B: () => { playBack(); navigate('project_select'); },
+        SELECT: () => {
           // Block navigation during error recovery — user should resolve the error first
           import('../stores/launcher').then(({ appError }) => {
-            if (!get(appError)) navigate('qa_mode');
+            if (!get(appError)) { playClick(); navigate('qa_mode'); }
           });
         },
-        SELECT: () => navigate('history'),
       };
 
     // ── Level 2: Suggestions ──────────────────────────────────────
@@ -35,8 +36,8 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        B: () => navigate('level1'),
-        Y: () => rerollSuggestions(),
+        B: () => { playBack(); navigate('level1'); },
+        Y: () => { playReroll(); rerollSuggestions(); },
       };
 
     // ── Level 3: Plan Confirmation ────────────────────────────────
@@ -68,7 +69,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        B: () => navigate('level1'),
+        B: () => { playBack(); navigate('level1'); },
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
       };
@@ -81,10 +82,10 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        B: () => navigate('level1'),
+        B: () => { playBack(); navigate('level1'); },
         RB: () => activateByButton('RB'),
         LB: () => activateByButton('LB'),
-        START: () => navigate('level1'),
+        START: () => { playBack(); navigate('level1'); },
       };
 
     // ── History ───────────────────────────────────────────────────
@@ -94,7 +95,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        B: () => navigate('level1'),
+        B: () => { playBack(); navigate('level1'); },
         Y: () => activateByButton('Y'),
       };
 
@@ -131,7 +132,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_LEFT: navigateUp,
         DPAD_RIGHT: navigateDown,
         A: activateSelected,
-        B: () => navigate('project_select'),
+        B: () => { playBack(); navigate('project_select'); },
       };
 
     // ── Voice Pitch ───────────────────────────────────────────────
@@ -152,7 +153,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        B: () => navigate('level1'),
+        B: () => { playBack(); navigate('level1'); },
         X: () => activateByButton('X'),
         Y: () => activateByButton('Y'),
       };
@@ -166,6 +167,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => {
+          playBack();
           import('../stores/errorStore').then(({ clearError }) => {
             clearError();
             navigate('level1');
@@ -182,9 +184,9 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        B: () => navigate(get(previousScreen) || 'empty_state'),
-        START: () => navigate(get(previousScreen) || 'empty_state'),
-        LB: () => navigate(get(previousScreen) || 'empty_state'),
+        B: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
+        START: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
+        LB: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
       };
 
     // ── Settings Sub-Screens ───────────────────────────────────────
@@ -198,9 +200,9 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         DPAD_UP: navigateUp,
         DPAD_DOWN: navigateDown,
         A: activateSelected,
-        B: () => navigate('settings'),
-        LB: () => navigate('settings'),
-        START: () => navigate(get(previousScreen) || 'empty_state'),
+        B: () => { playBack(); navigate('settings'); },
+        LB: () => { playBack(); navigate('settings'); },
+        START: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
       };
 
     default:
@@ -216,6 +218,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
 const globalHandlers: HandlerMap = {
   RB: () => {
     devLog('input', 'Global RB → screenshot capture');
+    playCapture();
     screenshotFlash.set(true);
     import('../system/screenshot').then(m => {
       m.captureScreenshot('.', 1).then(result => {
@@ -232,23 +235,28 @@ const globalHandlers: HandlerMap = {
     const current = get(splitRatio);
     const next = Math.max(20, current - 5);
     devLog('input', `LB+DPAD_LEFT → splitRatio ${current} → ${next}`);
+    playToggle();
     splitRatio.set(next);
   },
   LB_DPAD_RIGHT: () => {
     const current = get(splitRatio);
     const next = Math.min(80, current + 5);
     devLog('input', `LB+DPAD_RIGHT → splitRatio ${current} → ${next}`);
+    playToggle();
     splitRatio.set(next);
   },
   RT: () => {
     devLog('input', 'Global RT → switch to app window');
+    playToggle();
     import('../system/windowManager').then(m => m.switchToApp());
   },
   LT: () => {
     devLog('input', 'Global LT → switch to DeckForge');
+    playToggle();
     import('../system/windowManager').then(m => m.switchToDeckForge());
   },
   SELECT: () => {
+    playToggle();
     import('../stores/terminal').then(({ activeTab }) => {
       const current = get(activeTab);
       const next = current === 'claude' ? 'app' : 'claude';
@@ -258,6 +266,7 @@ const globalHandlers: HandlerMap = {
   },
   R4: () => {
     devLog('input', 'Global R4 → run/restart app');
+    playClick();
     Promise.all([
       import('../system/appLauncher'),
       import('../stores/configStores'),
@@ -292,13 +301,16 @@ export function handleInput(button: string) {
   if (get(startMenuOpen)) {
     devLog('input', `StartMenu open — ${button} captured by menu`);
     if (button === 'START' || button === 'B') {
+      playMenuClose();
       startMenuOpen.set(false);
     } else if (button === 'A') {
       // A = Settings
+      playClick();
       startMenuOpen.set(false);
       navigate('settings');
     } else if (button === 'Y') {
       // Y = Quit
+      playClick();
       import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
         getCurrentWindow().close();
       }).catch(() => {
@@ -306,7 +318,8 @@ export function handleInput(button: string) {
         startMenuOpen.set(false);
       });
     } else if (button === 'DPAD_UP' || button === 'DPAD_DOWN') {
-      // Let StartMenu handle DPAD visually — no-op in inputRouter
+      playNav();
+      // Let StartMenu handle DPAD visually
     }
     return;
   }
@@ -316,6 +329,7 @@ export function handleInput(button: string) {
     const screenHandlerMap = getScreenHandlers(screen);
     if (!screenHandlerMap['START']) {
       devLog('input', `${screen} → START → open menu`);
+      playMenuOpen();
       startMenuOpen.set(true);
       return;
     }

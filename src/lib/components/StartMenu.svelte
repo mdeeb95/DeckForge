@@ -1,6 +1,7 @@
 <script lang="ts">
   import { startMenuOpen, navigate } from '../stores/app';
   import { glyph } from '../input/inputMode.svelte';
+  import { playNav, playClick, playMenuClose } from '../audio/sfx';
 
   let selectedIndex = $state(0);
 
@@ -35,13 +36,13 @@
     if (!$startMenuOpen) return;
 
     switch (e.key) {
-      case 'ArrowUp': e.preventDefault(); e.stopPropagation(); selectedIndex = Math.max(0, selectedIndex - 1); break;
-      case 'ArrowDown': e.preventDefault(); e.stopPropagation(); selectedIndex = Math.min(items.length - 1, selectedIndex + 1); break;
-      case 'Enter': e.preventDefault(); e.stopPropagation(); items[selectedIndex].action(); break;
-      case 'Escape': e.preventDefault(); e.stopPropagation(); items[1].action(); break;
-      case 'q': e.preventDefault(); e.stopPropagation(); items[2].action(); break;
-      case 'e': e.preventDefault(); e.stopPropagation(); items[3].action(); break;
-      case 'm': e.preventDefault(); e.stopPropagation(); startMenuOpen.set(false); break;
+      case 'ArrowUp': e.preventDefault(); e.stopPropagation(); selectedIndex = Math.max(0, selectedIndex - 1); playNav(); break;
+      case 'ArrowDown': e.preventDefault(); e.stopPropagation(); selectedIndex = Math.min(items.length - 1, selectedIndex + 1); playNav(); break;
+      case 'Enter': e.preventDefault(); e.stopPropagation(); playClick(); items[selectedIndex].action(); break;
+      case 'Escape': e.preventDefault(); e.stopPropagation(); playMenuClose(); items[1].action(); break;
+      case 'q': e.preventDefault(); e.stopPropagation(); playClick(); items[2].action(); break;
+      case 'e': e.preventDefault(); e.stopPropagation(); playClick(); items[3].action(); break;
+      case 'm': e.preventDefault(); e.stopPropagation(); playMenuClose(); startMenuOpen.set(false); break;
       default: e.stopPropagation(); break;
     }
   }

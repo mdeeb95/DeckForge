@@ -7,6 +7,8 @@
   import { selectedSuggestion, currentPlan, trackPlanApproval, trackPlanRejection } from '../stores/prediction';
   import type { TerminalEntry } from '../stores/terminal';
   import type { ExpandedPlanResponse } from '../prediction/types';
+  import { playShipIt } from '../audio/sfx';
+  import { hapticShipIt } from '../audio/haptics';
 
   let abortController: AbortController;
 
@@ -104,6 +106,8 @@
     if (!plan || animatingShip) return;
 
     trackPlanApproval(unhinged);
+    playShipIt();
+    hapticShipIt();
 
     const prompt = buildEnrichedPrompt(plan.claude_code_intent, unhinged);
 

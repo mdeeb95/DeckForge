@@ -6,6 +6,7 @@
   import type { TerminalEntry } from '../stores/terminal';
   import { errorDetails, clearError } from '../stores/errorStore';
   import { get } from 'svelte/store';
+  import { glyph } from '../input/inputMode.svelte';
 
   onMount(() => {
     entries.clear();
@@ -151,7 +152,7 @@
       <div class="relative group">
         <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
-            <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">{card.button}</div>
+            <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">{glyph(card.button)}</div>
             <span class="text-xs text-slate-300 font-medium">{card.label}</span>
           </div>
           <span class="material-icons text-slate-500 text-sm">{card.icon}</span>
@@ -163,10 +164,10 @@
   <!-- Bottom hint -->
   <div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
     <p class="text-[10px] text-slate-500 font-mono">
-      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> Select
-      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> Back
-      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">X</span> View Error
-      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> Navigate
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('A')}</span> Select
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('B')}</span> Back
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('X')}</span> View Error
+      <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('D-PAD')}</span> Navigate
     </p>
   </div>
 </aside>

@@ -2,6 +2,7 @@
   import { selectedCardIndex, navigate, screenCards, pendingClaudePrompt } from '../stores/app';
   import { voiceState } from '../stores/voice';
   import { startListening, stopListening, resetVoice, isWebSpeechAvailable } from '../system/voice';
+  import { glyph } from '../input/inputMode.svelte';
   import { onDestroy } from 'svelte';
 
   // Reactive aliases
@@ -109,9 +110,9 @@
     <h1 class="text-xs font-bold text-primary uppercase tracking-widest mb-1">Voice Input</h1>
     <p class="text-xs text-slate-500">
       {#if phase === 'idle'}
-        Press A to start recording
+        Press {glyph('A')} to start recording
       {:else if phase === 'recording'}
-        Listening... press A to stop
+        Listening... press {glyph('A')} to stop
       {:else}
         Review your transcription below
       {/if}

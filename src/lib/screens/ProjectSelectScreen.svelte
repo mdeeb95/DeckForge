@@ -4,6 +4,7 @@
   import { selectedCardIndex, navigate, screenCards, projectName } from '../stores/app';
   import type { RecentProject } from '../types/data';
   import { devLog, devError } from '../utils/devLog';
+  import { glyph } from '../input/inputMode.svelte';
 
   let projects = $state<RecentProject[]>([]);
 
@@ -172,7 +173,7 @@
         <!-- Empty state -->
         <div class="text-center py-8">
           <span class="material-icons text-slate-600 mb-3" style="font-size: 36px;">folder_off</span>
-          <p class="text-xs text-slate-500 mb-4">No recent projects. Open a folder with RB or LB to get started.</p>
+          <p class="text-xs text-slate-500 mb-4">No recent projects. Open a folder with {glyph('RB')} or {glyph('LB')} to get started.</p>
         </div>
       {/if}
 
@@ -183,7 +184,7 @@
       <div class="relative group" onclick={browseForProject}>
         <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
-            <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">RB</div>
+            <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">{glyph('RB')}</div>
             <span class="text-xs text-slate-300 font-medium">Scan for Projects</span>
           </div>
           <span class="material-icons text-slate-500 text-sm">folder_open</span>
@@ -194,7 +195,7 @@
       <div class="relative group" onclick={browseForProject}>
         <div class="bg-[#13171e] border border-dashed border-slate-700 p-2 rounded flex items-center justify-between hover:bg-surface-dark transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
-            <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">LB</div>
+            <div class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-600">{glyph('LB')}</div>
             <span class="text-xs text-slate-300 font-medium">Add Project Manually</span>
           </div>
           <span class="material-icons text-slate-500 text-sm">add</span>

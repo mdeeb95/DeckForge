@@ -1,116 +1,75 @@
-// ─── Sound Effects — Web Audio API (optional, no external files) ─────────────
-// Tiny synthesized sounds for gamepad feedback. All generated procedurally.
+// ─── Sound Effects — Pre-generated audio files ──────────────────────
+// Generated via ElevenLabs. Loaded once, played on demand via HTMLAudioElement pool.
 
-let audioCtx: AudioContext | null = null;
+// Import audio file paths (Vite handles these as static assets)
+import navSrc from '../../assets/sfx/nav.mp3';
+import clickSrc from '../../assets/sfx/click.mp3';
+import successSrc from '../../assets/sfx/success.mp3';
+import errorSrc from '../../assets/sfx/error.mp3';
+import backSrc from '../../assets/sfx/back.mp3';
+import captureSrc from '../../assets/sfx/capture.mp3';
+import toggleSrc from '../../assets/sfx/toggle.mp3';
+import menuOpenSrc from '../../assets/sfx/menu-open.mp3';
+import menuCloseSrc from '../../assets/sfx/menu-close.mp3';
+import rerollSrc from '../../assets/sfx/reroll.mp3';
+import shipItSrc from '../../assets/sfx/ship-it.mp3';
 
-function getCtx(): AudioContext | null {
-  if (!audioCtx) {
-    try {
-      audioCtx = new AudioContext();
-    } catch {
-      return null;
-    }
-  }
-  return audioCtx;
+// Audio pool: pre-create multiple Audio elements per sound so rapid
+// re-triggers don't cut off the previous play. Pool size of 3 is enough
+// for UI sounds (nav might fire rapidly on D-pad hold).
+function createPool(src: string, size = 3): HTMLAudioElement[] {
+  return Array.from({ length: size }, () => {
+    const audio = new Audio(src);
+    audio.preload = 'auto';
+    return audio;
+  });
 }
 
-/**
- * Short click/tick sound for card selection.
- */
-export function playClick(): void {
-  const ctx = getCtx();
-  if (!ctx) return;
+// Pool index tracking per sound
+const pools: Record<string, { elements: HTMLAudioElement[]; index: number }> = {};
 
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = 'square';
-  osc.frequency.setValueAtTime(800, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.05);
-
-  gain.gain.setValueAtTime(0.08, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.05);
+function initPool(name: string, src: string, size = 3) {
+  pools[name] = { elements: createPool(src, size), index: 0 };
 }
 
-/**
- * Success chime — two ascending tones.
- */
-export function playSuccess(): void {
-  const ctx = getCtx();
-  if (!ctx) return;
-
-  // First tone
-  const osc1 = ctx.createOscillator();
-  const gain1 = ctx.createGain();
-  osc1.type = 'sine';
-  osc1.frequency.setValueAtTime(523, ctx.currentTime); // C5
-  gain1.gain.setValueAtTime(0.1, ctx.currentTime);
-  gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-  osc1.connect(gain1);
-  gain1.connect(ctx.destination);
-  osc1.start(ctx.currentTime);
-  osc1.stop(ctx.currentTime + 0.15);
-
-  // Second tone (higher, delayed)
-  const osc2 = ctx.createOscillator();
-  const gain2 = ctx.createGain();
-  osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
-  gain2.gain.setValueAtTime(0.001, ctx.currentTime);
-  gain2.gain.setValueAtTime(0.1, ctx.currentTime + 0.1);
-  gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-  osc2.connect(gain2);
-  gain2.connect(ctx.destination);
-  osc2.start(ctx.currentTime + 0.1);
-  osc2.stop(ctx.currentTime + 0.3);
+function play(name: string, volume = 1.0): void {
+  const pool = pools[name];
+  if (!pool) return;
+  const audio = pool.elements[pool.index];
+  pool.index = (pool.index + 1) % pool.elements.length;
+  audio.volume = volume;
+  audio.currentTime = 0;
+  const result = audio.play();
+  if (result?.catch) result.catch(() => {}); // Swallow autoplay restrictions
 }
 
-/**
- * Error buzz — low descending tone.
- */
-export function playError(): void {
-  const ctx = getCtx();
-  if (!ctx) return;
+// Initialize all pools on module load
+initPool('nav', navSrc, 4);      // Extra pool for rapid D-pad
+initPool('click', clickSrc);
+initPool('success', successSrc);
+initPool('error', errorSrc);
+initPool('back', backSrc);
+initPool('capture', captureSrc);
+initPool('toggle', toggleSrc);
+initPool('menuOpen', menuOpenSrc);
+initPool('menuClose', menuCloseSrc);
+initPool('reroll', rerollSrc);
+initPool('shipIt', shipItSrc);
 
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
+// ─── Public API ──────────────────────────────────────────────
+// Haptics are paired with each sound function (one call = sound + vibration).
 
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(200, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15);
+import { hapticNav, hapticClick, hapticSuccess, hapticError, hapticBack,
+         hapticCapture, hapticToggle, hapticReroll, hapticMenu } from './haptics';
 
-  gain.gain.setValueAtTime(0.06, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.15);
-}
-
-/**
- * Navigate/move sound — very subtle tick.
- */
-export function playNav(): void {
-  const ctx = getCtx();
-  if (!ctx) return;
-
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(600, ctx.currentTime);
-
-  gain.gain.setValueAtTime(0.04, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
-
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.03);
-}
+export function playNav(): void     { play('nav', 0.4);     hapticNav(); }
+export function playClick(): void   { play('click', 0.6);   hapticClick(); }
+export function playSuccess(): void { play('success', 0.8); hapticSuccess(); }
+export function playError(): void   { play('error', 0.5);   hapticError(); }
+export function playBack(): void    { play('back', 0.5);    hapticBack(); }
+export function playCapture(): void { play('capture', 0.6); hapticCapture(); }
+export function playToggle(): void  { play('toggle', 0.4);  hapticToggle(); }
+export function playMenuOpen(): void  { play('menuOpen', 0.5);  hapticMenu(); }
+export function playMenuClose(): void { play('menuClose', 0.4); hapticMenu(); }
+export function playReroll(): void  { play('reroll', 0.6);  hapticReroll(); }
+export function playShipIt(): void  { play('shipIt', 0.8); }

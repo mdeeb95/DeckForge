@@ -7,6 +7,7 @@
   import { projectConfig } from '../stores/configStores';
   import { getTimeline, getCommitDiff, type TimelineEntry } from '../history/timeline';
   import { previewRollback, executeRollback } from '../history/rollback';
+  import { glyph } from '../input/inputMode.svelte';
 
   let timeline = $state<TimelineEntry[]>([]);
   let confirmingRollback = $state(false);
@@ -298,15 +299,15 @@ Safety: Uses revert commits (rollback itself is undoable)`,
   <div class="p-2 bg-[#0b0e11] border-t border-surface-border text-center">
     {#if confirmingRollback}
       <p class="text-[10px] text-slate-500 font-mono">
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> Select &middot;
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> Back
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('A')}</span> Select &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('B')}</span> Back
       </p>
     {:else}
       <p class="text-[10px] text-slate-500 font-mono">
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">A</span> Select &middot;
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">B</span> Back &middot;
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">Y</span> Rollback &middot;
-        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">D-PAD</span> Navigate
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('A')}</span> Select &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('B')}</span> Back &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('Y')}</span> Rollback &middot;
+        <span class="bg-slate-700 text-white px-1 rounded mx-0.5">{glyph('D-PAD')}</span> Navigate
       </p>
     {/if}
   </div>
