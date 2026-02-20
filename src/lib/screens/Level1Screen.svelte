@@ -18,7 +18,6 @@
   import { killPort } from '../system/portKiller';
   import { getGitStatus } from '../deploy/git';
   import { claudeStatus } from '../system/claudeResolver';
-
   let abortController: AbortController;
 
   onMount(() => {

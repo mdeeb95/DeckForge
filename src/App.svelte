@@ -13,6 +13,7 @@
   import { initApp as initAppConfig } from './lib/stores/configStores';
   import { startSystemStatsPolling, stopSystemStatsPolling } from './lib/stores/systemStats';
   import { discoverClaude } from './lib/system/claudeResolver';
+  import { checkForUpdate } from './lib/system/updateChecker';
 
   // Initialize app state (will be overridden by config load)
   projectName.set('');
@@ -62,8 +63,11 @@
 
   // Load global config + auth asynchronously on startup
   async function initApp() {
-    // Non-blocking: discover claude CLI in parallel with config load
+    // Non-blocking: discover claude CLI + check for updates in parallel with config load
     discoverClaude();
+    if ('__TAURI_INTERNALS__' in window) {
+      checkForUpdate();
+    }
 
     try {
       const config = await initAppConfig();

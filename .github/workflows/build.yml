@@ -68,7 +68,7 @@ jobs:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('DeckForge {0}', github.ref_name) || '' }}
           releaseBody: 'Steam Deck gamepad interface for Claude Code.'
-          releaseDraft: ${{ github.ref_type == 'tag' }}
+          releaseDraft: false
           prerelease: false
 
       - name: Upload Linux artifacts

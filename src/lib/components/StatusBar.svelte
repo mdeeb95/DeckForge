@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cpuUsage, ramUsage } from '../stores/systemStats';
   import { claudeStatus } from '../system/claudeResolver';
+  import { updateStatus, updateInfo } from '../stores/updater';
 
   interface Props {
     projectName?: string;
@@ -38,6 +39,13 @@
       <span class="text-emerald-400">CLI</span>
     {:else}
       <span class="text-red-400" title="Claude CLI not found">CLI</span>
+    {/if}
+    {#if $updateStatus === 'available' && $updateInfo}
+      <span class="text-slate-500">|</span>
+      <span class="text-primary">UPDATE v{$updateInfo.version}</span>
+    {:else if $updateStatus === 'downloading'}
+      <span class="text-slate-500">|</span>
+      <span class="text-primary animate-pulse">UPDATING...</span>
     {/if}
   </div>
   <div class="flex items-center gap-4 text-slate-400">

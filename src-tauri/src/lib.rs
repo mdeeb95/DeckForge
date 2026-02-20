@@ -1,3 +1,5 @@
+mod updater;
+
 use std::sync::Mutex;
 use sysinfo::System;
 use tauri::State;
@@ -39,8 +41,15 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(SystemState(Mutex::new(sys)))
-        .invoke_handler(tauri::generate_handler![get_system_stats])
+        .invoke_handler(tauri::generate_handler![
+            get_system_stats,
+            updater::check_for_update,
+            updater::download_update,
+            updater::apply_update,
+            updater::restart_app,
+        ])
         .setup(|app| {
+            updater::cleanup_staged_files();
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
