@@ -120,6 +120,7 @@
   // ─── Auto-Fix: Send prompt to Claude (reusable for retries) ───────────────
 
   function fireClaude(prompt: string) {
+    import('../stores/session').then(({ incrementPrompts }) => incrementPrompts());
     sessionPrompt = prompt;
     wasUnhinged = false;
     startTime = Date.now();

@@ -148,6 +148,7 @@ export async function rerollSuggestions(): Promise<void> {
   if (!category) return;
 
   rerollCount.update(n => n + 1);
+  import('./session').then(({ incrementSessionRerolls }) => incrementSessionRerolls());
 
   const advanced = advancePair(category);
 

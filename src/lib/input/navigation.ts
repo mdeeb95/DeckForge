@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { selectedCardIndex, screenCards } from '../stores/app';
+import { selectedCardIndex, screenCards, secondaryScreenCards, pressedSecondaryButton } from '../stores/app';
 import { playNav, playClick } from '../audio/sfx';
 import { devLog } from '../utils/devLog';
 
@@ -38,11 +38,23 @@ export function activateSelected() {
 
 export function activateByButton(button: string) {
   const cards = get(screenCards);
-  const card = cards.find(c => c.button === button);
-  devLog('input', `Activate button ${button}: ${card ? card.title : 'NO CARD FOUND'}`, { hasOnclick: !!card?.onclick });
+  let card = cards.find(c => c.button === button);
+  let isSecondary = false;
+
+  if (!card) {
+    const secondary = get(secondaryScreenCards);
+    card = secondary.find(c => c.button === button);
+    if (card) isSecondary = true;
+  }
+
+  devLog('input', `Activate button ${button}: ${card ? card.title : 'NO CARD FOUND'}${isSecondary ? ' (secondary)' : ''}`, { hasOnclick: !!card?.onclick });
   if (card?.onclick) {
     playClick();
     card.onclick();
+    if (isSecondary) {
+      pressedSecondaryButton.set(button);
+      setTimeout(() => pressedSecondaryButton.set(null), 300);
+    }
   }
 }
 

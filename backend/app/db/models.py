@@ -26,6 +26,18 @@ class User(Base):
 
     id = Column(Uuid, primary_key=True, default=new_uuid)
     anonymized_id = Column(Text, unique=True, nullable=False)
+
+    # Google identity
+    email = Column(Text, unique=True, nullable=True)
+    display_name = Column(Text, nullable=True)
+    avatar_url = Column(Text, nullable=True)
+    google_sub = Column(Text, unique=True, nullable=True)
+
+    # Access control
+    is_active = Column(Boolean, nullable=False, default=True)
+    is_admin = Column(Boolean, nullable=False, default=False)
+    invite_code_used = Column(Text, nullable=True)
+
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     last_seen_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     app_version = Column(Text)
@@ -147,3 +159,19 @@ class CircuitBreakerState(Base):
     last_failure_at = Column(DateTime(timezone=True))
     degraded_until = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+# ─── invite_codes ────────────────────────────────────────────────────────────
+
+class InviteCode(Base):
+    __tablename__ = "invite_codes"
+
+    id = Column(Uuid, primary_key=True, default=new_uuid)
+    code = Column(Text, unique=True, nullable=False)          # 8-char alphanumeric
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    created_by = Column(Text, nullable=False, default="admin") # who generated it
+    max_uses = Column(Integer, nullable=False, default=1)      # how many times it can be redeemed
+    times_used = Column(Integer, nullable=False, default=0)
+    expires_at = Column(DateTime(timezone=True))               # null = never expires
+    is_active = Column(Boolean, nullable=False, default=True)  # admin can disable
+    note = Column(Text)                                        # admin note ("for beta testers", etc.)

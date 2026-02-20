@@ -18,6 +18,7 @@
   import SettingsDisplayScreen from '../screens/SettingsDisplayScreen.svelte';
   import SettingsTelemetryScreen from '../screens/SettingsTelemetryScreen.svelte';
   import SettingsAdvancedScreen from '../screens/SettingsAdvancedScreen.svelte';
+  import SessionRecapScreen from '../screens/SessionRecapScreen.svelte';
 </script>
 
 {#key $currentScreen}
@@ -58,6 +59,8 @@
   <SettingsTelemetryScreen />
 {:else if $currentScreen === 'settings_advanced'}
   <SettingsAdvancedScreen />
+{:else if $currentScreen === 'session_recap'}
+  <SessionRecapScreen />
 {/if}
 </div>
 {/key}

@@ -19,7 +19,8 @@ export type Screen =
   | 'settings_prediction'
   | 'settings_display'
   | 'settings_telemetry'
-  | 'settings_advanced';
+  | 'settings_advanced'
+  | 'session_recap';
 
 export interface ScreenCardData {
   button?: string;    // only set for X/Y shortcut cards and secondary buttons
@@ -48,6 +49,12 @@ function createScreenCardsStore() {
 }
 
 export const screenCards = createScreenCardsStore();
+
+// Secondary cards (LB, START, R4 etc.) — synced from ActionPalette props
+export const secondaryScreenCards = writable<ScreenCardData[]>([]);
+
+// Flash feedback: button name of the secondary card currently being pressed
+export const pressedSecondaryButton = writable<string | null>(null);
 
 // Split ratio: percentage of width for the terminal (left) panel. Min 20, max 80.
 export const splitRatio = writable(50);
@@ -109,4 +116,5 @@ export function navigate(screen: Screen) {
   currentScreen.set(screen);
   selectedCardIndex.set(0);
   screenCards.set([]);
+  secondaryScreenCards.set([]);
 }

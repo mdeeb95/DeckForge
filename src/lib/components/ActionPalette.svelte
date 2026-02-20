@@ -2,6 +2,7 @@
   import ActionCard from './ActionCard.svelte';
   import SecondaryCard from './SecondaryCard.svelte';
   import HintGrid from './HintGrid.svelte';
+  import { secondaryScreenCards } from '../stores/app';
 
   interface CardData {
     button?: string;
@@ -66,6 +67,14 @@
       }, 320);
     }
     prevIndex = selectedIndex;
+  });
+
+  // Sync interactive secondary cards into the store so activateByButton can find them
+  $effect(() => {
+    const interactive = secondaryCards
+      .filter(c => c.onclick)
+      .map(c => ({ button: c.button, title: c.label, description: '', onclick: c.onclick }));
+    secondaryScreenCards.set(interactive);
   });
 </script>
 

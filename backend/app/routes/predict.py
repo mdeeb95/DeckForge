@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.session import get_db
-from app.db.models import PredictionCall
+from app.db.models import PredictionCall, User
+from app.auth.dependencies import get_current_user
 from app.schemas.predict import PredictRequest, PredictResponse, Suggestion, Modifier, WildCard, PlanStep
 from app.prompts.templates import get_active_template, render_template
 from app.llm.client import LLMClient, LLMResponse
@@ -37,6 +38,7 @@ CALL_TYPE_TO_TEMPLATE: dict[str, str] = {
 @router.post("/predict", response_model=PredictResponse)
 async def predict(
     request: PredictRequest,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     settings = get_settings()
@@ -104,7 +106,7 @@ async def predict(
     cost_usd = estimate_cost(model_config.model_id, llm_response.input_tokens, llm_response.output_tokens)
     try:
         prediction_call = PredictionCall(
-            user_id=uuid.UUID(request.user_id) if request.user_id else uuid.uuid4(),
+            user_id=user.id,
             trace_id=trace_id,
             call_type=call_type,
             model_used=llm_response.model,

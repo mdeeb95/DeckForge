@@ -1,10 +1,12 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.llm.langfuse_logger import log_claude_session_trace
+from app.auth.dependencies import get_current_user
+from app.db.models import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,7 +33,10 @@ class ClaudeSessionReport(BaseModel):
 
 
 @router.post("/claude-session")
-async def report_claude_session(report: ClaudeSessionReport):
+async def report_claude_session(
+    report: ClaudeSessionReport,
+    user: User = Depends(get_current_user),
+):
     """Log a Claude Code session trace to Langfuse."""
     log_claude_session_trace(report)
     return {"status": "ok"}

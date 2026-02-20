@@ -1,3 +1,4 @@
+mod audio;
 mod updater;
 
 use std::sync::Mutex;
@@ -36,17 +37,21 @@ pub fn run() {
     sys.refresh_cpu_all();
     sys.refresh_memory();
 
+    let audio_state = std::sync::Mutex::new(audio::AudioState::new());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(SystemState(Mutex::new(sys)))
+        .manage(audio_state)
         .invoke_handler(tauri::generate_handler![
             get_system_stats,
             updater::check_for_update,
             updater::download_update,
             updater::apply_update,
             updater::restart_app,
+            audio::play_sound,
         ])
         .setup(|app| {
             updater::cleanup_staged_files();

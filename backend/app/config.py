@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 30
 
+    # Google OAuth
+    google_client_id: str = ""          # From Google Cloud Console
+    google_client_secret: str = ""      # Not needed for ID token verification, but keep for future
+
+    # Admin
+    admin_emails: str = "mdeeb95@gmail.com"  # Comma-separated emails that auto-get is_admin=True
+
     # CORS
     allowed_origins: str = "tauri://localhost,http://localhost:1420,http://localhost:8000"
 

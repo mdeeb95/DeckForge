@@ -1,16 +1,21 @@
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.schemas.feedback import FeedbackRequest, FeedbackResponse
 from app.llm.langfuse_logger import log_feedback_scores
+from app.auth.dependencies import get_current_user
+from app.db.models import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.post("/feedback", response_model=FeedbackResponse)
-async def submit_feedback(request: FeedbackRequest):
+async def submit_feedback(
+    request: FeedbackRequest,
+    user: User = Depends(get_current_user),
+):
     """Log user feedback as Langfuse scores for RLHF."""
     reward = _compute_reward(request)
 

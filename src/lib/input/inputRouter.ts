@@ -16,8 +16,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // D-pad navigates. START = QA Mode. SELECT = History.
     case 'level1':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate('project_select'); },
         SELECT: () => {
@@ -33,8 +31,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // X = toggle modifier. Y = reroll suggestions.
     case 'level2':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate('level1'); },
         Y: () => { playReroll(); rerollSuggestions(); },
@@ -44,8 +40,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // A = select highlighted (Ship It). B = go back card. X = tell me more. Y = ship unhinged.
     case 'level3':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => activateByButton('B'),
         X: () => activateByButton('X'),
@@ -66,8 +60,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // X = run tests. Y = view diff.
     case 'qa_mode':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate('level1'); },
         X: () => activateByButton('X'),
@@ -79,8 +71,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // RB/LB = secondary actions. START = back to Level 1.
     case 'deploy_mode':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate('level1'); },
         RB: () => activateByButton('RB'),
@@ -92,8 +82,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // A = select highlighted card. B = back to Level 1. Y = rollback.
     case 'history':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate('level1'); },
         Y: () => activateByButton('Y'),
@@ -104,8 +92,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // RB/LB = browse for project.
     case 'project_select':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         RB: () => activateByButton('RB'),
         LB: () => activateByButton('LB'),
@@ -115,8 +101,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // A = select highlighted card. Y = demo mode shortcut. LB = settings.
     case 'empty_state':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         Y: () => activateByButton('Y'),
         LB: () => navigate('settings'),
@@ -127,8 +111,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // D-pad left/right also navigate.
     case 'exploration':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         DPAD_LEFT: navigateUp,
         DPAD_RIGHT: navigateDown,
         A: activateSelected,
@@ -139,8 +121,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // A = select highlighted card. B = cancel/back (phase-dependent).
     case 'voice_pitch':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => activateByButton('B'),
       };
@@ -150,8 +130,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // X = voice annotate. Y = send + new task.
     case 'screenshot_feedback':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate('level1'); },
         X: () => activateByButton('X'),
@@ -163,8 +141,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     // X = view full error.
     case 'error':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => {
           playBack();
@@ -176,13 +152,20 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         X: () => activateByButton('X'),
       };
 
+    // ── Session Recap ─────────────────────────────────────────────
+    // A = Continue (back to L1). B = New Session (reset + L1). Y = One More Run.
+    case 'session_recap':
+      return {
+        A: activateSelected,
+        B: () => activateByButton('B'),
+        Y: () => activateByButton('Y'),
+      };
+
     // ── Settings Hub ───────────────────────────────────────────────
     // A = select highlighted sub-screen. B = back to previous screen.
     // START/LB = close settings. X = check for updates.
     case 'settings':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
         START: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
@@ -198,8 +181,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
     case 'settings_telemetry':
     case 'settings_advanced':
       return {
-        DPAD_UP: navigateUp,
-        DPAD_DOWN: navigateDown,
         A: activateSelected,
         B: () => { playBack(); navigate('settings'); },
         LB: () => { playBack(); navigate('settings'); },
@@ -217,10 +198,13 @@ function getScreenHandlers(screen: Screen): HandlerMap {
 // SELECT = toggle terminal tab (Claude Code / App Output).
 // RB = screenshot (fallback — only fires if screen doesn't handle RB).
 const globalHandlers: HandlerMap = {
+  DPAD_UP: navigateUp,
+  DPAD_DOWN: navigateDown,
   RB: () => {
     devLog('input', 'Global RB → screenshot capture');
     playCapture();
     screenshotFlash.set(true);
+    import('../stores/session').then(({ incrementScreenshots }) => incrementScreenshots());
     import('../system/screenshot').then(m => {
       m.captureScreenshot('.', 1).then(result => {
         lastScreenshotPath.set(result.path);
@@ -309,6 +293,11 @@ export function handleInput(button: string) {
       playClick();
       startMenuOpen.set(false);
       navigate('settings');
+    } else if (button === 'X') {
+      // X = Session Recap
+      playClick();
+      startMenuOpen.set(false);
+      navigate('session_recap');
     } else if (button === 'Y') {
       // Y = Quit
       playClick();

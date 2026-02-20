@@ -8,15 +8,9 @@
   const items = [
     { button: 'A', label: 'Settings', icon: 'settings', action: () => { startMenuOpen.set(false); navigate('settings'); } },
     { button: 'B', label: 'Close Menu', icon: 'close', action: () => startMenuOpen.set(false) },
-    { button: 'X', label: 'About', icon: 'info', action: () => showAbout() },
+    { button: 'X', label: 'Session Recap', icon: 'emoji_events', action: () => { startMenuOpen.set(false); navigate('session_recap'); } },
     { button: 'Y', label: 'Quit App', icon: 'power_settings_new', action: () => quitApp() },
   ];
-
-  let aboutVisible = $state(false);
-
-  function showAbout() {
-    aboutVisible = !aboutVisible;
-  }
 
   async function quitApp() {
     try {
@@ -59,7 +53,6 @@
   $effect(() => {
     if ($startMenuOpen) {
       selectedIndex = 0;
-      aboutVisible = false;
     }
   });
 </script>
@@ -85,17 +78,6 @@
           </div>
         {/each}
       </div>
-
-      <!-- About panel (shown when X is pressed) -->
-      {#if aboutVisible}
-        <div class="px-4 py-3 border-t border-surface-border bg-[#0b0e11]">
-          <p class="text-[10px] text-slate-400 font-mono leading-relaxed">
-            DeckForge v0.1.0<br/>
-            Steam Deck gamepad-only interface for Claude Code<br/>
-            Tauri 2 + Svelte 5 + TypeScript
-          </p>
-        </div>
-      {/if}
 
       <!-- Footer hint -->
       <div class="px-4 py-2 border-t border-surface-border">

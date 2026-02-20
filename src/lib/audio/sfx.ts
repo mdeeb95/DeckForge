@@ -1,66 +1,16 @@
-// ─── Sound Effects — Pre-generated audio files ──────────────────────
-// Generated via ElevenLabs. Loaded once, played on demand via HTMLAudioElement pool.
+// ─── Sound Effects — Rust-native via rodio ─────────────────────────
+// Audio plays through Tauri's Rust backend (rodio → PipeWire/ALSA).
+// No GStreamer dependency. Fire-and-forget — Rust handles concurrency.
 
-// Import audio file paths (Vite handles these as static assets)
-import navSrc from '../../assets/sfx/nav.mp3';
-import clickSrc from '../../assets/sfx/click.mp3';
-import successSrc from '../../assets/sfx/success.mp3';
-import errorSrc from '../../assets/sfx/error.mp3';
-import backSrc from '../../assets/sfx/back.mp3';
-import captureSrc from '../../assets/sfx/capture.mp3';
-import toggleSrc from '../../assets/sfx/toggle.mp3';
-import menuOpenSrc from '../../assets/sfx/menu-open.mp3';
-import menuCloseSrc from '../../assets/sfx/menu-close.mp3';
-import rerollSrc from '../../assets/sfx/reroll.mp3';
-import shipItSrc from '../../assets/sfx/ship-it.mp3';
+import { invoke } from '@tauri-apps/api/core';
 
-// Audio pool: pre-create multiple Audio elements per sound so rapid
-// re-triggers don't cut off the previous play. Pool size of 3 is enough
-// for UI sounds (nav might fire rapidly on D-pad hold).
-function createPool(src: string, size = 3): HTMLAudioElement[] {
-  return Array.from({ length: size }, () => {
-    const audio = new Audio(src);
-    audio.preload = 'auto';
-    return audio;
-  });
-}
-
-// Pool index tracking per sound
-const pools: Record<string, { elements: HTMLAudioElement[]; index: number }> = {};
-
-function initPool(name: string, src: string, size = 3) {
-  pools[name] = { elements: createPool(src, size), index: 0 };
-}
-
-function play(name: string, volume = 1.0): void {
-  const pool = pools[name];
-  if (!pool) return;
-  const audio = pool.elements[pool.index];
-  pool.index = (pool.index + 1) % pool.elements.length;
-  audio.volume = volume;
-  audio.currentTime = 0;
-  const result = audio.play();
-  if (result?.catch) result.catch(() => {}); // Swallow autoplay restrictions
-}
-
-// Initialize all pools on module load
-initPool('nav', navSrc, 4);      // Extra pool for rapid D-pad
-initPool('click', clickSrc);
-initPool('success', successSrc);
-initPool('error', errorSrc);
-initPool('back', backSrc);
-initPool('capture', captureSrc);
-initPool('toggle', toggleSrc);
-initPool('menuOpen', menuOpenSrc);
-initPool('menuClose', menuCloseSrc);
-initPool('reroll', rerollSrc);
-initPool('shipIt', shipItSrc);
-
-// ─── Public API ──────────────────────────────────────────────
-// Haptics are paired with each sound function (one call = sound + vibration).
-
+// Haptics stay in the frontend — Gamepad Vibration API is unrelated to GStreamer.
 import { hapticNav, hapticClick, hapticSuccess, hapticError, hapticBack,
          hapticCapture, hapticToggle, hapticReroll, hapticMenu } from './haptics';
+
+function play(name: string, volume: number): void {
+  invoke('play_sound', { name, volume }).catch(() => {});
+}
 
 export function playNav(): void     { play('nav', 0.4);     hapticNav(); }
 export function playClick(): void   { play('click', 0.6);   hapticClick(); }
