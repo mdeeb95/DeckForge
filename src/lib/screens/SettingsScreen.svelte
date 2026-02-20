@@ -63,7 +63,7 @@
   const secondaryCards = [
     { button: 'START', label: 'Close Settings', icon: 'arrow_back' },
     { button: 'LB', label: 'Back', icon: 'arrow_back' },
-    { button: 'RB', label: $updateStatus === 'available' ? `Update ${$updateInfo?.version}` : 'Check for Updates', icon: 'system_update', onclick: () => checkForUpdate() },
+    { button: 'X', label: $updateStatus === 'available' ? `Update ${$updateInfo?.version}` : 'Check for Updates', icon: 'system_update', onclick: () => checkForUpdate() },
   ];
 
   screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));

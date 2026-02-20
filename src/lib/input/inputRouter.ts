@@ -178,7 +178,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
 
     // ── Settings Hub ───────────────────────────────────────────────
     // A = select highlighted sub-screen. B = back to previous screen.
-    // START/LB = close settings.
+    // START/LB = close settings. X = check for updates.
     case 'settings':
       return {
         DPAD_UP: navigateUp,
@@ -187,6 +187,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         B: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
         START: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
         LB: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
+        X: () => activateByButton('X'),
       };
 
     // ── Settings Sub-Screens ───────────────────────────────────────
