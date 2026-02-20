@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # Admin
     admin_emails: str = "mdeeb95@gmail.com"  # Comma-separated emails that auto-get is_admin=True
+    admin_password: str = ""            # Simple password for admin panel login (env var only)
 
     # CORS
     allowed_origins: str = "tauri://localhost,http://localhost:1420,http://localhost:8000"

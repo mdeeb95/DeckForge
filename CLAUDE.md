@@ -70,5 +70,6 @@ Mathew (mdeeb95@gmail.com). Building DeckForge solo. Does not write code — fee
 - Likes concise status updates, not walls of text
 - Fine with things being easy when the spec is tight
 - You will often be given tasks in the tasks folder, if you are completing that, move it to done when done
+- After completing a task, always suggest 2–3 potential improvements or follow-up items
 
 > Full glossary: memory/glossary.md | Project details: memory/projects/deckforge.md | Tech context: memory/context/tech-stack.md

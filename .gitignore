@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+!backend/admin-ui/dist
 dist-ssr
 *.local
 .venv

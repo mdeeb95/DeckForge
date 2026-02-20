@@ -1,14 +1,17 @@
+import os
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.db.session import engine, AsyncSessionLocal
 from app.db.models import Base
 from app.prompts.seed import seed_prompt_templates
 from app.routes import predict, feedback, templates, auth, claude_session
+from app.admin.routes import router as admin_router
 from app.llm.langfuse_logger import shutdown_langfuse
 
 logging.basicConfig(level=logging.INFO)
@@ -64,8 +67,15 @@ app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(templates.router, prefix="/api/v1", tags=["templates"])
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(claude_session.router, prefix="/api/v1", tags=["claude_session"])
+app.include_router(admin_router, prefix="/api/v1", tags=["admin"])
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "0.1.0"}
+
+
+# Serve admin SPA static files (built Svelte app)
+admin_dist = os.path.join(os.path.dirname(__file__), "..", "admin-ui", "dist")
+if os.path.exists(admin_dist):
+    app.mount("/admin", StaticFiles(directory=admin_dist, html=True), name="admin")
