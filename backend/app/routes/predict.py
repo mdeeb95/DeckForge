@@ -123,7 +123,11 @@ async def predict(
         await db.rollback()
 
     # 9. Log to Langfuse (best-effort)
-    log_prediction_trace(trace_id, call_type, prompt, llm_response, request)
+    log_prediction_trace(
+        trace_id, call_type, prompt, llm_response, request,
+        user_id=user.anonymized_id,
+        session_id=request.session_id,
+    )
 
     # 10. Build response
     return _build_response(parsed, call_type, llm_response, trace_id, cost_usd)

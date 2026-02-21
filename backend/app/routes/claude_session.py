@@ -38,5 +38,5 @@ async def report_claude_session(
     user: User = Depends(get_current_user),
 ):
     """Log a Claude Code session trace to Langfuse."""
-    log_claude_session_trace(report)
+    log_claude_session_trace(report, user_id=user.anonymized_id, session_id=report.session_id)
     return {"status": "ok"}

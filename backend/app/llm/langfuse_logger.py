@@ -60,6 +60,8 @@ def log_prediction_trace(
     prompt: str,
     llm_response: Any,
     request: Any,
+    user_id: str,
+    session_id: str | None = None,
     cache_hit: bool = False,
 ) -> None:
     """Log a full prediction call as a Langfuse trace + generation.
@@ -78,8 +80,7 @@ def log_prediction_trace(
         project_info = context.get("project", {})
         session_info = context.get("session", {})
 
-        user_id = request.user_id or "anonymous"
-        session_id = request.session_id if hasattr(request, "session_id") and request.session_id else None
+        # user_id and session_id are now passed explicitly by the caller
 
         # 1. Create the trace
         trace = langfuse.trace(
@@ -128,6 +129,7 @@ def log_feedback_scores(
     trace_id: str,
     user_action: str,
     computed_reward: float,
+    user_id: str | None = None,
     selection_speed_ms: int | None = None,
     selected_index: int | None = None,
     reroll_count: int | None = None,
@@ -176,18 +178,22 @@ def log_feedback_scores(
             )
 
         # Event: detailed user action metadata
+        event_metadata = {
+            "action": user_action,
+            "selected_index": selected_index,
+            "reroll_count": reroll_count,
+            "selection_speed_ms": selection_speed_ms,
+            "plan_approved": plan_approved,
+            "plan_approval_button": plan_approval_button,
+            "used_unhinged_modifier": used_unhinged_modifier,
+        }
+        if user_id:
+            event_metadata["user_id"] = user_id
+
         langfuse.event(
             trace_id=trace_id,
             name="user_action",
-            metadata={
-                "action": user_action,
-                "selected_index": selected_index,
-                "reroll_count": reroll_count,
-                "selection_speed_ms": selection_speed_ms,
-                "plan_approved": plan_approved,
-                "plan_approval_button": plan_approval_button,
-                "used_unhinged_modifier": used_unhinged_modifier,
-            },
+            metadata=event_metadata,
         )
 
         langfuse.flush()
@@ -199,7 +205,7 @@ def log_feedback_scores(
 # ─── Claude Code session tracing ─────────────────────────────────────────────
 
 
-def log_claude_session_trace(report: Any) -> None:
+def log_claude_session_trace(report: Any, user_id: str, session_id: str | None = None) -> None:
     """Log a Claude Code session as a Langfuse trace with scores.
 
     Creates:
@@ -224,6 +230,8 @@ def log_claude_session_trace(report: Any) -> None:
         trace = langfuse.trace(
             id=f"session-{report.session_id}-{trace_id}",
             name="claude_code_session",
+            user_id=user_id,
+            session_id=session_id or report.session_id,
             input=report.prompt[:500],
             output={
                 "result": report.result[:500] if report.result else "",

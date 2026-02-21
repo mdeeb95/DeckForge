@@ -24,6 +24,7 @@ async def submit_feedback(
         trace_id=request.trace_id,
         user_action=request.user_action,
         computed_reward=reward,
+        user_id=user.anonymized_id,
         selection_speed_ms=request.selection_speed_ms,
         selected_index=request.selected_index,
         reroll_count=request.reroll_count,
