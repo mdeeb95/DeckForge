@@ -6,6 +6,7 @@ Create Date: 2026-02-20
 """
 from typing import Sequence, Union
 from alembic import op
+from sqlalchemy import inspect
 
 revision: str = "004"
 down_revision: Union[str, None] = "003"
@@ -14,7 +15,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index("idx_auth_tokens_hash", "auth_tokens", ["token_hash"])
+    indexes = inspect(op.get_bind()).get_indexes("auth_tokens")
+    if not any(idx["name"] == "idx_auth_tokens_hash" for idx in indexes):
+        op.create_index("idx_auth_tokens_hash", "auth_tokens", ["token_hash"])
 
 
 def downgrade() -> None:
