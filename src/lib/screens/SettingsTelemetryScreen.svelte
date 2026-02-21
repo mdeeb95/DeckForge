@@ -3,6 +3,7 @@
   import TerminalPanel from '../components/TerminalPanel.svelte';
   import ActionPalette from '../components/ActionPalette.svelte';
   import { selectedCardIndex, screenCards } from '../stores/app';
+  import { settingsAdjustHandlers } from '../stores/app';
   import { entries, status } from '../stores/terminal';
   import { get } from 'svelte/store';
   import { globalConfig, updateGlobalConfig } from '../stores/configStores';
@@ -46,37 +47,55 @@
     });
   }
 
-  const config = get(globalConfig);
+  // Reactive cards — recompute whenever globalConfig changes
+  const cfg = $derived($globalConfig);
 
-  const cards = [
-    {
-      title: 'Telemetry',
-      description: 'anonymous usage data',
-      pills: [{ label: config?.telemetry.enabled ? 'enabled' : 'disabled', variant: 'active' as const }],
-      variant: 'primary' as const,
-      onclick: toggleTelemetry,
-    },
-    {
-      title: 'Cost Indicator',
-      description: 'show session cost in terminal header',
-      pills: [{ label: config?.cost_tracking.show_cost_indicator ? 'shown' : 'hidden', variant: 'neutral' as const }],
-      variant: 'secondary_pink' as const,
-      onclick: toggleCostIndicator,
-    },
-    {
-      title: 'Budget Alert',
-      description: 'DPAD L/R to adjust threshold',
-      pills: [{ label: `$${config?.cost_tracking.session_budget_warning_threshold_usd.toFixed(2) ?? '0.50'}`, variant: 'neutral' as const }],
-      variant: 'neutral' as const,
-      onclick: () => adjustBudget('right'),
-    },
-  ];
+  const cards = $derived.by(() => {
+    const c = cfg;
+    if (!c) return [];
+    return [
+      {
+        title: 'Telemetry',
+        description: 'anonymous usage data',
+        pills: [{ label: c.telemetry.enabled ? 'enabled' : 'disabled', variant: 'active' as const }],
+        variant: 'primary' as const,
+        onclick: toggleTelemetry,
+      },
+      {
+        title: 'Cost Indicator',
+        description: 'show session cost in terminal header',
+        pills: [{ label: c.cost_tracking.show_cost_indicator ? 'shown' : 'hidden', variant: (c.cost_tracking.show_cost_indicator ? 'active' : 'neutral') as 'active' | 'neutral' }],
+        variant: 'secondary_pink' as const,
+        onclick: toggleCostIndicator,
+      },
+      {
+        title: 'Budget Alert',
+        description: 'A to increase, DPAD L/R to adjust threshold',
+        pills: [{ label: `$${c.cost_tracking.session_budget_warning_threshold_usd.toFixed(2)}`, variant: 'neutral' as const }],
+        variant: 'neutral' as const,
+        onclick: () => adjustBudget('right'),
+      },
+    ];
+  });
+
+  // Keep screenCards in sync reactively
+  $effect(() => {
+    screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
+  });
+
+  // Register D-pad L/R adjust handlers
+  $effect(() => {
+    settingsAdjustHandlers.set({
+      0: { left: toggleTelemetry, right: toggleTelemetry },
+      1: { left: toggleCostIndicator, right: toggleCostIndicator },
+      2: { left: () => adjustBudget('left'), right: () => adjustBudget('right') },
+    });
+    return () => settingsAdjustHandlers.set({});
+  });
 
   const secondaryCards = [
     { button: 'LB', label: 'Back to Settings', icon: 'arrow_back' },
   ];
-
-  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />

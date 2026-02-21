@@ -3,6 +3,7 @@
   import TerminalPanel from '../components/TerminalPanel.svelte';
   import ActionPalette from '../components/ActionPalette.svelte';
   import { selectedCardIndex, screenCards } from '../stores/app';
+  import { settingsAdjustHandlers } from '../stores/app';
   import { entries, status } from '../stores/terminal';
   import { get } from 'svelte/store';
   import { globalConfig, updateGlobalConfig, authToken } from '../stores/configStores';
@@ -75,38 +76,56 @@
     confirmReset = false;
   }
 
-  const config = get(globalConfig);
+  // Reactive cards — recompute whenever globalConfig changes
+  const cfg = $derived($globalConfig);
 
-  const cards = [
-    {
-      title: 'Permission Mode',
-      description: 'DPAD L/R to cycle Claude Code permissions',
-      pills: [{ label: config?.claude_code.permission_mode ?? 'acceptEdits', variant: 'active' as const }],
-      variant: 'primary' as const,
-      onclick: () => cyclePermissionMode('right'),
-    },
-    {
-      title: 'View Config',
-      description: 'dump current global config to terminal',
-      pills: [{ label: 'global.json', variant: 'neutral' as const }],
-      variant: 'secondary_pink' as const,
-      onclick: showConfig,
-    },
-    {
-      title: 'System Info',
-      description: 'version, platform, Tauri status',
-      pills: [{ label: 'v0.1.0', variant: 'neutral' as const }],
-      variant: 'neutral' as const,
-      onclick: showSystemInfo,
-    },
-    {
-      title: 'Reset to Defaults',
-      description: 'double-press to confirm — this is destructive',
-      pills: [{ label: 'DESTRUCTIVE', variant: 'neutral' as const }],
-      variant: 'amber' as const,
-      onclick: handleReset,
-    },
-  ];
+  const cards = $derived.by(() => {
+    const c = cfg;
+    if (!c) return [];
+    return [
+      {
+        title: 'Permission Mode',
+        description: 'A to cycle, DPAD L/R to adjust',
+        pills: [{ label: c.claude_code.permission_mode, variant: 'active' as const }],
+        variant: 'primary' as const,
+        onclick: () => cyclePermissionMode('right'),
+      },
+      {
+        title: 'View Config',
+        description: 'dump current global config to terminal',
+        pills: [{ label: 'global.json', variant: 'neutral' as const }],
+        variant: 'secondary_pink' as const,
+        onclick: showConfig,
+      },
+      {
+        title: 'System Info',
+        description: 'version, platform, Tauri status',
+        pills: [{ label: 'v0.1.0', variant: 'neutral' as const }],
+        variant: 'neutral' as const,
+        onclick: showSystemInfo,
+      },
+      {
+        title: 'Reset to Defaults',
+        description: 'double-press to confirm — this is destructive',
+        pills: [{ label: 'DESTRUCTIVE', variant: 'neutral' as const }],
+        variant: 'amber' as const,
+        onclick: handleReset,
+      },
+    ];
+  });
+
+  // Keep screenCards in sync reactively
+  $effect(() => {
+    screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
+  });
+
+  // Register D-pad L/R adjust handlers
+  $effect(() => {
+    settingsAdjustHandlers.set({
+      0: { left: () => cyclePermissionMode('left'), right: () => cyclePermissionMode('right') },
+    });
+    return () => settingsAdjustHandlers.set({});
+  });
 
   async function handleLogout() {
     await logout();
@@ -118,8 +137,6 @@
     { button: 'LB', label: 'Back to Settings', icon: 'arrow_back' },
     { button: 'SELECT', label: 'Sign Out', icon: 'logout', onclick: handleLogout },
   ];
-
-  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />

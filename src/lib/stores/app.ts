@@ -74,9 +74,10 @@ export function toggleStartMenu() {
 
 export const previousScreen = writable<Screen>('empty_state');
 
-// ─── On-Screen Keyboard ─────────────────────────────────────────────────────
-
-export const keyboardOpen = writable(false);
+// ─── Settings D-pad Adjust Handlers ─────────────────────────────────────────
+// Maps card index → { left: () => void, right: () => void }
+// Populated by settings subscreens, consumed by inputRouter for DPAD_LEFT/DPAD_RIGHT.
+export const settingsAdjustHandlers = writable<Record<number, { left: () => void; right: () => void }>>({});
 
 // Pending prompt to send to Claude Code when AI Working screen mounts.
 // Set by Level 3 "Ship It", consumed by AIWorkingScreen.

@@ -222,6 +222,4 @@
     <div class="terminal-error-scanline"></div>
   {/if}
 
-  <!-- Scanline overlay (pulses when streaming) -->
-  <div class="absolute inset-0 scan-overlay z-10 pointer-events-none {$status === 'streaming' ? 'scan-overlay-streaming' : 'opacity-20'}"></div>
 </section>

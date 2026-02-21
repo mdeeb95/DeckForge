@@ -20,53 +20,60 @@
     entries.addEntry({ type: 'prompt', label: 'SETTINGS', body: 'DeckForge Configuration' });
     entries.addEntry({ type: 'timestamp', time: now, message: `Backend: ${config.prediction_engine.backend_mode}` });
     entries.addEntry({ type: 'timestamp', time: now, message: `API Key: ${config.prediction_engine.direct_api_key_ref ? 'configured' : 'not set'}` });
-    entries.addEntry({ type: 'timestamp', time: now, message: `Theme: ${config.display.theme}` });
     entries.addEntry({ type: 'timestamp', time: now, message: `Split Ratio: ${config.display.default_split_ratio}%` });
     entries.addEntry({ type: 'timestamp', time: now, message: `Telemetry: ${config.telemetry.enabled ? 'enabled' : 'disabled'}` });
     entries.addEntry({ type: 'timestamp', time: now, message: `Budget Alert: $${config.cost_tracking.session_budget_warning_threshold_usd.toFixed(2)}` });
     entries.addEntry({ type: 'cursor', message: 'Select a category to configure' });
   });
 
-  const config = get(globalConfig);
+  // Reactive cards — recompute whenever globalConfig changes
+  const cfg = $derived($globalConfig);
 
-  const cards = [
-    {
-      title: 'Prediction Engine',
-      description: 'backend mode, API key, models',
-      pills: [{ label: config?.prediction_engine.backend_mode ?? 'proxied', variant: 'active' as const }],
-      variant: 'primary' as const,
-      onclick: () => navigate('settings_prediction'),
-    },
-    {
-      title: 'Display & Input',
-      description: 'split ratio, scanlines, scroll speed',
-      pills: [{ label: `${config?.display.default_split_ratio ?? 55}%`, variant: 'neutral' as const }],
-      variant: 'secondary_pink' as const,
-      onclick: () => navigate('settings_display'),
-    },
-    {
-      title: 'Telemetry & Cost',
-      description: 'usage data, cost alerts',
-      pills: [{ label: config?.telemetry.enabled ? 'enabled' : 'disabled', variant: 'neutral' as const }],
-      variant: 'neutral' as const,
-      onclick: () => navigate('settings_telemetry'),
-    },
-    {
-      title: 'Advanced',
-      description: 'reset, debug, system info',
-      pills: [{ label: 'v0.1.0', variant: 'neutral' as const }],
-      variant: 'amber' as const,
-      onclick: () => navigate('settings_advanced'),
-    },
-  ];
+  const cards = $derived.by(() => {
+    const c = cfg;
+    if (!c) return [];
+    return [
+      {
+        title: 'Prediction Engine',
+        description: 'backend mode, API key, models',
+        pills: [{ label: c.prediction_engine.backend_mode, variant: 'active' as const }],
+        variant: 'primary' as const,
+        onclick: () => navigate('settings_prediction'),
+      },
+      {
+        title: 'Display & Input',
+        description: 'split ratio, scroll speed',
+        pills: [{ label: `${c.display.default_split_ratio}%`, variant: 'neutral' as const }],
+        variant: 'secondary_pink' as const,
+        onclick: () => navigate('settings_display'),
+      },
+      {
+        title: 'Telemetry & Cost',
+        description: 'usage data, cost alerts',
+        pills: [{ label: c.telemetry.enabled ? 'enabled' : 'disabled', variant: 'neutral' as const }],
+        variant: 'neutral' as const,
+        onclick: () => navigate('settings_telemetry'),
+      },
+      {
+        title: 'Advanced',
+        description: 'reset, debug, system info',
+        pills: [{ label: 'v0.1.0', variant: 'neutral' as const }],
+        variant: 'amber' as const,
+        onclick: () => navigate('settings_advanced'),
+      },
+    ];
+  });
+
+  // Keep screenCards in sync reactively
+  $effect(() => {
+    screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
+  });
 
   const secondaryCards = [
     { button: 'START', label: 'Close Settings', icon: 'arrow_back' },
     { button: 'LB', label: 'Back', icon: 'arrow_back' },
     { button: 'X', label: $updateStatus === 'available' ? `Update ${$updateInfo?.version}` : 'Check for Updates', icon: 'system_update', onclick: () => checkForUpdate() },
   ];
-
-  screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));
 </script>
 
 <TerminalPanel />

@@ -1,22 +1,21 @@
 ---
 name: do-task
 description: Complete a task from tasks/todo/ — implement changes, verify, and move to tasks/done/
-disable-model-invocation: true
-argument-hint: [task-filename-or-partial-match]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Complete a DeckForge Task
 
-Complete the task file specified by `$ARGUMENTS` from the `tasks/todo/` directory.
+Complete the task file specified by `$ARGUMENTS` from the `tasks/` directory.
 
 ## Workflow
 
-1. **Find the task file.** Glob `tasks/todo/*$ARGUMENTS*` to locate it. If no argument given, list all files in `tasks/todo/` and ask which one to work on. If multiple matches, ask for clarification.
+1. **Find the task file.** Glob `tasks/*$ARGUMENTS*` to locate it. If no argument given, list all files in `tasks/` and ask which one to work on. If multiple matches, ask for clarification.
 
 2. **Read the task file** in full. Understand every requirement.
 
 3. **Read all files that will be modified** before making any changes. Never propose changes to code you haven't read.
+
+3a. **Consider improvements to the original prompt** mistakes can be made when designing prompts, and prompts are often AI generated. Consider improvements and other considerations that are discovered when doing research for steps 2 and 3. If improvements are considered important enough, do not keep working on the task and begin a conversation to improve the plan
 
 4. **Implement all changes** described in the task. Follow the task's instructions precisely.
 

@@ -24,13 +24,6 @@
   backdrop-filter: blur(8px);
 }
 
-/* Scanline Overlay */
-.scan-overlay {
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-  background-size: 100% 4px;
-  pointer-events: none;
-}
-
 /* Code Syntax Highlighting */
 .code-syntax-keyword {
   color: #ff7b72;
@@ -61,15 +54,6 @@
 }
 .pulse-glow {
   animation: pulseGlow 2s ease-in-out infinite;
-}
-
-/* ─── Pulsing scanline (during streaming) ────────────────────────── */
-@keyframes scanPulse {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.3; }
-}
-.scan-overlay-streaming {
-  animation: scanPulse 1.5s ease-in-out infinite;
 }
 
 /* ─── Skeleton shimmer (loading cards) ───────────────────────────── */

@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { currentScreen, navigate, splitRatio, pendingClaudePrompt, startMenuOpen, previousScreen, keyboardOpen } from '../stores/app';
+import { currentScreen, navigate, splitRatio, pendingClaudePrompt, startMenuOpen, previousScreen, settingsAdjustHandlers, selectedCardIndex } from '../stores/app';
 import type { Screen } from '../stores/app';
 import { navigateUp, navigateDown, activateSelected, activateByButton, cycleSelectedIndex } from './navigation';
 import { rerollSuggestions } from '../stores/prediction';
@@ -185,6 +185,24 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         B: () => { playBack(); navigate('settings'); },
         LB: () => { playBack(); navigate('settings'); },
         START: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
+        DPAD_LEFT: () => {
+          const handlers = get(settingsAdjustHandlers);
+          const idx = get(selectedCardIndex);
+          const handler = handlers[idx];
+          if (handler) {
+            playToggle();
+            handler.left();
+          }
+        },
+        DPAD_RIGHT: () => {
+          const handlers = get(settingsAdjustHandlers);
+          const idx = get(selectedCardIndex);
+          const handler = handlers[idx];
+          if (handler) {
+            playToggle();
+            handler.right();
+          }
+        },
       };
 
     default:
@@ -276,13 +294,7 @@ export function handleInput(button: string) {
   const screen = get(currentScreen);
   devLog('input', `Button: ${button} | Screen: ${screen}`);
 
-  // Priority 1: On-screen keyboard captures ALL input when open
-  if (get(keyboardOpen)) {
-    devLog('input', `Keyboard open — ${button} captured by keyboard`);
-    return; // Keyboard component handles its own input via keydown listener
-  }
-
-  // Priority 2: START menu captures ALL input when open
+  // Priority 1: START menu captures ALL input when open (closes on START/B, navigates on A/X/Y)
   if (get(startMenuOpen)) {
     devLog('input', `StartMenu open — ${button} captured by menu`);
     if (button === 'START' || button === 'B') {
@@ -314,7 +326,7 @@ export function handleInput(button: string) {
     return;
   }
 
-  // Priority 3: START button opens the menu (except on screens that handle START themselves)
+  // Priority 2: START button opens the menu (except on screens that handle START themselves)
   if (button === 'START') {
     const screenHandlerMap = getScreenHandlers(screen);
     if (!screenHandlerMap['START']) {
