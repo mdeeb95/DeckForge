@@ -17,7 +17,8 @@
 
   onMount(async () => {
     try {
-      invites = await adminApi.getInvites();
+      const res = await adminApi.getInvites();
+      invites = res.items;
     } catch (err) {
       console.error('Failed to load invites:', err);
     } finally {

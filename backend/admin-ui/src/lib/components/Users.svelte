@@ -8,7 +8,8 @@
 
   onMount(async () => {
     try {
-      users = await adminApi.getUsers();
+      const res = await adminApi.getUsers();
+      users = res.items;
     } catch (err) {
       console.error('Failed to load users:', err);
     } finally {
