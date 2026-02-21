@@ -1,4 +1,9 @@
-"""Centralized Langfuse observability — traces, generations, scores, events."""
+"""Centralized Langfuse observability — traces, generations, scores, events.
+
+Written against the Langfuse Python SDK v3 API (OpenTelemetry-based).
+Uses context managers (start_as_current_observation), propagate_attributes
+for trace-level identity, and create_score for scoring.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -9,6 +14,19 @@ from typing import Any
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# ─── Lazy import: propagate_attributes ───────────────────────────────────────
+# Imported at module level so tests can patch it easily.
+
+try:
+    from langfuse import propagate_attributes
+except ImportError:
+    from contextlib import contextmanager
+
+    @contextmanager
+    def propagate_attributes(**kwargs):
+        yield
+
 
 # ─── Singleton client ────────────────────────────────────────────────────────
 
@@ -51,6 +69,17 @@ def _context_hash(prompt: str) -> str:
     return hashlib.sha256(prompt.encode()).hexdigest()[:12]
 
 
+def _to_trace_hex(trace_id: str) -> str:
+    """Convert a trace ID to a 32-char hex string for OTel trace context.
+
+    UUIDs have dashes stripped.  Non-hex strings are SHA-256 hashed.
+    """
+    hex_id = trace_id.replace("-", "")
+    if len(hex_id) == 32 and all(c in "0123456789abcdef" for c in hex_id):
+        return hex_id
+    return hashlib.sha256(trace_id.encode()).hexdigest()[:32]
+
+
 # ─── Prediction call tracing ─────────────────────────────────────────────────
 
 
@@ -67,54 +96,58 @@ def log_prediction_trace(
     """Log a full prediction call as a Langfuse trace + generation.
 
     Creates:
-      - A trace with name, user_id, session_id, metadata
-      - A generation nested under the trace with model, input, output, usage, metadata
+      - A root span with name, user_id, session_id, metadata
+      - A generation nested under the span with model, input, output, usage
     """
     langfuse = _get_langfuse()
     if langfuse is None:
         return
 
     try:
-        # Extract metadata from request
         context = request.context_payload or {}
         project_info = context.get("project", {})
         session_info = context.get("session", {})
+        trace_id_hex = _to_trace_hex(trace_id)
 
-        # user_id and session_id are now passed explicitly by the caller
-
-        # 1. Create the trace
-        trace = langfuse.trace(
-            id=trace_id,
+        with langfuse.start_as_current_observation(
+            as_type="span",
             name="prediction_call",
-            user_id=user_id,
-            session_id=session_id,
+            trace_context={"trace_id": trace_id_hex},
             input={"call_type": call_type},
-            output={"model": llm_response.model, "latency_ms": llm_response.latency_ms},
-            metadata={
-                "project_type": project_info.get("type_detected", "unknown"),
-                "session_number": session_info.get("session_number", 0),
-                "screen": call_type,
-            },
-        )
+        ) as root_span:
+            with propagate_attributes(
+                user_id=user_id,
+                session_id=session_id,
+                metadata={
+                    "project_type": project_info.get("type_detected", "unknown"),
+                    "session_number": session_info.get("session_number", 0),
+                    "screen": call_type,
+                },
+            ):
+                with langfuse.start_as_current_observation(
+                    as_type="generation",
+                    name=call_type,
+                    model=llm_response.model,
+                ) as gen:
+                    gen.update(
+                        input=prompt,
+                        output=llm_response.content,
+                        usage_details={
+                            "input": llm_response.input_tokens,
+                            "output": llm_response.output_tokens,
+                            "total": llm_response.input_tokens + llm_response.output_tokens,
+                        },
+                        metadata={
+                            "call_type": call_type,
+                            "context_hash": _context_hash(prompt),
+                            "latency_ms": llm_response.latency_ms,
+                            "cache_hit": cache_hit,
+                        },
+                    )
 
-        # 2. Create a generation nested under the trace
-        trace.generation(
-            name=call_type,
-            model=llm_response.model,
-            input=prompt,
-            output=llm_response.content,
-            usage={
-                "input": llm_response.input_tokens,
-                "output": llm_response.output_tokens,
-                "total": llm_response.input_tokens + llm_response.output_tokens,
-            },
-            metadata={
-                "call_type": call_type,
-                "context_hash": _context_hash(prompt),
-                "latency_ms": llm_response.latency_ms,
-                "cache_hit": cache_hit,
-            },
-        )
+            root_span.update_trace(
+                output={"model": llm_response.model, "latency_ms": llm_response.latency_ms},
+            )
 
         langfuse.flush()
         logger.info(f"Langfuse trace logged for {call_type} (trace_id={trace_id})")
@@ -137,32 +170,34 @@ def log_feedback_scores(
     plan_approval_button: str | None = None,
     used_unhinged_modifier: bool | None = None,
 ) -> None:
-    """Log user feedback as Langfuse scores + event on the existing trace.
+    """Log user feedback as Langfuse scores on the existing trace.
 
     Scores:
       - user_selection: 1.0 if selected, 0.0 otherwise
       - computed_reward: composite score from section 9.3
       - selection_speed: milliseconds to select (if provided)
 
-    Event:
-      - user_action: full metadata of the user interaction
+    Also creates a span with detailed action metadata (v3 replacement for
+    the v2 event() call).
     """
     langfuse = _get_langfuse()
     if langfuse is None:
         return
 
     try:
+        trace_id_hex = _to_trace_hex(trace_id)
+
         # Score: user_selection
-        langfuse.score(
-            trace_id=trace_id,
+        langfuse.create_score(
+            trace_id=trace_id_hex,
             name="user_selection",
             value=1.0 if user_action == "selected" else 0.0,
             data_type="NUMERIC",
         )
 
         # Score: computed_reward
-        langfuse.score(
-            trace_id=trace_id,
+        langfuse.create_score(
+            trace_id=trace_id_hex,
             name="computed_reward",
             value=computed_reward,
             data_type="NUMERIC",
@@ -170,14 +205,14 @@ def log_feedback_scores(
 
         # Score: selection_speed
         if selection_speed_ms is not None:
-            langfuse.score(
-                trace_id=trace_id,
+            langfuse.create_score(
+                trace_id=trace_id_hex,
                 name="selection_speed",
                 value=float(selection_speed_ms),
                 data_type="NUMERIC",
             )
 
-        # Event: detailed user action metadata
+        # Detailed user action metadata (span replaces v2 event)
         event_metadata = {
             "action": user_action,
             "selected_index": selected_index,
@@ -190,11 +225,12 @@ def log_feedback_scores(
         if user_id:
             event_metadata["user_id"] = user_id
 
-        langfuse.event(
-            trace_id=trace_id,
+        with langfuse.start_as_current_observation(
+            as_type="span",
             name="user_action",
-            metadata=event_metadata,
-        )
+            trace_context={"trace_id": trace_id_hex},
+        ) as span:
+            span.update(metadata=event_metadata)
 
         langfuse.flush()
         logger.info(f"Langfuse feedback logged for trace_id={trace_id}")
@@ -209,7 +245,7 @@ def log_claude_session_trace(report: Any, user_id: str, session_id: str | None =
     """Log a Claude Code session as a Langfuse trace with scores.
 
     Creates:
-      - A trace named 'claude_code_session' with prompt/result/metadata
+      - A root span named 'claude_code_session' with prompt/result/metadata
       - Scores: session_cost_usd, session_duration_ms, session_outcome, total_tokens
     """
     langfuse = _get_langfuse()
@@ -225,35 +261,52 @@ def log_claude_session_trace(report: Any, user_id: str, session_id: str | None =
         else:
             outcome = 1.0
 
-        trace_id = report.prediction_trace_id or _context_hash(report.prompt)
+        pred_trace_id = report.prediction_trace_id or _context_hash(report.prompt)
+        compound_id = f"session-{report.session_id}-{pred_trace_id}"
+        trace_id_hex = hashlib.sha256(compound_id.encode()).hexdigest()[:32]
+        effective_session_id = session_id or report.session_id
 
-        trace = langfuse.trace(
-            id=f"session-{report.session_id}-{trace_id}",
+        with langfuse.start_as_current_observation(
+            as_type="span",
             name="claude_code_session",
-            user_id=user_id,
-            session_id=session_id or report.session_id,
+            trace_context={"trace_id": trace_id_hex},
             input=report.prompt[:500],
-            output={
-                "result": report.result[:500] if report.result else "",
-                "is_error": report.is_error,
-                "was_interrupted": report.was_interrupted,
-            },
-            metadata={
-                "was_unhinged": report.was_unhinged,
-                "num_turns": report.num_turns,
-                "tools_used": report.tools_used[:20],
-                "files_affected": report.files_affected[:20],
-                "project_path": report.project_path,
-                "prediction_trace_id": report.prediction_trace_id,
-            },
-        )
+        ) as root_span:
+            with propagate_attributes(
+                user_id=user_id,
+                session_id=effective_session_id,
+                metadata={
+                    "was_unhinged": report.was_unhinged,
+                    "num_turns": report.num_turns,
+                    "tools_used": report.tools_used[:20],
+                    "files_affected": report.files_affected[:20],
+                    "project_path": report.project_path,
+                    "prediction_trace_id": report.prediction_trace_id,
+                },
+            ):
+                root_span.update(
+                    output={
+                        "result": report.result[:500] if report.result else "",
+                        "is_error": report.is_error,
+                        "was_interrupted": report.was_interrupted,
+                    },
+                )
 
-        # Attach scores
-        trace.score(name="session_cost_usd", value=report.cost_usd, data_type="NUMERIC")
-        trace.score(name="session_duration_ms", value=report.duration_ms, data_type="NUMERIC")
-        trace.score(name="session_outcome", value=outcome, data_type="NUMERIC")
-        trace.score(
-            name="total_tokens",
+        # Attach scores to the trace
+        langfuse.create_score(
+            trace_id=trace_id_hex, name="session_cost_usd",
+            value=report.cost_usd, data_type="NUMERIC",
+        )
+        langfuse.create_score(
+            trace_id=trace_id_hex, name="session_duration_ms",
+            value=report.duration_ms, data_type="NUMERIC",
+        )
+        langfuse.create_score(
+            trace_id=trace_id_hex, name="session_outcome",
+            value=outcome, data_type="NUMERIC",
+        )
+        langfuse.create_score(
+            trace_id=trace_id_hex, name="total_tokens",
             value=float(report.input_tokens + report.output_tokens),
             data_type="NUMERIC",
         )
@@ -275,7 +328,8 @@ def shutdown_langfuse() -> None:
     if _langfuse_client is not None:
         try:
             _langfuse_client.flush()
-            _langfuse_client.shutdown()
+            if hasattr(_langfuse_client, "shutdown"):
+                _langfuse_client.shutdown()
             logger.info("Langfuse client shut down")
         except Exception as e:
             logger.warning(f"Langfuse shutdown error: {e}")
