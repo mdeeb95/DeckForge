@@ -1,3 +1,11 @@
+import sys
+import os
+
+# Add parent directory to sys.path so `from app.*` imports resolve.
+# By the time env.py executes, the `alembic` package is already loaded
+# in sys.modules, so adding /app to the path won't shadow it.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 import asyncio
 from logging.config import fileConfig
 
