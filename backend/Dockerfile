@@ -13,4 +13,4 @@ COPY . .
 EXPOSE ${PORT:-8000}
 
 # Run migrations then start uvicorn — shell form so $PORT expands
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD echo "Running migrations..." && alembic upgrade head && echo "Migrations complete." && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
