@@ -64,6 +64,7 @@ class AuthToken(Base):
 
     __table_args__ = (
         Index("idx_auth_tokens_user", "user_id"),
+        Index("idx_auth_tokens_hash", "token_hash"),
     )
 
 
@@ -175,3 +176,17 @@ class InviteCode(Base):
     expires_at = Column(DateTime(timezone=True))               # null = never expires
     is_active = Column(Boolean, nullable=False, default=True)  # admin can disable
     note = Column(Text)                                        # admin note ("for beta testers", etc.)
+
+
+# ─── admin_audit_log ────────────────────────────────────────────────────────
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_log"
+
+    id = Column(Uuid, primary_key=True, default=new_uuid)
+    admin_email = Column(Text, nullable=False)
+    action = Column(Text, nullable=False)       # toggle_user_active, generate_invites, etc.
+    target_type = Column(Text, nullable=False)   # user, invite
+    target_id = Column(Text, nullable=False)
+    details = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

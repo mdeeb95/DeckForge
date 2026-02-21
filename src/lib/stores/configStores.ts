@@ -8,7 +8,7 @@ import {
   loadBehavior,
   saveBehavior,
 } from '../data/config';
-import { initAuth } from '../auth/auth';
+import { tryRestoreSession } from '../auth/auth';
 import { autoDetectRunCommand } from '../system/detector';
 import { initWindowManager, setAppWindowClass } from '../system/windowManager';
 import { devLog, devError } from '../utils/devLog';
@@ -29,25 +29,30 @@ export async function initGlobalConfig(): Promise<GlobalConfig> {
 }
 
 /**
- * Initialize the entire app: global config + auth.
- * Call this instead of initGlobalConfig() directly.
+ * Initialize the entire app: global config + auth session restore.
+ * Returns config + whether user is authenticated.
  */
-export async function initApp(): Promise<GlobalConfig> {
+export async function initApp(): Promise<{ config: GlobalConfig; authenticated: boolean }> {
   devLog('lifecycle', 'initApp: loading global config');
   const config = await initGlobalConfig();
   devLog('lifecycle', 'initApp: global config loaded', { userId: config.user.id });
 
-  // Attempt backend auth (non-blocking — mock mode works without it)
+  // Try restoring existing session (does NOT auto-register)
+  let authenticated = false;
   try {
-    const token = await initAuth(config);
-    authToken.set(token);
-    devLog('lifecycle', 'initApp: auth initialized');
+    const token = await tryRestoreSession();
+    if (token) {
+      authToken.set(token);
+      authenticated = true;
+      devLog('lifecycle', 'initApp: session restored');
+    } else {
+      devLog('lifecycle', 'initApp: no valid session, login required');
+    }
   } catch (e) {
-    devLog('lifecycle', 'initApp: auth failed, continuing in mock mode');
-    devError('error', 'Auth initialization failed', e);
+    devError('error', 'Session restore failed', e);
   }
 
-  return config;
+  return { config, authenticated };
 }
 
 export async function updateGlobalConfig(

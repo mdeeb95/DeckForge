@@ -9,7 +9,9 @@ import pytest
 from httpx import AsyncClient
 
 from app.db.models import User, InviteCode
-from tests.conftest import make_access_token, make_refresh_token, make_expired_token
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from tests.conftest import make_access_token, make_refresh_token, make_expired_token, make_stored_access_token
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -220,9 +222,9 @@ async def test_refresh_deactivated_user_403(client: AsyncClient, deactivated_use
 # ─── 11. middleware: valid token → returns user ──────────────────────────────
 
 @pytest.mark.asyncio
-async def test_middleware_valid_token(client: AsyncClient, test_user: User):
+async def test_middleware_valid_token(client: AsyncClient, test_user: User, db_session: AsyncSession):
     """Valid Bearer token on a protected endpoint succeeds."""
-    token = make_access_token(str(test_user.id))
+    token = await make_stored_access_token(test_user, db_session)
     # Use the feedback endpoint as a simple protected route
     resp = await client.post(
         "/api/v1/feedback",

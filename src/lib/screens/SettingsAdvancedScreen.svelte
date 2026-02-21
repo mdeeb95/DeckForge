@@ -5,9 +5,10 @@
   import { selectedCardIndex, screenCards } from '../stores/app';
   import { entries, status } from '../stores/terminal';
   import { get } from 'svelte/store';
-  import { globalConfig, updateGlobalConfig } from '../stores/configStores';
+  import { globalConfig, updateGlobalConfig, authToken } from '../stores/configStores';
   import { createDefaultGlobalConfig } from '../data/defaults';
   import { saveGlobalConfig } from '../data/config';
+  import { logout } from '../auth/auth';
 
   const PERMISSION_MODES = ['acceptEdits', 'plan', 'full', 'bypassPermissions'];
   let permissionIndex = $state(0);
@@ -107,8 +108,15 @@
     },
   ];
 
+  async function handleLogout() {
+    await logout();
+    authToken.set(null);
+    window.location.reload();
+  }
+
   const secondaryCards = [
     { button: 'LB', label: 'Back to Settings', icon: 'arrow_back' },
+    { button: 'SELECT', label: 'Sign Out', icon: 'logout', onclick: handleLogout },
   ];
 
   screenCards.set(cards.map(c => ({ title: c.title, description: c.description, onclick: c.onclick })));

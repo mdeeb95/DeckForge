@@ -4,6 +4,7 @@
   import ScreenRouter from './lib/components/ScreenRouter.svelte';
   import FlashOverlay from './lib/components/FlashOverlay.svelte';
   import StartMenu from './lib/components/StartMenu.svelte';
+  import LoginScreen from './lib/screens/LoginScreen.svelte';
   import { projectName, connected, navigate, splitRatio } from './lib/stores/app';
   import type { Screen } from './lib/stores/app';
   import { startGamepadPolling, stopGamepadPolling } from './lib/input/gamepad';
@@ -18,6 +19,9 @@
   // Initialize app state (will be overridden by config load)
   projectName.set('');
   connected.set(false);
+
+  let authenticated = $state(false);
+  let appReady = $state(false);
 
   // Debug keyboard shortcuts: number keys to switch screens
   const screenMap: Record<string, Screen> = {
@@ -70,23 +74,40 @@
     }
 
     try {
-      const config = await initAppConfig();
+      const { config, authenticated: isAuthed } = await initAppConfig();
+      authenticated = isAuthed;
+      appReady = true;
 
-      // Apply display settings from config
-      splitRatio.set(config.display.default_split_ratio);
-      connected.set(true);
-
-      // Determine start screen based on config state
-      if (!config.user.onboarding_completed && !(config.recent_projects?.length > 0)) {
-        navigate('empty_state');
-      } else {
-        navigate('project_select');
+      if (isAuthed) {
+        startAuthenticatedApp(config);
       }
     } catch (error) {
       console.error('Failed to initialize app config:', error);
+      appReady = true;
       navigate('empty_state');
       connected.set(true);
     }
+  }
+
+  function startAuthenticatedApp(config: import('./lib/types/data').GlobalConfig) {
+    // Apply display settings from config
+    splitRatio.set(config.display.default_split_ratio);
+    connected.set(true);
+
+    // Determine start screen based on config state
+    if (!config.user.onboarding_completed && !(config.recent_projects?.length > 0)) {
+      navigate('empty_state');
+    } else {
+      navigate('project_select');
+    }
+  }
+
+  function handleAuthenticated() {
+    authenticated = true;
+    // Re-initialize with the now-authenticated state
+    initAppConfig().then(({ config }) => {
+      startAuthenticatedApp(config);
+    });
   }
 
   onMount(() => {
@@ -165,15 +186,22 @@
   });
 </script>
 
-<div class="h-screen w-screen flex flex-col overflow-hidden">
-  <FlashOverlay />
-  <StartMenu />
+{#if !appReady}
+  <!-- Blank screen while loading config -->
+  <div class="h-screen w-screen bg-[#0d1117]"></div>
+{:else if !authenticated}
+  <LoginScreen on:authenticated={handleAuthenticated} />
+{:else}
+  <div class="h-screen w-screen flex flex-col overflow-hidden">
+    <FlashOverlay />
+    <StartMenu />
 
-  <!-- Status Bar -->
-  <StatusBar projectName={$projectName} connected={$connected} version="v0.1.0" />
+    <!-- Status Bar -->
+    <StatusBar projectName={$projectName} connected={$connected} version="v0.1.0" />
 
-  <!-- Main Workspace -->
-  <main class="flex-1 flex overflow-hidden relative">
-    <ScreenRouter />
-  </main>
-</div>
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden relative">
+      <ScreenRouter />
+    </main>
+  </div>
+{/if}

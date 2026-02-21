@@ -113,6 +113,11 @@ export interface AuthToken {
   refresh_token: string;
   expires_at: string;
   backend_url: string;
+  // Google identity
+  email: string;
+  display_name: string;
+  avatar_url?: string;
+  is_admin: boolean;
 }
 
 // ─── Section 4: Per-Project Config ──────────────────────────────────────────

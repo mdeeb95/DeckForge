@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+import hashlib
 import asyncio
 from datetime import datetime, timezone
 
@@ -10,9 +11,10 @@ import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-from app.db.models import Base, User, InviteCode
+from app.db.models import Base, User, AuthToken, InviteCode
 from app.db.session import get_db
 from app.config import get_settings, Settings
+from app.rate_limit import limiter as app_limiter
 from app.main import app
 
 
@@ -46,6 +48,8 @@ async def db_session():
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession):
     """Create an httpx AsyncClient with the test database injected."""
+    app_limiter.enabled = False
+
     async def override_get_db():
         yield db_session
 
@@ -54,6 +58,7 @@ async def client(db_session: AsyncSession):
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
+    app_limiter.enabled = True
 
 
 @pytest_asyncio.fixture
@@ -208,3 +213,33 @@ def make_expired_token(user_id: str) -> str:
         "type": "access",
     }
     return pyjwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+async def make_stored_access_token(user: User, db: AsyncSession) -> str:
+    """Create a valid access token WITH a matching AuthToken DB row.
+
+    Use this for tests that exercise the middleware's token revocation check.
+    JWT-only tests (expired, missing header) can still use make_access_token().
+    """
+    import jwt as pyjwt
+    from datetime import timedelta
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=60)
+
+    access_payload = {"sub": str(user.id), "exp": expires_at, "type": "access"}
+    access_token = pyjwt.encode(access_payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+    refresh_payload = {"sub": str(user.id), "exp": now + timedelta(days=30), "type": "refresh"}
+    refresh_token = pyjwt.encode(refresh_payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+    auth_record = AuthToken(
+        user_id=user.id,
+        token_hash=hashlib.sha256(access_token.encode()).hexdigest(),
+        refresh_hash=hashlib.sha256(refresh_token.encode()).hexdigest(),
+        expires_at=expires_at,
+    )
+    db.add(auth_record)
+    await db.commit()
+
+    return access_token

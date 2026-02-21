@@ -4,7 +4,9 @@ from pydantic import BaseModel
 
 
 class GoogleAuthRequest(BaseModel):
-    id_token: str                    # Google ID token from GIS
+    id_token: str | None = None      # Google ID token from GIS (browser flow)
+    auth_code: str | None = None     # Authorization code (Tauri desktop flow)
+    redirect_uri: str | None = None  # Required when using auth_code
     app_version: str | None = None
 
 
@@ -21,7 +23,9 @@ class GoogleAuthResponse(BaseModel):
 
 
 class RedeemInviteRequest(BaseModel):
-    id_token: str                    # Google ID token (verified again)
+    id_token: str | None = None      # Google ID token (browser flow)
+    auth_code: str | None = None     # Authorization code (Tauri desktop flow)
+    redirect_uri: str | None = None  # Required when using auth_code
     invite_code: str                 # The invite code to redeem
     app_version: str | None = None
 

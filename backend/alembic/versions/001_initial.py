@@ -34,7 +34,7 @@ def upgrade() -> None:
         sa.Column("refresh_hash", sa.Text(), nullable=False),
         sa.Column("issued_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.false_()),
+        sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.text("false")),
     )
     op.create_index("idx_auth_tokens_user", "auth_tokens", ["user_id"])
 
@@ -47,7 +47,7 @@ def upgrade() -> None:
         sa.Column("key_prefix", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("last_used_at", sa.DateTime(timezone=True)),
-        sa.Column("is_valid", sa.Boolean(), nullable=False, server_default=sa.true_()),
+        sa.Column("is_valid", sa.Boolean(), nullable=False, server_default=sa.text("true")),
     )
     op.create_index("idx_api_keys_user", "api_keys", ["user_id"])
 
@@ -57,7 +57,7 @@ def upgrade() -> None:
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("template_text", sa.Text(), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true_()),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("ab_test_group", sa.Text()),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint("name", "version", "ab_test_group"),
@@ -87,7 +87,7 @@ def upgrade() -> None:
         sa.Column("output_tokens", sa.Integer(), nullable=False),
         sa.Column("cost_usd", sa.Numeric(10, 6), nullable=False),
         sa.Column("latency_ms", sa.Integer(), nullable=False),
-        sa.Column("cache_hit", sa.Boolean(), nullable=False, server_default=sa.false_()),
+        sa.Column("cache_hit", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("ab_test_group", sa.Text()),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )

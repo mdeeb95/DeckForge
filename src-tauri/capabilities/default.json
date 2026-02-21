@@ -236,6 +236,7 @@
         }
       ]
     },
+    "shell:allow-open",
     "shell:allow-stdin-write",
     "shell:allow-kill",
     "dialog:default",

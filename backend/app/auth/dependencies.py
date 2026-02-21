@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+import hashlib
 import logging
 from datetime import datetime, timezone
 
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.session import get_db
-from app.db.models import User
+from app.db.models import User, AuthToken
 
 logger = logging.getLogger(__name__)
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -63,6 +64,17 @@ async def get_current_user(
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account deactivated")
+
+    # Check token is not revoked — O(1) indexed lookup by SHA-256 hash
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    stmt_tokens = select(AuthToken).where(
+        AuthToken.user_id == user.id,
+        AuthToken.token_hash == token_hash,
+        AuthToken.revoked == False,
+    )
+    result_tokens = await db.execute(stmt_tokens)
+    if result_tokens.scalar_one_or_none() is None:
+        raise HTTPException(status_code=401, detail="Token revoked")
 
     # Update last_seen
     user.last_seen_at = datetime.now(timezone.utc)

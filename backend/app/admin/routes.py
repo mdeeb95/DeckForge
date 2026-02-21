@@ -15,12 +15,13 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.db.session import get_db
-from app.db.models import User, InviteCode, PredictionCall
+from app.db.models import User, InviteCode, PredictionCall, AdminAuditLog
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 COOKIE_NAME = "deckforge_admin_session"
+CSRF_COOKIE_NAME = "deckforge_csrf"
 SESSION_MAX_AGE = 86400  # 24 hours
 
 
@@ -30,7 +31,7 @@ def _get_serializer() -> URLSafeTimedSerializer:
 
 
 def _verify_admin(request: Request) -> None:
-    """Raise 401 if admin session is invalid."""
+    """Raise 401/403 if admin session or CSRF is invalid."""
     cookie = request.cookies.get(COOKIE_NAME)
     if not cookie:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -38,6 +39,30 @@ def _verify_admin(request: Request) -> None:
         _get_serializer().loads(cookie, max_age=SESSION_MAX_AGE)
     except (BadSignature, SignatureExpired):
         raise HTTPException(status_code=401, detail="Session expired")
+
+    # CSRF check for state-changing methods
+    if request.method in ("POST", "PUT", "DELETE"):
+        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+        csrf_header = request.headers.get("x-csrf-token")
+        if not csrf_cookie or csrf_cookie != csrf_header:
+            raise HTTPException(status_code=403, detail="CSRF validation failed")
+
+
+async def _audit(
+    db: AsyncSession,
+    action: str,
+    target_type: str,
+    target_id: str,
+    details: str | None = None,
+) -> None:
+    """Record an admin action in the audit log."""
+    db.add(AdminAuditLog(
+        admin_email="admin",
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        details=details,
+    ))
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
@@ -53,11 +78,20 @@ async def admin_login(request: Request, body: LoginRequest):
 
     session_data = {"email": "admin", "ts": datetime.now(timezone.utc).isoformat()}
     cookie = _get_serializer().dumps(session_data)
+    csrf_token = secrets.token_urlsafe(32)
 
-    response = JSONResponse({"ok": True})
+    is_production = not settings.database_url.startswith("sqlite")
+
+    response = JSONResponse({"ok": True, "csrf_token": csrf_token})
     response.set_cookie(
         COOKIE_NAME, cookie,
         httponly=True, samesite="lax", max_age=SESSION_MAX_AGE,
+        secure=is_production,
+    )
+    response.set_cookie(
+        CSRF_COOKIE_NAME, csrf_token,
+        httponly=False, samesite="lax", max_age=SESSION_MAX_AGE,
+        secure=is_production,
     )
     return response
 
@@ -66,6 +100,7 @@ async def admin_login(request: Request, body: LoginRequest):
 async def admin_logout():
     response = JSONResponse({"ok": True})
     response.delete_cookie(COOKIE_NAME)
+    response.delete_cookie(CSRF_COOKIE_NAME)
     return response
 
 
@@ -97,6 +132,26 @@ async def admin_stats(request: Request, db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/admin/audit-log")
+async def admin_audit_log(request: Request, db: AsyncSession = Depends(get_db)):
+    _verify_admin(request)
+
+    stmt = select(AdminAuditLog).order_by(desc(AdminAuditLog.created_at)).limit(20)
+    entries = (await db.execute(stmt)).scalars().all()
+
+    return [
+        {
+            "admin_email": e.admin_email,
+            "action": e.action,
+            "target_type": e.target_type,
+            "target_id": e.target_id,
+            "details": e.details,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in entries
+    ]
+
+
 @router.get("/admin/recent-users")
 async def admin_recent_users(request: Request, db: AsyncSession = Depends(get_db)):
     _verify_admin(request)
@@ -110,13 +165,25 @@ async def admin_recent_users(request: Request, db: AsyncSession = Depends(get_db
 # ─── Users ───────────────────────────────────────────────────────────────────
 
 @router.get("/admin/users")
-async def admin_users(request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_users(
+    request: Request,
+    page: int = 1,
+    per_page: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
     _verify_admin(request)
 
-    stmt = select(User).order_by(desc(User.created_at))
+    total = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    offset = (page - 1) * per_page
+    stmt = select(User).order_by(desc(User.created_at)).offset(offset).limit(per_page)
     users = (await db.execute(stmt)).scalars().all()
 
-    return [_user_to_dict(u) for u in users]
+    return {
+        "items": [_user_to_dict(u) for u in users],
+        "total": total,
+        "page": page,
+        "pages": max(1, (total + per_page - 1) // per_page),
+    }
 
 
 @router.post("/admin/users/{user_id}/toggle-active")
@@ -129,6 +196,7 @@ async def toggle_user_active(user_id: str, request: Request, db: AsyncSession = 
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_active = not user.is_active
+    await _audit(db, "toggle_user_active", "user", user_id, f"is_active={user.is_active}")
     await db.commit()
     return _user_to_dict(user)
 
@@ -143,6 +211,7 @@ async def toggle_user_admin(user_id: str, request: Request, db: AsyncSession = D
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_admin = not user.is_admin
+    await _audit(db, "toggle_user_admin", "user", user_id, f"is_admin={user.is_admin}")
     await db.commit()
     return _user_to_dict(user)
 
@@ -150,13 +219,25 @@ async def toggle_user_admin(user_id: str, request: Request, db: AsyncSession = D
 # ─── Invite Codes ────────────────────────────────────────────────────────────
 
 @router.get("/admin/invites")
-async def admin_invites(request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_invites(
+    request: Request,
+    page: int = 1,
+    per_page: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
     _verify_admin(request)
 
-    stmt = select(InviteCode).order_by(desc(InviteCode.created_at))
+    total = (await db.execute(select(func.count(InviteCode.id)))).scalar() or 0
+    offset = (page - 1) * per_page
+    stmt = select(InviteCode).order_by(desc(InviteCode.created_at)).offset(offset).limit(per_page)
     invites = (await db.execute(stmt)).scalars().all()
 
-    return [_invite_to_dict(i) for i in invites]
+    return {
+        "items": [_invite_to_dict(i) for i in invites],
+        "total": total,
+        "page": page,
+        "pages": max(1, (total + per_page - 1) // per_page),
+    }
 
 
 class GenerateInvitesRequest(BaseModel):
@@ -189,6 +270,7 @@ async def generate_invites(
         await db.flush()
         created.append(_invite_to_dict(invite))
 
+    await _audit(db, "generate_invites", "invite", "batch", f"count={count}")
     await db.commit()
     return created
 
@@ -203,6 +285,7 @@ async def toggle_invite_active(invite_id: str, request: Request, db: AsyncSessio
         raise HTTPException(status_code=404, detail="Invite not found")
 
     invite.is_active = not invite.is_active
+    await _audit(db, "toggle_invite_active", "invite", invite_id, f"is_active={invite.is_active}")
     await db.commit()
     return _invite_to_dict(invite)
 

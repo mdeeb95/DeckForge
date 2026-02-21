@@ -7,7 +7,6 @@ from typing import Any
 class PredictRequest(BaseModel):
     call_type: str  # level_2_feature, level_2_bug, level_2_tech_debt, level_3_plan, etc.
     context_payload: dict[str, Any]
-    user_id: str | None = None
     session_id: str | None = None
     preferences: dict[str, Any] | None = None
 

@@ -20,8 +20,8 @@ def upgrade() -> None:
     op.add_column("users", sa.Column("display_name", sa.Text(), nullable=True))
     op.add_column("users", sa.Column("avatar_url", sa.Text(), nullable=True))
     op.add_column("users", sa.Column("google_sub", sa.Text(), unique=True, nullable=True))
-    op.add_column("users", sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true_()))
-    op.add_column("users", sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.false_()))
+    op.add_column("users", sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")))
+    op.add_column("users", sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("false")))
     op.add_column("users", sa.Column("invite_code_used", sa.Text(), nullable=True))
 
     # Create invite_codes table
@@ -34,7 +34,7 @@ def upgrade() -> None:
         sa.Column("max_uses", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("times_used", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true_()),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("note", sa.Text(), nullable=True),
     )
 

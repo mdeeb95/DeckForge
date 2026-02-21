@@ -25,16 +25,24 @@ def _patch_admin_settings():
         return_value=MagicMock(
             admin_password=ADMIN_PASSWORD,
             jwt_secret="dev-secret-change-in-production",
+            database_url="sqlite+aiosqlite://",
         ),
     )
 
 
-async def _login(client: AsyncClient) -> dict:
-    """Log in and return cookies dict."""
+async def _login(client: AsyncClient) -> tuple[dict, str]:
+    """Log in and return (cookies dict, csrf_token)."""
     with _patch_admin_settings():
         resp = await client.post("/api/v1/admin/login", json={"password": ADMIN_PASSWORD})
     assert resp.status_code == 200
-    return dict(resp.cookies)
+    cookies = dict(resp.cookies)
+    csrf_token = resp.json().get("csrf_token", "")
+    return cookies, csrf_token
+
+
+def _csrf_headers(csrf_token: str) -> dict:
+    """Build headers dict with CSRF token for POST requests."""
+    return {"X-CSRF-Token": csrf_token}
 
 
 # ─── 1. Login with correct password → 200 + cookie ──────────────────────────
@@ -46,6 +54,8 @@ async def test_admin_login_correct_password(client: AsyncClient):
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
     assert "deckforge_admin_session" in resp.cookies
+    assert "deckforge_csrf" in resp.cookies
+    assert resp.json()["csrf_token"]
 
 
 # ─── 2. Login with wrong password → 401 ─────────────────────────────────────
@@ -69,7 +79,7 @@ async def test_admin_me_no_cookie(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_admin_me_with_cookie(client: AsyncClient):
-    cookies = await _login(client)
+    cookies, _ = await _login(client)
     with _patch_admin_settings():
         resp = await client.get("/api/v1/admin/me", cookies=cookies)
     assert resp.status_code == 200
@@ -88,7 +98,7 @@ async def test_admin_me_expired_cookie(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_admin_stats(client: AsyncClient, test_user: User, invite_code: InviteCode):
-    cookies = await _login(client)
+    cookies, _ = await _login(client)
     with _patch_admin_settings():
         resp = await client.get("/api/v1/admin/stats", cookies=cookies)
     assert resp.status_code == 200
@@ -97,55 +107,67 @@ async def test_admin_stats(client: AsyncClient, test_user: User, invite_code: In
     assert data["total_invites"] >= 1
 
 
-# ─── 7. /users returns all users as JSON ────────────────────────────────────
+# ─── 7. /users returns paginated response ────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_admin_users_list(client: AsyncClient, test_user: User):
-    cookies = await _login(client)
+    cookies, _ = await _login(client)
     with _patch_admin_settings():
         resp = await client.get("/api/v1/admin/users", cookies=cookies)
     assert resp.status_code == 200
-    users = resp.json()
-    assert isinstance(users, list)
-    assert len(users) >= 1
-    assert users[0]["email"] is not None or users[0]["id"] is not None
+    data = resp.json()
+    assert "items" in data
+    assert "total" in data
+    assert "page" in data
+    assert "pages" in data
+    assert len(data["items"]) >= 1
+    assert data["items"][0]["email"] is not None or data["items"][0]["id"] is not None
 
 
-# ─── 8. Toggle user active ──────────────────────────────────────────────────
+# ─── 8. Toggle user active (with CSRF) ──────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_admin_toggle_user_active(client: AsyncClient, test_user: User):
-    cookies = await _login(client)
+    cookies, csrf = await _login(client)
     original = test_user.is_active
     with _patch_admin_settings():
-        resp = await client.post(f"/api/v1/admin/users/{test_user.id}/toggle-active", cookies=cookies)
+        resp = await client.post(
+            f"/api/v1/admin/users/{test_user.id}/toggle-active",
+            cookies=cookies,
+            headers=_csrf_headers(csrf),
+        )
     assert resp.status_code == 200
     assert resp.json()["is_active"] is not original
 
 
-# ─── 9. Toggle user admin ───────────────────────────────────────────────────
+# ─── 9. Toggle user admin (with CSRF) ───────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_admin_toggle_user_admin(client: AsyncClient, test_user: User):
-    cookies = await _login(client)
+    cookies, csrf = await _login(client)
     original = test_user.is_admin
     with _patch_admin_settings():
-        resp = await client.post(f"/api/v1/admin/users/{test_user.id}/toggle-admin", cookies=cookies)
+        resp = await client.post(
+            f"/api/v1/admin/users/{test_user.id}/toggle-admin",
+            cookies=cookies,
+            headers=_csrf_headers(csrf),
+        )
     assert resp.status_code == 200
     assert resp.json()["is_admin"] is not original
 
 
-# ─── 10. Generate invite codes ──────────────────────────────────────────────
+# ─── 10. Generate invite codes (with CSRF) ──────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_admin_generate_invites(client: AsyncClient):
-    cookies = await _login(client)
+    cookies, csrf = await _login(client)
     with _patch_admin_settings():
-        resp = await client.post("/api/v1/admin/invites/generate", cookies=cookies, json={
-            "count": 5,
-            "max_uses": 3,
-            "note": "test batch",
-        })
+        resp = await client.post(
+            "/api/v1/admin/invites/generate",
+            cookies=cookies,
+            headers=_csrf_headers(csrf),
+            json={"count": 5, "max_uses": 3, "note": "test batch"},
+        )
     assert resp.status_code == 200
     codes = resp.json()
     assert len(codes) == 5
@@ -167,14 +189,18 @@ def test_generate_code_no_confusable_chars():
             assert ch not in CONFUSABLE_CHARS, f"Code {code} contains confusable char {ch}"
 
 
-# ─── 12. Toggle invite active ───────────────────────────────────────────────
+# ─── 12. Toggle invite active (with CSRF) ───────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_admin_toggle_invite_active(client: AsyncClient, invite_code: InviteCode):
-    cookies = await _login(client)
+    cookies, csrf = await _login(client)
     original = invite_code.is_active
     with _patch_admin_settings():
-        resp = await client.post(f"/api/v1/admin/invites/{invite_code.id}/toggle-active", cookies=cookies)
+        resp = await client.post(
+            f"/api/v1/admin/invites/{invite_code.id}/toggle-active",
+            cookies=cookies,
+            headers=_csrf_headers(csrf),
+        )
     assert resp.status_code == 200
     assert resp.json()["is_active"] is not original
 
@@ -183,7 +209,7 @@ async def test_admin_toggle_invite_active(client: AsyncClient, invite_code: Invi
 
 @pytest.mark.asyncio
 async def test_admin_logout(client: AsyncClient):
-    cookies = await _login(client)
+    cookies, _ = await _login(client)
     resp = await client.post("/api/v1/admin/logout", cookies=cookies)
     assert resp.status_code == 200
 
@@ -201,3 +227,19 @@ async def test_admin_endpoints_401_after_logout(client: AsyncClient):
 
     resp = await client.get("/api/v1/admin/invites")
     assert resp.status_code == 401
+
+
+# ─── 15. POST without CSRF token → 403 ──────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_admin_post_without_csrf_403(client: AsyncClient, test_user: User):
+    cookies, _ = await _login(client)
+    # POST without X-CSRF-Token header
+    with _patch_admin_settings():
+        resp = await client.post(
+            f"/api/v1/admin/users/{test_user.id}/toggle-active",
+            cookies=cookies,
+            # No CSRF header
+        )
+    assert resp.status_code == 403
+    assert "CSRF" in resp.json()["detail"]

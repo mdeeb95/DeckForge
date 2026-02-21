@@ -1,21 +1,21 @@
 """Auth routes: Google Sign-In + invite code redemption."""
-from __future__ import annotations
-
 import uuid
 import hashlib
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 
 import jwt
-import bcrypt
+import httpx
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.session import get_db
 from app.db.models import User, AuthToken, InviteCode
+from app.rate_limit import limiter
 from app.schemas.auth import (
     GoogleAuthRequest,
     GoogleAuthResponse,
@@ -44,40 +44,81 @@ def _create_tokens(user_id: str, settings) -> tuple[str, str, datetime]:
 
 
 def _store_token_hashes(access_token: str, refresh_token: str, user_id: uuid.UUID, expires_at: datetime) -> AuthToken:
-    """Create an AuthToken record with bcrypt-hashed tokens."""
+    """Create an AuthToken record with SHA-256-hashed tokens."""
     return AuthToken(
         user_id=user_id,
-        token_hash=bcrypt.hashpw(
-            hashlib.sha256(access_token.encode()).hexdigest().encode(),
-            bcrypt.gensalt(),
-        ).decode(),
-        refresh_hash=bcrypt.hashpw(
-            hashlib.sha256(refresh_token.encode()).hexdigest().encode(),
-            bcrypt.gensalt(),
-        ).decode(),
+        token_hash=hashlib.sha256(access_token.encode()).hexdigest(),
+        refresh_hash=hashlib.sha256(refresh_token.encode()).hexdigest(),
         expires_at=expires_at,
     )
 
 
+async def _exchange_auth_code(auth_code: str, redirect_uri: Optional[str], settings) -> dict:
+    """Exchange a Google authorization code for user info via the token endpoint."""
+    if not settings.google_client_secret:
+        raise HTTPException(status_code=500, detail="Google client secret not configured (required for auth code exchange)")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": auth_code,
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "redirect_uri": redirect_uri or "http://localhost:14380/auth/callback",
+                "grant_type": "authorization_code",
+            },
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail=f"Google auth code exchange failed: {resp.text}")
+
+    token_data = resp.json()
+    google_id_token = token_data.get("id_token")
+    if not google_id_token:
+        raise HTTPException(status_code=401, detail="No id_token in Google response")
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            google_id_token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token from code exchange: {e}")
+
+    return idinfo
+
+
 @router.post("/auth/google", response_model=GoogleAuthResponse)
+@limiter.limit("10/minute")
 async def google_auth(
-    request: GoogleAuthRequest,
+    request: Request,
+    body: GoogleAuthRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchange a Google ID token for DeckForge JWT tokens."""
+    """Exchange a Google ID token or auth code for DeckForge JWT tokens."""
     settings = get_settings()
 
     if not settings.google_client_id:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
 
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            request.id_token,
-            google_requests.Request(),
-            settings.google_client_id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+    if not body.id_token and not body.auth_code:
+        raise HTTPException(status_code=400, detail="Either id_token or auth_code is required")
+
+    if body.auth_code:
+        # Desktop flow: exchange auth code for tokens via Google
+        idinfo = await _exchange_auth_code(body.auth_code, body.redirect_uri, settings)
+    else:
+        # Browser flow: verify ID token directly
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                body.id_token,
+                google_requests.Request(),
+                settings.google_client_id,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
 
     google_sub = idinfo["sub"]
     email = idinfo.get("email", "")
@@ -109,8 +150,8 @@ async def google_auth(
     user.display_name = display_name
     user.avatar_url = avatar_url
     user.last_seen_at = datetime.now(timezone.utc)
-    if request.app_version:
-        user.app_version = request.app_version
+    if body.app_version:
+        user.app_version = body.app_version
 
     access_token, refresh_token, expires_at = _create_tokens(str(user.id), settings)
     db.add(_store_token_hashes(access_token, refresh_token, user.id, expires_at))
@@ -130,8 +171,10 @@ async def google_auth(
 
 
 @router.post("/auth/redeem-invite", response_model=RedeemInviteResponse)
+@limiter.limit("5/minute")
 async def redeem_invite(
-    request: RedeemInviteRequest,
+    request: Request,
+    body: RedeemInviteRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """Redeem an invite code and create a new user account."""
@@ -140,14 +183,20 @@ async def redeem_invite(
     if not settings.google_client_id:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
 
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            request.id_token,
-            google_requests.Request(),
-            settings.google_client_id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+    if not body.id_token and not body.auth_code:
+        raise HTTPException(status_code=400, detail="Either id_token or auth_code is required")
+
+    if body.auth_code:
+        idinfo = await _exchange_auth_code(body.auth_code, body.redirect_uri, settings)
+    else:
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                body.id_token,
+                google_requests.Request(),
+                settings.google_client_id,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
 
     google_sub = idinfo["sub"]
     email = idinfo.get("email", "")
@@ -155,7 +204,7 @@ async def redeem_invite(
     avatar_url = idinfo.get("picture", "")
 
     # Validate invite code
-    code_normalized = request.invite_code.strip().upper()
+    code_normalized = body.invite_code.strip().upper()
     stmt = select(InviteCode).where(InviteCode.code == code_normalized)
     result = await db.execute(stmt)
     invite = result.scalar_one_or_none()
@@ -187,7 +236,7 @@ async def redeem_invite(
         invite_code_used=code_normalized,
         is_active=True,
         is_admin=email in [e.strip() for e in settings.admin_emails.split(",")],
-        app_version=request.app_version,
+        app_version=body.app_version,
     )
     db.add(user)
     invite.times_used += 1
@@ -208,8 +257,10 @@ async def redeem_invite(
 
 
 @router.post("/auth/refresh", response_model=RefreshResponse)
+@limiter.limit("20/minute")
 async def refresh(
-    request: RefreshRequest,
+    request: Request,
+    body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """Refresh JWT tokens."""
@@ -217,7 +268,7 @@ async def refresh(
 
     try:
         payload = jwt.decode(
-            request.refresh_token,
+            body.refresh_token,
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
         )
@@ -240,6 +291,13 @@ async def refresh(
         raise HTTPException(status_code=403, detail="Account deactivated")
 
     user.last_seen_at = datetime.now(timezone.utc)
+
+    # Revoke all existing tokens for this user before issuing new ones
+    await db.execute(
+        update(AuthToken)
+        .where(AuthToken.user_id == uuid.UUID(user_id), AuthToken.revoked == False)
+        .values(revoked=True)
+    )
 
     access_token, refresh_token, expires_at = _create_tokens(user_id, settings)
     db.add(_store_token_hashes(access_token, refresh_token, uuid.UUID(user_id), expires_at))
