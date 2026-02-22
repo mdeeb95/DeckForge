@@ -11,6 +11,7 @@ from app.llm.langfuse_logger import (
     log_feedback_scores,
     log_claude_session_trace,
     _to_trace_hex,
+    _stringify_metadata,
 )
 
 
@@ -192,6 +193,23 @@ class TestLogFeedbackScores:
         assert metadata["user_id"] == "google_feedback_user"
         assert metadata["action"] == "selected"
 
+    def test_feedback_metadata_all_strings(self, mock_langfuse):
+        client, _ = mock_langfuse
+        log_feedback_scores(
+            trace_id="550e8400-e29b-41d4-a716-446655440000",
+            user_action="selected",
+            computed_reward=0.85,
+            user_id="google_u3",
+            selection_speed_ms=1500,
+            selected_index=1,
+            reroll_count=2,
+            plan_approved=True,
+            used_unhinged_modifier=False,
+        )
+        span = client.start_as_current_observation.return_value.__enter__.return_value
+        metadata = span.update.call_args.kwargs["metadata"]
+        assert all(isinstance(v, str) for v in metadata.values())
+
     def test_user_id_none_omitted_from_metadata(self, mock_langfuse):
         client, _ = mock_langfuse
         log_feedback_scores(
@@ -303,3 +321,40 @@ class TestLogClaudeSessionTrace:
             if c.kwargs.get("name") == "session_outcome"
         ]
         assert outcome_call[0].kwargs["value"] == 0.0
+
+
+# ── _stringify_metadata ──────────────────────────────────────────────────
+
+
+class TestStringifyMetadata:
+    def test_all_values_become_strings(self):
+        raw = {"session_number": 0, "was_unhinged": False, "screen": "level_2"}
+        result = _stringify_metadata(raw)
+        assert all(isinstance(v, str) for v in result.values())
+        assert result == {"session_number": "0", "was_unhinged": "False", "screen": "level_2"}
+
+    def test_none_values_dropped(self):
+        raw = {"key": "value", "empty": None}
+        result = _stringify_metadata(raw)
+        assert "empty" not in result
+        assert result == {"key": "value"}
+
+    def test_list_values_stringified(self):
+        raw = {"tools_used": ["Edit", "Read"]}
+        result = _stringify_metadata(raw)
+        assert result == {"tools_used": "['Edit', 'Read']"}
+
+    def test_propagate_receives_string_metadata(self, mock_langfuse):
+        """Ensure propagate_attributes gets string-only metadata in prediction trace."""
+        client, propagate = mock_langfuse
+        log_prediction_trace(
+            trace_id="550e8400-e29b-41d4-a716-446655440000",
+            call_type="level_2_feature",
+            prompt="test prompt",
+            llm_response=_make_llm_response(),
+            request=_make_request(),
+            user_id="google_abc123",
+            session_id="sess-abc",
+        )
+        metadata = propagate.call_args.kwargs["metadata"]
+        assert all(isinstance(v, str) for v in metadata.values())

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { selectedCardIndex, navigate, screenCards, projectName, isDemoMode } from '../stores/app';
+  import { selectedCardIndex, navigate, screenCards, projectName, isDemoMode, openSettings } from '../stores/app';
   import { scaffoldDemoProject } from '../demo/scaffolder';
   import { openProject } from '../stores/configStores';
   import { devLog, devError } from '../utils/devLog';
@@ -56,7 +56,7 @@
   screenCards.set([
     { title: 'Open Directory', description: 'Browse and select a project folder from your filesystem.', onclick: openDirectory },
     { button: 'Y', title: 'Demo Mode', description: 'Scaffold a Pong game and explore DeckForge.', onclick: launchDemo },
-    { button: 'LB', title: 'Settings', description: 'Configure DeckForge settings.', onclick: () => navigate('settings') },
+    { button: 'LB', title: 'Settings', description: 'Configure DeckForge settings.', onclick: () => openSettings() },
   ]);
 </script>
 

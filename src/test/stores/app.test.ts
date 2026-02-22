@@ -50,18 +50,20 @@ describe('splitRatio', () => {
 });
 
 describe('Screen type values', () => {
-  it('all 12 Screen type values are valid navigation targets', () => {
+  it('all Screen type values are valid navigation targets', () => {
     const screens: Screen[] = [
       'level1', 'level2', 'level3',
       'project_select', 'empty_state',
       'ai_working', 'qa_mode', 'deploy_mode',
-      'history', 'exploration', 'voice_pitch', 'error',
+      'history', 'exploration', 'voice_pitch',
+      'screenshot_feedback', 'error',
+      'settings', 'session_recap',
     ];
 
     for (const screen of screens) {
       navigate(screen);
       expect(get(currentScreen)).toBe(screen);
     }
-    expect(screens).toHaveLength(12);
+    expect(screens).toHaveLength(15);
   });
 });

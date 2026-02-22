@@ -80,6 +80,11 @@ def _to_trace_hex(trace_id: str) -> str:
     return hashlib.sha256(trace_id.encode()).hexdigest()[:32]
 
 
+def _stringify_metadata(metadata: dict) -> dict[str, str]:
+    """Coerce all metadata values to strings for OTel compatibility."""
+    return {k: str(v) for k, v in metadata.items() if v is not None}
+
+
 # ─── Prediction call tracing ─────────────────────────────────────────────────
 
 
@@ -118,11 +123,11 @@ def log_prediction_trace(
             with propagate_attributes(
                 user_id=user_id,
                 session_id=session_id,
-                metadata={
+                metadata=_stringify_metadata({
                     "project_type": project_info.get("type_detected", "unknown"),
                     "session_number": session_info.get("session_number", 0),
                     "screen": call_type,
-                },
+                }),
             ):
                 with langfuse.start_as_current_observation(
                     as_type="generation",
@@ -137,12 +142,12 @@ def log_prediction_trace(
                             "output": llm_response.output_tokens,
                             "total": llm_response.input_tokens + llm_response.output_tokens,
                         },
-                        metadata={
+                        metadata=_stringify_metadata({
                             "call_type": call_type,
                             "context_hash": _context_hash(prompt),
                             "latency_ms": llm_response.latency_ms,
                             "cache_hit": cache_hit,
-                        },
+                        }),
                     )
 
             root_span.update_trace(
@@ -230,7 +235,7 @@ def log_feedback_scores(
             name="user_action",
             trace_context={"trace_id": trace_id_hex},
         ) as span:
-            span.update(metadata=event_metadata)
+            span.update(metadata=_stringify_metadata(event_metadata))
 
         langfuse.flush()
         logger.info(f"Langfuse feedback logged for trace_id={trace_id}")
@@ -275,14 +280,14 @@ def log_claude_session_trace(report: Any, user_id: str, session_id: str | None =
             with propagate_attributes(
                 user_id=user_id,
                 session_id=effective_session_id,
-                metadata={
+                metadata=_stringify_metadata({
                     "was_unhinged": report.was_unhinged,
                     "num_turns": report.num_turns,
                     "tools_used": report.tools_used[:20],
                     "files_affected": report.files_affected[:20],
                     "project_path": report.project_path,
                     "prediction_trace_id": report.prediction_trace_id,
-                },
+                }),
             ):
                 root_span.update(
                     output={

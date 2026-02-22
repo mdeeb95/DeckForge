@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentScreen } from '../stores/app';
+  import { currentScreen, previousScreen, openSettings } from '../stores/app';
   import Level1Screen from '../screens/Level1Screen.svelte';
   import Level2Screen from '../screens/Level2Screen.svelte';
   import Level3Screen from '../screens/Level3Screen.svelte';
@@ -13,14 +13,19 @@
   import VoicePitchScreen from '../screens/VoicePitchScreen.svelte';
   import ScreenshotFeedbackScreen from '../screens/ScreenshotFeedbackScreen.svelte';
   import ErrorScreen from '../screens/ErrorScreen.svelte';
-  import SettingsScreen from '../screens/SettingsScreen.svelte';
-  import SettingsPredictionScreen from '../screens/SettingsPredictionScreen.svelte';
-  import SettingsDisplayScreen from '../screens/SettingsDisplayScreen.svelte';
-  import SettingsTelemetryScreen from '../screens/SettingsTelemetryScreen.svelte';
-  import SettingsAdvancedScreen from '../screens/SettingsAdvancedScreen.svelte';
   import SessionRecapScreen from '../screens/SessionRecapScreen.svelte';
+
+  // Safety net: if currentScreen is 'settings' (stale state or accidental navigate),
+  // redirect to the previous screen and open the overlay instead
+  $effect(() => {
+    if ($currentScreen === 'settings') {
+      currentScreen.set($previousScreen === 'settings' ? 'level1' : ($previousScreen || 'level1'));
+      openSettings();
+    }
+  });
 </script>
 
+<!-- Underlying screen — stays alive when settings overlay is open -->
 {#key $currentScreen}
 <div class="contents screen-fade-in">
 {#if $currentScreen === 'level1'}
@@ -49,18 +54,10 @@
   <ScreenshotFeedbackScreen />
 {:else if $currentScreen === 'error'}
   <ErrorScreen />
-{:else if $currentScreen === 'settings'}
-  <SettingsScreen />
-{:else if $currentScreen === 'settings_prediction'}
-  <SettingsPredictionScreen />
-{:else if $currentScreen === 'settings_display'}
-  <SettingsDisplayScreen />
-{:else if $currentScreen === 'settings_telemetry'}
-  <SettingsTelemetryScreen />
-{:else if $currentScreen === 'settings_advanced'}
-  <SettingsAdvancedScreen />
 {:else if $currentScreen === 'session_recap'}
   <SessionRecapScreen />
 {/if}
 </div>
 {/key}
+
+<!-- Settings overlay moved to App.svelte for full-viewport coverage -->

@@ -20,7 +20,7 @@ const GLYPH_MAP: Record<string, { gamepad: string; keyboard: string }> = {
   LT:         { gamepad: 'LT',      keyboard: 'LT' },
   RT:         { gamepad: 'RT',      keyboard: 'RT' },
   SELECT:     { gamepad: 'SELECT',  keyboard: 'V' },
-  START:      { gamepad: 'START',   keyboard: 'M' },
+  START:      { gamepad: 'START',   keyboard: 'N' },
   R4:         { gamepad: 'R4',      keyboard: 'R' },
   L4:         { gamepad: 'L4',      keyboard: 'F1' },
   R5:         { gamepad: 'R5',      keyboard: 'F4' },

@@ -1,23 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 
-// Debug keyboard shortcuts map screen names to number keys
-const screenKeys: Record<string, string> = {
-  level1: '1',
-  level2: '2',
-  level3: '3',
-  project_select: '4',
-  empty_state: '5',
-  ai_working: '6',
-  qa_mode: '7',
-  deploy_mode: '8',
-  history: '9',
-  exploration: '0',
-  voice_pitch: '-',
-  error: '=',
-  screenshot_feedback: 'p',
-};
-
 // Keyboard → gamepad button mapping (matches App.svelte)
 const buttonKeys: Record<string, string> = {
   A: 'Enter',
@@ -29,18 +12,9 @@ const buttonKeys: Record<string, string> = {
   DPAD_LEFT: 'ArrowLeft',
   DPAD_RIGHT: 'ArrowRight',
   RB: 'Tab',
-  START: 'm',
+  START: 'n',
   SELECT: 'v',
 };
-
-/** Navigate to a screen using debug keyboard shortcuts */
-export async function goToScreen(page: Page, screen: string) {
-  const key = screenKeys[screen];
-  if (!key) throw new Error(`Unknown screen: ${screen}`);
-  await page.keyboard.press(key);
-  // Allow Svelte to re-render
-  await page.waitForTimeout(200);
-}
 
 /** Press a gamepad button via keyboard mapping.
  *  Dispatches the KeyboardEvent directly on the window to ensure
@@ -75,6 +49,11 @@ export async function pressY(page: Page) {
   await pressButton(page, 'Y');
 }
 
+/** Press START button (m) */
+export async function pressStart(page: Page) {
+  await pressButton(page, 'START');
+}
+
 /** D-pad down */
 export async function dpadDown(page: Page) {
   await pressButton(page, 'DPAD_DOWN');
@@ -94,12 +73,51 @@ export async function pressLB(page: Page) {
   await page.waitForTimeout(250);
 }
 
-/** Wait for the app to finish initial load (including async config init) */
+/** Wait for the app to finish initial load (including async config init).
+ *  In browser mode the app shows a LoginScreen because there's no Tauri
+ *  session to restore.  We mock Google Identity Services and the auth API
+ *  so the app authenticates automatically and lands on empty_state. */
 export async function waitForApp(page: Page) {
+  // 1. Block the real Google Identity Services script so our mock takes over
+  await page.route('**/accounts.google.com/gsi/client', (route) => route.abort());
+
+  // 2. Mock GIS — LoginScreen polls for window.google.accounts.id
+  await page.addInitScript(() => {
+    (window as any).google = {
+      accounts: {
+        id: {
+          initialize: (cfg: any) => { (window as any).__gis_cb = cfg.callback; },
+          renderButton: () => {},
+        },
+      },
+    };
+  });
+
+  // 3. Intercept the auth API so the backend is never contacted
+  await page.route('**/api/v1/auth/google', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        access_token: 'e2e-token',
+        refresh_token: 'e2e-refresh',
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+        email: 'e2e@test.local',
+        display_name: 'E2E Test',
+        is_admin: false,
+      }),
+    });
+  });
+
   await page.goto('/');
-  // Wait for initApp() to complete — it navigates to empty_state after
-  // async config load finishes, rendering "No Projects Found".
-  // This ensures the app is fully initialized before tests interact.
+
+  // 4. Wait for GIS mock to be initialized, then trigger the callback
+  await page.waitForFunction(() => !!(window as any).__gis_cb, { timeout: 10_000 });
+  await page.evaluate(() => {
+    (window as any).__gis_cb({ credential: 'fake-e2e-jwt' });
+  });
+
+  // 5. Wait for the app to finish auth and render empty_state
   await page.waitForSelector('text=No Projects Found', { timeout: 10_000 });
   await page.waitForTimeout(100);
 }

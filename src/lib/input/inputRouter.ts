@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
-import { currentScreen, navigate, splitRatio, pendingClaudePrompt, startMenuOpen, previousScreen, settingsAdjustHandlers, selectedCardIndex } from '../stores/app';
+import { currentScreen, navigate, splitRatio, pendingClaudePrompt, startMenuOpen, selectedCardIndex, openSettings } from '../stores/app';
+import { getTopInputLayer } from './modalStack';
 import type { Screen } from '../stores/app';
 import { navigateUp, navigateDown, activateSelected, activateByButton, cycleSelectedIndex } from './navigation';
 import { rerollSuggestions } from '../stores/prediction';
@@ -13,7 +14,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
   switch (screen) {
     // ── Level 1: Category Select ──────────────────────────────────
     // A = select highlighted card. B = no action (home screen).
-    // D-pad navigates. START = QA Mode. SELECT = History.
+    // D-pad navigates. SELECT = QA Mode. X = History.
     case 'level1':
       return {
         A: activateSelected,
@@ -24,6 +25,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
             if (!get(appError)) { playClick(); navigate('qa_mode'); }
           });
         },
+        X: () => { playClick(); navigate('history'); },
       };
 
     // ── Level 2: Suggestions ──────────────────────────────────────
@@ -103,7 +105,7 @@ function getScreenHandlers(screen: Screen): HandlerMap {
       return {
         A: activateSelected,
         Y: () => activateByButton('Y'),
-        LB: () => navigate('settings'),
+        LB: () => openSettings(),
       };
 
     // ── Exploration ───────────────────────────────────────────────
@@ -159,50 +161,6 @@ function getScreenHandlers(screen: Screen): HandlerMap {
         A: activateSelected,
         B: () => activateByButton('B'),
         Y: () => activateByButton('Y'),
-      };
-
-    // ── Settings Hub ───────────────────────────────────────────────
-    // A = select highlighted sub-screen. B = back to previous screen.
-    // START/LB = close settings. X = check for updates.
-    case 'settings':
-      return {
-        A: activateSelected,
-        B: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
-        START: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
-        LB: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
-        X: () => activateByButton('X'),
-      };
-
-    // ── Settings Sub-Screens ───────────────────────────────────────
-    // A = select highlighted card (toggle/adjust). B = back to settings hub.
-    // LB = back to hub. START = close settings entirely.
-    case 'settings_prediction':
-    case 'settings_display':
-    case 'settings_telemetry':
-    case 'settings_advanced':
-      return {
-        A: activateSelected,
-        B: () => { playBack(); navigate('settings'); },
-        LB: () => { playBack(); navigate('settings'); },
-        START: () => { playBack(); navigate(get(previousScreen) || 'empty_state'); },
-        DPAD_LEFT: () => {
-          const handlers = get(settingsAdjustHandlers);
-          const idx = get(selectedCardIndex);
-          const handler = handlers[idx];
-          if (handler) {
-            playToggle();
-            handler.left();
-          }
-        },
-        DPAD_RIGHT: () => {
-          const handlers = get(settingsAdjustHandlers);
-          const idx = get(selectedCardIndex);
-          const handler = handlers[idx];
-          if (handler) {
-            playToggle();
-            handler.right();
-          }
-        },
       };
 
     default:
@@ -291,7 +249,15 @@ const globalHandlers: HandlerMap = {
 };
 
 export function handleInput(button: string) {
-  const screen = get(currentScreen);
+  // Priority 0: Modal stack captures ALL input when a modal handler is active
+  const modalHandler = getTopInputLayer();
+  if (modalHandler) {
+    devLog('input', `Button: ${button} | Captured by modal layer`);
+    modalHandler(button);
+    return;
+  }
+
+  const screen: Screen = get(currentScreen);
   devLog('input', `Button: ${button} | Screen: ${screen}`);
 
   // Priority 1: START menu captures ALL input when open (closes on START/B, navigates on A/X/Y)
@@ -304,7 +270,7 @@ export function handleInput(button: string) {
       // A = Settings
       playClick();
       startMenuOpen.set(false);
-      navigate('settings');
+      openSettings();
     } else if (button === 'X') {
       // X = Session Recap
       playClick();

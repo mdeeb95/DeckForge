@@ -4,9 +4,9 @@
   import ScreenRouter from './lib/components/ScreenRouter.svelte';
   import FlashOverlay from './lib/components/FlashOverlay.svelte';
   import StartMenu from './lib/components/StartMenu.svelte';
+  import SettingsScreen from './lib/screens/SettingsScreen.svelte';
   import LoginScreen from './lib/screens/LoginScreen.svelte';
-  import { projectName, connected, navigate, splitRatio } from './lib/stores/app';
-  import type { Screen } from './lib/stores/app';
+  import { projectName, connected, navigate, splitRatio, settingsOpen } from './lib/stores/app';
   import { startGamepadPolling, stopGamepadPolling } from './lib/input/gamepad';
   import { handleInput } from './lib/input/inputRouter';
   import { inputMode } from './lib/input/inputMode.svelte';
@@ -23,24 +23,6 @@
   let authenticated = $state(false);
   let appReady = $state(false);
 
-  // Debug keyboard shortcuts: number keys to switch screens
-  const screenMap: Record<string, Screen> = {
-    '1': 'level1',
-    '2': 'level2',
-    '3': 'level3',
-    '4': 'project_select',
-    '5': 'empty_state',
-    '6': 'ai_working',
-    '7': 'qa_mode',
-    '8': 'deploy_mode',
-    '9': 'history',
-    '0': 'exploration',
-    '-': 'voice_pitch',
-    '=': 'error',
-    'p': 'screenshot_feedback',
-    's': 'settings',
-  };
-
   // Keyboard → gamepad button mapping (fallback for development)
   // Back grips (L4/R4/L5/R5) use F1-F4 — map these in Steam Input on the Deck.
   const keyToButton: Record<string, string> = {
@@ -53,7 +35,7 @@
     q: 'X',
     e: 'Y',
     Tab: 'RB',
-    m: 'START',
+    n: 'START',
     v: 'SELECT',
     r: 'R4',       // dev keyboard shortcut
     F1: 'L4',      // Steam Input: map L4 grip → F1
@@ -128,13 +110,6 @@
     startSystemStatsPolling(2000);
 
     function handleKeydown(e: KeyboardEvent) {
-      // Debug screen shortcuts (number keys)
-      const screen = screenMap[e.key];
-      if (screen) {
-        navigate(screen);
-        return;
-      }
-
       // Shift acts as LB modifier
       if (e.key === 'Shift') {
         shiftHeld = true;
@@ -195,6 +170,9 @@
   <div class="h-screen w-screen flex flex-col overflow-hidden">
     <FlashOverlay />
     <StartMenu />
+    {#if $settingsOpen}
+      <SettingsScreen />
+    {/if}
 
     <!-- Status Bar -->
     <StatusBar projectName={$projectName} connected={$connected} version="v0.1.0" />

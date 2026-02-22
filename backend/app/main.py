@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 from contextlib import asynccontextmanager
 
@@ -19,7 +20,25 @@ from app.routes import predict, feedback, templates, auth, claude_session
 from app.admin.routes import router as admin_router
 from app.llm.langfuse_logger import shutdown_langfuse
 
-logging.basicConfig(level=logging.INFO)
+# ─── JSON structured logging ────────────────────────────────────────────────
+# Emits one JSON object per line on stdout so Railway can parse level, logger,
+# and message fields automatically.  Uvicorn log config (log_config.json)
+# routes its loggers through the same formatter.
+from pythonjsonlogger.json import JsonFormatter
+
+_json_formatter = JsonFormatter(
+    fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
+    rename_fields={"asctime": "timestamp", "levelname": "level"},
+)
+
+_stdout_handler = logging.StreamHandler(stream=sys.stdout)
+_stdout_handler.setFormatter(_json_formatter)
+
+# Configure root logger — catches everything including third-party libs
+logging.root.handlers.clear()
+logging.root.addHandler(_stdout_handler)
+logging.root.setLevel(logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { startMenuOpen, navigate } from '../stores/app';
+  import { startMenuOpen, navigate, openSettings } from '../stores/app';
   import { glyph } from '../input/inputMode.svelte';
   import { playNav, playClick, playMenuClose } from '../audio/sfx';
 
   let selectedIndex = $state(0);
 
   const items = [
-    { button: 'A', label: 'Settings', icon: 'settings', action: () => { startMenuOpen.set(false); navigate('settings'); } },
+    { button: 'A', label: 'Settings', icon: 'settings', action: () => { startMenuOpen.set(false); openSettings(); } },
     { button: 'B', label: 'Close Menu', icon: 'close', action: () => startMenuOpen.set(false) },
     { button: 'X', label: 'Session Recap', icon: 'emoji_events', action: () => { startMenuOpen.set(false); navigate('session_recap'); } },
     { button: 'Y', label: 'Quit App', icon: 'power_settings_new', action: () => quitApp() },

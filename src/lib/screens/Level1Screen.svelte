@@ -302,9 +302,9 @@
   }
 
   let secondaryCards = $derived(isErrorMode ? [] : [
-    { button: 'START', label: 'QA Mode', icon: 'checklist' },
+    { button: 'SELECT', label: 'QA Mode', icon: 'checklist' },
     { button: 'R4', label: $appRunning ? `App Running (PID ${$appPid})` : 'Run App', icon: $appRunning ? 'stop_circle' : 'play_arrow', variant: 'emerald' as const },
-    { button: 'SELECT', label: 'History', icon: 'history' },
+    { button: 'X', label: 'History', icon: 'history' },
   ]);
 
   // Error mode palette props

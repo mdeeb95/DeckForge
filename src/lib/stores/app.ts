@@ -16,10 +16,6 @@ export type Screen =
   | 'screenshot_feedback'
   | 'error'
   | 'settings'
-  | 'settings_prediction'
-  | 'settings_display'
-  | 'settings_telemetry'
-  | 'settings_advanced'
   | 'session_recap';
 
 export interface ScreenCardData {
@@ -70,14 +66,24 @@ export function toggleStartMenu() {
   startMenuOpen.update(v => !v);
 }
 
-// ─── Previous Screen (for settings back-navigation) ─────────────────────────
+// ─── Settings Overlay ────────────────────────────────────────────────────────
+// Settings is a modal overlay, not a screen. It renders on top of whatever
+// screen is active without destroying it.
 
+export const settingsOpen = writable(false);
+
+export function openSettings() {
+  devLog('nav', 'Opening settings overlay');
+  settingsOpen.set(true);
+}
+
+export function closeSettings() {
+  devLog('nav', 'Closing settings overlay');
+  settingsOpen.set(false);
+}
+
+/** @deprecated Kept for inputRouter fallback — prefer closeSettings() */
 export const previousScreen = writable<Screen>('empty_state');
-
-// ─── Settings D-pad Adjust Handlers ─────────────────────────────────────────
-// Maps card index → { left: () => void, right: () => void }
-// Populated by settings subscreens, consumed by inputRouter for DPAD_LEFT/DPAD_RIGHT.
-export const settingsAdjustHandlers = writable<Record<number, { left: () => void; right: () => void }>>({});
 
 // Pending prompt to send to Claude Code when AI Working screen mounts.
 // Set by Level 3 "Ship It", consumed by AIWorkingScreen.
@@ -110,10 +116,7 @@ export function addSessionCost(costUsd: number, warningThreshold: number): void 
 export function navigate(screen: Screen) {
   const current = get(currentScreen);
   devLog('nav', `Navigating: ${current} → ${screen}`);
-  // Track previous screen for settings back-navigation (don't overwrite when navigating between settings sub-screens)
-  if (!screen.startsWith('settings') && !current.startsWith('settings')) {
-    previousScreen.set(current);
-  }
+  previousScreen.set(current);
   currentScreen.set(screen);
   selectedCardIndex.set(0);
   screenCards.set([]);
